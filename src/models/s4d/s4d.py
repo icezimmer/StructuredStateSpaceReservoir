@@ -11,20 +11,20 @@ from src.models.nn.dropout import DropoutNd
 class S4DKernel(nn.Module):
     """Generate convolution kernel from diagonal SSM parameters."""
 
-    def __init__(self, d_model, N=64, dt_min=0.001, dt_max=0.1, lr=None):
+    def __init__(self, d_input, d_state=64, dt_min=0.001, dt_max=0.1, lr=None):
         super().__init__()
         # Generate dt
-        H = d_model
+        H = d_input
         log_dt = torch.rand(H) * (
                 math.log(dt_max) - math.log(dt_min)
         ) + math.log(dt_min)
 
-        C = torch.randn(H, N // 2, dtype=torch.cfloat)
+        C = torch.randn(H, d_state // 2, dtype=torch.cfloat)
         self.C = nn.Parameter(torch.view_as_real(C))
         self.register("log_dt", log_dt, lr)
 
-        log_A_real = torch.log(0.5 * torch.ones(H, N // 2))
-        A_imag = math.pi * repeat(torch.arange(N // 2), 'n -> h n', h=H)
+        log_A_real = torch.log(0.5 * torch.ones(H, d_state // 2))
+        A_imag = math.pi * repeat(torch.arange(d_state // 2), 'n -> h n', h=H)
         self.register("log_A_real", log_A_real, lr)
         self.register("A_imag", A_imag, lr)
 
@@ -60,18 +60,18 @@ class S4DKernel(nn.Module):
 
 
 class S4D(nn.Module):
-    def __init__(self, d_model, d_state=64, dropout=0.0, transposed=True, **kernel_args):
+    def __init__(self, d_input, d_state=64, dropout=0.0, transposed=True, **kernel_args):
         super().__init__()
 
-        self.h = d_model
-        self.n = d_state
-        self.d_output = self.h
+        self.d_input = d_input
+        self.d_state = d_state
+        self.d_output = self.d_input
         self.transposed = transposed
 
-        self.D = nn.Parameter(torch.randn(self.h))
+        self.D = nn.Parameter(torch.randn(self.d_input))
 
         # SSM Kernel
-        self.kernel = S4DKernel(self.h, N=self.n, **kernel_args)
+        self.kernel = S4DKernel(self.d_input, d_state=self.d_state, **kernel_args)
 
         # Pointwise
         self.activation = nn.GELU()
@@ -81,7 +81,7 @@ class S4D(nn.Module):
 
         # position-wise output transform to mix features
         self.output_linear = nn.Sequential(
-            nn.Conv1d(self.h, 2 * self.h, kernel_size=1),
+            nn.Conv1d(self.d_input, 2 * self.d_input, kernel_size=1),
             nn.GLU(dim=-2),
         )
 
