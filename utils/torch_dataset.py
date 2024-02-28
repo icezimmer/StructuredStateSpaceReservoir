@@ -2,7 +2,7 @@ import torch
 import tensorflow as tf
 
 
-def torch_data4classify_image(dataset):
+def image_classifier(dataset):
     global mode, batch_size, num_input_features, length
     torch_input_list = []
     torch_label_list = []
