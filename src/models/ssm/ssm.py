@@ -111,24 +111,22 @@ class SSM(torch.nn.Module):
 
         # Time Invariant B(t) = B of shape (P,H)
         Bu_elements = torch.mm(self.B_bar, complex_input_sequence)  # Tensor of shape (P,L)
-        print("Bu_elements", Bu_elements.shape)
 
         Lambda_elements = self.Lambda_bar.tile(1, input_sequence.shape[1])  # Tensor of shape (P,L)
-        print("Lambda_elements", Lambda_elements.shape)
 
         # xs of shape (P,L)
         _, xs = associative_scan(SSM.binary_operator, (Lambda_elements.transpose(0, 1), Bu_elements.transpose(0, 1)))
         xs = xs.transpose(0, 1)
-        print("xs", xs.shape)
 
         # Du of shape (H,L)
         Du = torch.mm(self.D, input_sequence)
-        print("Du", Du.shape)
 
         # TODO: the last element of xs (non-bidir) is the hidden state, allow returning it
         #return torch.vmap(lambda x: (torch.mm(self.C, x).real)(xs) + Du
+        #print("torch.vmap(lambda x: torch.mm(self.C, x).real)(xs)", torch.vmap(lambda x: torch.mm(self.C, x).real)(xs).shape)
 
-        return self.output_linear(torch.mm(self.C, xs) + Du)
+        # result of shape (H,L)
+        return self.output_linear(torch.mm(self.C, xs).real + Du)
 
     def forward(self, u):
         return torch.vmap(self.__apply_ssm)(u)
