@@ -24,7 +24,7 @@ class Seq2ValSeq(nn.Module):
         # Assuming y shape is (B, H, L), we want to keep the batch and sequence dimensions
         # and squeeze the hidden dimension to get (B, L) output after sigmoid.
         # This means we apply the linear layer across each sequence element.
-        output = self.classification_layer(y.transpose(1, 2))  # Transpose to (B, L, H) for Linear layer
+        output = self.output_layer(y.transpose(1, 2))  # Transpose to (B, L, H) for Linear layer
         output = torch.squeeze(output, -1)  # Squeeze to remove the last dimension, resulting in (B, L)
 
         return output

@@ -7,11 +7,7 @@ class Seq2Val(nn.Module):
         super(Seq2Val, self).__init__()
         self.model = model  # Instance of the model
 
-        # Assuming the output of model is (B, H, L)
-        # You might want to aggregate this information across the L dimension.
-
-        # Define a global pooling operation or another method of aggregation
-        # For simplicity, let's use global average pooling here
+        # Aggregate the output (B, H, L) across the L dimension.
         self.global_avg_pool = nn.AdaptiveAvgPool1d(1)
 
         # Modify the classification layer to take the pooled output
@@ -23,7 +19,8 @@ class Seq2Val(nn.Module):
         y, _ = self.model(x)  # y shape is (B, H, L)
 
         # Global average pooling across the length sequence L
-        y_pooled = self.global_avg_pool(y)  # Now y_pooled is (B, H, 1) with L pooled to 1
+        # y_pooled = self.global_avg_pool(y)
+        y_pooled = y[:, :, -1]  # Now y_last is (B, H, 1) with L pooled to 1
 
         # Squeeze the last dimension to get (B, H)
         y_squeezed = torch.squeeze(y_pooled, -1)  # Now y_squeezed is (B, H)
