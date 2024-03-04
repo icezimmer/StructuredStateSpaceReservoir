@@ -170,14 +170,11 @@ class S5R(torch.nn.Module):
 
     @staticmethod
     def binary_operator(element_i, element_j):
-        """ Binary operator for parallel scan of linear recurrence. Assumes a diagonal matrix A.
-        Args:
-        element_i: tuple containing A^i and Bu_i
-        (P,), (P,)
-        element_j: tuple containing A^j and Bu_j
-        (P,), (P,)
-        Returns:
-        new element ( A^(i+j), convolution )
+        """
+        Binary associative operator for the associative scan
+        :param element_i: tuple A_i, Bu_i
+        :param element_j: tuple A_j, Bu_j
+        :return: A_j * A_i, A_j * Bu_i + Bu_j
         """
         A_i, Bu_i = element_i
         A_j, Bu_j = element_j
@@ -220,8 +217,8 @@ class S5R(torch.nn.Module):
     def _apply_scan(self, input_sequence):
         """
         Apply the SSM to the single input sequence
-        :param input_sequence: tensor of shape (H,L) = (d_input, length)
-        :return:
+        :param input_sequence: tensor of shape (H,L) = (d_input, input_length)
+        :return: convolution: tensor of shape (P,L) = (d_state, input_length)
         """
         complex_input_sequence = input_sequence.to(self.Lambda_bar.dtype)  # Cast to correct complex type
 
@@ -237,6 +234,11 @@ class S5R(torch.nn.Module):
         return convolution
 
     def forward(self, u):
+        """
+        Forward method for the S5R model
+        :param u: batched input sequence of shape (B,H,L) = (batch_size, d_input, input_length)
+        :return: y: batched output sequence of shape (B,H,L) = (batch_size, d_output, input_length)
+        """
         A_Bu = torch.vmap(self._apply_scan)(u)
         C_A_Bu = torch.einsum('hp,bpl->bhl', self.C, A_Bu).real
 
