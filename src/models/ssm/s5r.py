@@ -10,10 +10,10 @@ Define a model subclass of torch.nn.Module that implements a linear time-invaria
 """
 
 
-class SSM(torch.nn.Module):
+class S5R(torch.nn.Module):
     def __init__(self, d_input, d_state, min_radius=0.9, max_radius=1, dynamics='continuous', field='complex'):
         """
-        Construct an SSM model:
+        Construct an SSM model with frozen state matrix Lambda_bar:
         x_new = Lambda_bar * x_old + B_bar * u_new
         y_new = C * x_new + D * u_new
         :param d_input: dimensionality of the input space
@@ -24,7 +24,7 @@ class SSM(torch.nn.Module):
         # TODO: Delta trainable parameter not fixed to ones:
         #   Lambda_bar = Lambda_Bar(Lambda, Delta), B_bar = B(Lambda, B, Delta)
 
-        super(SSM, self).__init__()
+        super(S5R, self).__init__()
 
         self.d_input = d_input
         self.d_state = d_state
@@ -231,7 +231,7 @@ class SSM(torch.nn.Module):
         Lambda_elements = self.Lambda_bar.tile(1, input_sequence.shape[1])  # Tensor of shape (P,L)
 
         # convolution, resulting tensor of shape (P,L)
-        _, convolution = associative_scan(SSM.binary_operator, (Lambda_elements, Bu_elements), axis=1)
+        _, convolution = associative_scan(S5R.binary_operator, (Lambda_elements, Bu_elements), axis=1)
 
         # Result of shape (P,L)
         return convolution
