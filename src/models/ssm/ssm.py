@@ -3,6 +3,7 @@ from src.utils.jax_compat import associative_scan
 import torch.nn as nn
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
+from math import log
 
 """
 Define a model subclass of torch.nn.Module that implements a linear time-invariant system.
@@ -10,9 +11,9 @@ Define a model subclass of torch.nn.Module that implements a linear time-invaria
 
 
 class SSM(torch.nn.Module):
-    def __init__(self, d_input, d_state, dynamics='continuous', field='complex'):
+    def __init__(self, d_input, d_state, min_radius=0.9, max_radius=1, dynamics='continuous', field='complex'):
         """
-        SSM model
+        Construct an SSM model:
         x_new = Lambda_bar * x_old + B_bar * u_new
         y_new = C * x_new + D * u_new
         :param d_input: dimensionality of the input space
@@ -33,14 +34,19 @@ class SSM(torch.nn.Module):
         self.C = nn.Parameter(torch.randn(self.d_output, self.d_state, dtype=torch.complex64))
         self.D = nn.Parameter(torch.randn(self.d_output, self.d_input, dtype=torch.float32))
 
+        if min_radius > max_radius or min_radius < 0 or max_radius > 1:
+            raise ValueError("min_radius should be less than max_radius and both should be in [0, 1].")
+
         # System dynamics
         if dynamics == 'continuous':
-            Lambda = self._continuous_state_matrix(self.d_state, field)
+            min_real = log(min_radius)
+            max_real = log(max_radius)
+            Lambda = self._continuous_state_matrix(self.d_state, min_real, max_real, field)
             B = torch.randn(self.d_state, self.d_input, dtype=torch.complex64)
             Delta = torch.ones(self.d_state, 1, dtype=torch.float32)  # Placeholder for future customization
             Lambda_bar, B_bar = self._zoh(Lambda, B, Delta)  # Discretization
         elif dynamics == 'discrete':
-            Lambda_bar = self._discrete_state_matrix(self.d_state, field)
+            Lambda_bar = self._discrete_state_matrix(self.d_state, min_radius, max_radius, field)
             B_bar = torch.randn(self.d_state, self.d_input, dtype=torch.complex64)
         else:
             raise NotImplementedError("Dynamics must be 'continuous' or 'discrete'.")
@@ -52,20 +58,29 @@ class SSM(torch.nn.Module):
         self.output_linear = nn.Sequential(nn.GELU())
 
     @staticmethod
-    def _discrete_state_matrix(d_state, field):
+    def _discrete_state_matrix(d_state, min_radius, max_radius, field):
+        """
+        Create a state matrix Lambda_bar for the discrete dynamics;
+        lambda = radius * (cos(theta) + i * sin(theta)):
+        radius in [min_radius, max_radius),
+        theta in [0, 2pi).
+        :param d_state: latent state dimension
+        :param field: 'complex' or 'real'
+        :return: Lambda_bar
+        """
         if field == 'complex':
-            radius = torch.rand(d_state, dtype=torch.float32)
+            radius = min_radius + (max_radius - min_radius) * torch.rand(d_state, dtype=torch.float32)
             theta = 2 * torch.pi * torch.rand(d_state, dtype=torch.float32)
             alpha_tensor = radius * torch.cos(theta)
             omega_tensor = radius * torch.sin(theta)
         elif field == 'real':
             half_d_state = d_state // 2
-            radius = torch.rand(half_d_state)
-            theta = torch.pi * torch.rand(half_d_state)
+            radius = min_radius + (max_radius - min_radius) * torch.rand(half_d_state, dtype=torch.float32)
+            theta = torch.pi * torch.rand(half_d_state, dtype=torch.float32)
             alpha_tensor = torch.cat((radius * torch.cos(theta), radius * torch.cos(theta)), 0)
             omega_tensor = torch.cat((radius * torch.sin(theta), -radius * torch.sin(theta)), 0)
             if d_state % 2 == 1:
-                extra_radius = torch.rand(1, dtype=torch.float32)
+                extra_radius = min_radius + (max_radius - min_radius) * torch.rand(1, dtype=torch.float32)
                 # Choose 0 or pi randomly for extra_theta
                 extra_theta = torch.randint(0, 2, (1,)) * torch.pi
                 alpha_tensor = torch.cat((alpha_tensor, extra_radius * torch.cos(extra_theta)), 0)
@@ -73,23 +88,33 @@ class SSM(torch.nn.Module):
         else:
             raise NotImplementedError("The field must be 'complex' or 'real'.")
 
-        Lambda = torch.complex(alpha_tensor, omega_tensor)
-        return Lambda.view(-1, 1)
+        Lambda_bar = torch.complex(alpha_tensor, omega_tensor)
+        return Lambda_bar.view(-1, 1)
 
     @staticmethod
-    def _continuous_state_matrix(d_state, field):
+    def _continuous_state_matrix(d_state, min_real, max_real, field):
+        """
+        Create a state matrix Lambda for the continuous dynamics;
+        lambda = log(radius) + i * theta:
+        Re(lambda) in [min_real, max_real) = [log(min_radius), log(max_radius)),
+        Im(lambda) in [0, 2pi).
+        :param d_state: latent state dimension
+        :param field: 'complex' or 'real'
+        :return: Lambda
+        """
         if field == 'complex':
-            real_tensor = -torch.rand(d_state, dtype=torch.float32)  # Re(lambda) in (-1, 0]
-            imag_tensor = 2 * torch.pi * torch.rand(d_state, dtype=torch.float32)  # Im(lambda) in [0, 2pi)
+            real_tensor = min_real + (max_real - min_real) * torch.rand(d_state, dtype=torch.float32)
+            imag_tensor = 2 * torch.pi * torch.rand(d_state, dtype=torch.float32)
         elif field == 'real':
             half_d_state = d_state // 2
-            real_tensor = -torch.rand(half_d_state, dtype=torch.float32)  # Re(lambda) in (-1, 0]
-            imag_tensor = torch.pi * torch.rand(half_d_state, dtype=torch.float32)  # Im(lambda) in [0, pi)
+            real_tensor = min_real + (max_real - min_real) * torch.rand(half_d_state, dtype=torch.float32)
+            imag_tensor = torch.pi * torch.rand(half_d_state, dtype=torch.float32)
             real_tensor = torch.cat((real_tensor, real_tensor), 0)
             imag_tensor = torch.cat((imag_tensor, -imag_tensor), 0)
             if d_state % 2 == 1:
-                extra_real = -torch.rand(1, dtype=torch.float32)
-                extra_imag = torch.zeros(1, dtype=torch.float32)
+                extra_real = min_real + (max_real - min_real) * torch.rand(1, dtype=torch.float32)
+                # Choose 0 or pi randomly for extra_imag (extra_theta)
+                extra_imag = torch.randint(0, 2, (1,)) * torch.pi
                 real_tensor = torch.cat((real_tensor, extra_real), 0)
                 imag_tensor = torch.cat((imag_tensor, extra_imag), 0)
         else:
@@ -99,6 +124,10 @@ class SSM(torch.nn.Module):
         return Lambda.view(-1, 1)
 
     def plot_discrete_spectrum(self):
+        """
+        Plot the spectrum of the discrete dynamics
+        :return:
+        """
         # Extracting real and imaginary parts
         Lambda_bar = self.Lambda_bar.clone().detach()
         real_parts = Lambda_bar.real
@@ -188,12 +217,11 @@ class SSM(torch.nn.Module):
     #     # result of shape (H,L)
     #     return self.output_linear(torch.mm(self.C, xs).real + Du)
 
-    def _apply_ssm(self, input_sequence):
+    def _apply_scan(self, input_sequence):
         """
         Apply the SSM to the single input sequence
-        Args:
-         input_sequence: tensor of shape (H,L) = (d_input, length)
-        Returns:
+        :param input_sequence: tensor of shape (H,L) = (d_input, length)
+        :return:
         """
         complex_input_sequence = input_sequence.to(self.Lambda_bar.dtype)  # Cast to correct complex type
 
@@ -202,16 +230,14 @@ class SSM(torch.nn.Module):
 
         Lambda_elements = self.Lambda_bar.tile(1, input_sequence.shape[1])  # Tensor of shape (P,L)
 
-        # xs of shape (P,L)
-        _, xs = associative_scan(SSM.binary_operator,
-                                 (Lambda_elements.transpose(0, 1), Bu_elements.transpose(0, 1)))
-        xs = xs.transpose(0, 1)
+        # convolution, resulting tensor of shape (P,L)
+        _, convolution = associative_scan(SSM.binary_operator, (Lambda_elements, Bu_elements), axis=1)
 
-        # result of shape (H,L)
-        return xs
+        # Result of shape (P,L)
+        return convolution
 
     def forward(self, u):
-        A_Bu = torch.vmap(self._apply_ssm)(u)
+        A_Bu = torch.vmap(self._apply_scan)(u)
         C_A_Bu = torch.einsum('hp,bpl->bhl', self.C, A_Bu).real
 
         # Compute Du part

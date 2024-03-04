@@ -10,6 +10,7 @@ def safe_map(f, *args):
         assert len(arg) == n, f'length mismatch: {list(map(len, args))}'
     return list(map(f, *args))
 
+
 def combine(tree, operator, a_flat, b_flat):
     # Lower `fn` to operate on flattened sequences of elems.
     a = tree_unflatten(a_flat, tree)
@@ -17,6 +18,7 @@ def combine(tree, operator, a_flat, b_flat):
     c = operator(a, b)
     c_flat, _ = tree_flatten(c)
     return c_flat
+
 
 def _scan(tree, operator, elems, axis):
     """Perform scan on `elems`."""
@@ -53,8 +55,9 @@ def _scan(tree, operator, elems, axis):
 
     return list(safe_map(partial(_interleave, axis=axis), even_elems, odd_elems))
 
+
 # Pytorch impl. of jax.lax.associative_scan
-def associative_scan(operator, elems, axis=0, reverse= False):
+def associative_scan(operator, elems, axis=0, reverse=False):
     # if not callable(operator):
     #     raise TypeError("lax.associative_scan: fn argument should be callable.")
     elems_flat, tree = tree_flatten(elems)
@@ -75,6 +78,7 @@ def associative_scan(operator, elems, axis=0, reverse= False):
         scans = [torch.flip(scanned, [axis]) for scanned in scans]
 
     return tree_unflatten(scans, tree)
+
 
 # @torch.jit.script
 def _interleave(a, b, axis: int):
