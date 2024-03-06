@@ -1,47 +1,41 @@
-"""Minimal version of S4D with extra options and features stripped out, for pedagogical purposes."""
-
 import math
 import torch
 import torch.nn as nn
 
+from einops import repeat
+from src.reservoir.state_reservoir import ContinuousStateReservoir
 from src.models.nn.dropout import DropoutNd
 
 
+"""
+see: https://github.com/state-spaces/s4/blob/main/models/s4/s4d.py
+"""
 class S4RKernel(nn.Module):
     """Generate convolution kernel from diagonal SSM parameters."""
 
-    @staticmethod
-    def _discrete_state_matrix(d_state, min_radius, max_radius):
-        """
-        Create a state matrix Lambda_bar for the discrete dynamics;
-        lambda = radius * (cos(theta) + i * sin(theta)):
-        radius in [min_radius, max_radius),
-        theta in [0, 2pi).
-        :param d_state: latent state dimension
-        :return: Lambda_bar
-        """
-
-        radius = min_radius + (max_radius - min_radius) * torch.rand(d_state, dtype=torch.float32)
-        theta = 2 * torch.pi * torch.rand(d_state, dtype=torch.float32)
-        alpha_tensor = radius * torch.cos(theta)
-        omega_tensor = radius * torch.sin(theta)
-
-        Lambda_bar = torch.complex(alpha_tensor, omega_tensor)
-        return Lambda_bar.view(-1, 1)
-
-    def __init__(self, d_input, d_state=64, min_radius=0.9, max_radius=1, dt_min=0.001, dt_max=0.1, lr=None):
+    def __init__(self, d_input, d_state=64, high_stability=-0.9, low_stability=-0.8, dt_min=0.001, dt_max=0.1, lr=None):
         super().__init__()
+
+        self.d_state = d_state
+
         # Generate dt
         log_dt = torch.rand(d_input, dtype=torch.float32) * (
                 math.log(dt_max) - math.log(dt_min)
-        ) + math.log(dt_min)
+        ) + math.log(dt_min)  # (H)
 
         d_output = d_input
-        self.C = nn.Parameter(torch.randn(d_output, d_state, dtype=torch.complex64))
+        C = torch.randn(d_output, self.d_state, dtype=torch.complex64)
+        self.C = nn.Parameter(torch.view_as_real(C), requires_grad=True)  # (H, N, 2)
         self.register("log_dt", log_dt, lr)
 
-        # Generate A
-        self.A = self._discrete_state_matrix(d_state, min_radius, max_radius)
+        # Generate complex diagonal matrix A
+        if high_stability > low_stability or low_stability > 0:
+            raise ValueError("For the continuous dynamics stability we must have: "
+                             "'high_stability' < Re(lambda) <= 'low_stability' <= 0.")
+        else:
+            cr = ContinuousStateReservoir(self.d_state, high_stability, low_stability, 'complex')
+            A = cr.diagonal_state_matrix()
+            self.A = nn.Parameter(torch.view_as_real(A), requires_grad=False)  # (N, 2)
 
     def forward(self, input_length):
         """
@@ -50,12 +44,17 @@ class S4RKernel(nn.Module):
 
         # Materialize parameters
         dt = torch.exp(self.log_dt)  # (H)
+        C = torch.view_as_complex(self.C)  # (H, N)
+        A = torch.view_as_complex(self.A)  # (N)
 
-        # Vandermonde multiplication
-        dtA = self.A * dt.unsqueeze(-1)  # (H N)
-        K = dtA.unsqueeze(-1) * torch.arange(input_length, device=self.A.device)  # (H N L)
-        C = self.C * (torch.exp(dtA) - 1.) / self.A
-        K = 2 * torch.einsum('hn, hnl -> hl', C, torch.exp(K)).real
+        # repeat dt N=d_state times on dim = 1
+        dt_n = repeat(dt, 'h-> h n', n=self.d_state)  # (H, N)
+
+        # Vandermonde multiplication (see Kernel od DSS_EXP in the paper DSS)
+        dtA = torch.einsum('n,hn->hn', A, dt_n)  # (H, N)
+        K = dtA.unsqueeze(-1) * torch.arange(input_length, device=A.device)  # (H, N, L)
+        C = C * (torch.exp(dtA) - 1.) / A  # (H, N)
+        K = 2 * torch.einsum('hn, hnl -> hl', C, torch.exp(K)).real  # (H, L)
 
         return K
 
@@ -86,12 +85,12 @@ class S4R(nn.Module):
         self.d_state = d_state
         self.d_output = d_input
 
-        self.D = nn.Parameter(torch.randn(self.d_output, self.d_input, dtype=torch.float32))
+        self.D = nn.Parameter(torch.randn(self.d_input, dtype=torch.float32))  # (H)
 
         # SSM Kernel
         self.kernel = S4RKernel(self.d_input, d_state=self.d_state, **kernel_args)
 
-        # Pointwise
+        # Point-wise
         self.activation = nn.GELU()
         # dropout_fn = nn.Dropout2d # NOTE: bugged in PyTorch 1.11
         dropout_fn = DropoutNd
@@ -111,12 +110,12 @@ class S4R(nn.Module):
         k = self.kernel(input_length=input_length)  # (H L)
 
         # Convolution
-        k_f = torch.fft.fft(k, n=input_length)  # (H L)
-        u_f = torch.fft.fft(u, n=input_length)  # (B H L)
-        y = torch.fft.irfft(u_f * k_f, n=input_length)[..., :input_length]  # (B H L)
+        k_f = torch.fft.rfft(k, n=2*input_length)  # (H L)
+        u_f = torch.fft.rfft(u, n=2*input_length)  # (B H L)
+        y = torch.fft.irfft(u_f * k_f, n=2*input_length)[..., :input_length]  # (B H L)
 
-        # Compute D term in state space equation - essentially a skip connection
-        y = y + u * self.D.unsqueeze(-1)
+        # Add Du term - essentially a skip connection
+        y = y + torch.einsum('h, bhl -> bhl', self.D, u)  # (B H L)
 
         y = self.dropout(self.activation(y))
         y = self.output_linear(y)

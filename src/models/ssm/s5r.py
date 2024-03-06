@@ -1,17 +1,18 @@
 import torch
+from src.reservoir.state_reservoir import DiscreteStateReservoir, ContinuousStateReservoir
 from src.utils.jax_compat import associative_scan
 import torch.nn as nn
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
-from math import log
+from einops import repeat
 
 """
-Define a model subclass of torch.nn.Module that implements a linear time-invariant system.
+see: https://github.com/i404788/s5-pytorch/tree/74e2fdae00b915a62c914bf3615c0b8a4279eb84
 """
 
 
 class S5R(torch.nn.Module):
-    def __init__(self, d_input, d_state, min_radius=0.9, max_radius=1, dynamics='continuous', field='complex'):
+    def __init__(self, d_input, d_state, high_stability, low_stability, dynamics, field='complex'):
         """
         Construct an SSM model with frozen state matrix Lambda_bar:
         x_new = Lambda_bar * x_old + B_bar * u_new
@@ -21,7 +22,7 @@ class S5R(torch.nn.Module):
         :param dynamics: 'continuous' or 'discrete'
         :param field: 'real' or 'complex'
         """
-        # TODO: Delta trainable parameter not fixed to ones:
+        # TODO: Delta trainable parameter not fixed to ones for continuous dynamics:
         #   Lambda_bar = Lambda_Bar(Lambda, Delta), B_bar = B(Lambda, B, Delta)
 
         super(S5R, self).__init__()
@@ -31,97 +32,43 @@ class S5R(torch.nn.Module):
         self.d_output = d_input
 
         # Initialize parameters C and D
-        self.C = nn.Parameter(torch.randn(self.d_output, self.d_state, dtype=torch.complex64))
-        self.D = nn.Parameter(torch.randn(self.d_output, self.d_input, dtype=torch.float32))
+        C = torch.randn(self.d_output, self.d_state, dtype=torch.complex64)
+        self.C = nn.Parameter(torch.view_as_real(C), requires_grad=True)  # (H, P, 2)
+        D = torch.randn(self.d_output, self.d_input, dtype=torch.float32)
+        self.D = nn.Parameter(D, requires_grad=True)  # (H, H)
 
-        if min_radius > max_radius or min_radius < 0 or max_radius > 1:
-            raise ValueError("min_radius should be less than max_radius and both should be in [0, 1].")
-
-        # System dynamics
-        if dynamics == 'continuous':
-            min_real = log(min_radius)
-            max_real = log(max_radius)
-            Lambda = self._continuous_state_matrix(self.d_state, min_real, max_real, field)
-            B = torch.randn(self.d_state, self.d_input, dtype=torch.complex64)
-            Delta = torch.ones(self.d_state, 1, dtype=torch.float32)  # Placeholder for future customization
-            Lambda_bar, B_bar = self._zoh(Lambda, B, Delta)  # Discretization
-        elif dynamics == 'discrete':
-            Lambda_bar = self._discrete_state_matrix(self.d_state, min_radius, max_radius, field)
-            B_bar = torch.randn(self.d_state, self.d_input, dtype=torch.complex64)
+        B = torch.randn(self.d_state, self.d_input, dtype=torch.complex64)
+        if dynamics == 'discrete':
+            if high_stability > low_stability or high_stability < 0 or low_stability > 1:
+                raise ValueError("For the discrete dynamics stability we must have: "
+                                 "0 <= 'high_stability' < |lambda| <= 'low_stability' <= 1.")
+            else:
+                self.high_stability = high_stability
+                self.low_stability = low_stability
+                cr = ContinuousStateReservoir(self.d_state, self.high_stability, self.low_stability, field)
+                Lambda = cr.diagonal_state_matrix()
+                Delta = torch.ones(self.d_state, dtype=torch.float32)  # Placeholder for future customization
+                Lambda_bar, B_bar = self._zoh(Lambda, B, Delta)  # Discretization
+        elif dynamics == 'continuous':
+            if high_stability > low_stability or low_stability > 0:
+                raise ValueError("For the continuous dynamics stability we must have: "
+                                 "'high_stability' < Re(lambda) <= 'low_stability' <= 0.")
+            else:
+                self.high_stability = high_stability
+                self.low_stability = low_stability
+                dr = DiscreteStateReservoir(self.d_state, self.high_stability, self.low_stability, field)
+                Lambda_bar = dr.diagonal_state_matrix()
+                B_bar = B
         else:
-            raise NotImplementedError("Dynamics must be 'continuous' or 'discrete'.")
+            raise ValueError("Dynamics must be 'continuous' or 'discrete'.")
+        self.dynamics = dynamics
 
-        self.Lambda_bar = nn.Parameter(Lambda_bar, requires_grad=False)
-        self.B_bar = nn.Parameter(B_bar, requires_grad=True)
+        # Initialize parameters Lambda_bar and B_bar
+        self.Lambda_bar = nn.Parameter(torch.view_as_real(Lambda_bar), requires_grad=False)  # Frozen Lambda_bar (P)
+        self.B_bar = nn.Parameter(torch.view_as_real(B_bar), requires_grad=True)  # (P, H, 2)
 
         # Output linear layer
         self.output_linear = nn.Sequential(nn.GELU())
-
-    @staticmethod
-    def _discrete_state_matrix(d_state, min_radius, max_radius, field):
-        """
-        Create a state matrix Lambda_bar for the discrete dynamics;
-        lambda = radius * (cos(theta) + i * sin(theta)):
-        radius in [min_radius, max_radius),
-        theta in [0, 2pi).
-        :param d_state: latent state dimension
-        :param field: 'complex' or 'real'
-        :return: Lambda_bar
-        """
-        if field == 'complex':
-            radius = min_radius + (max_radius - min_radius) * torch.rand(d_state, dtype=torch.float32)
-            theta = 2 * torch.pi * torch.rand(d_state, dtype=torch.float32)
-            alpha_tensor = radius * torch.cos(theta)
-            omega_tensor = radius * torch.sin(theta)
-        elif field == 'real':
-            half_d_state = d_state // 2
-            radius = min_radius + (max_radius - min_radius) * torch.rand(half_d_state, dtype=torch.float32)
-            theta = torch.pi * torch.rand(half_d_state, dtype=torch.float32)
-            alpha_tensor = torch.cat((radius * torch.cos(theta), radius * torch.cos(theta)), 0)
-            omega_tensor = torch.cat((radius * torch.sin(theta), -radius * torch.sin(theta)), 0)
-            if d_state % 2 == 1:
-                extra_radius = min_radius + (max_radius - min_radius) * torch.rand(1, dtype=torch.float32)
-                # Choose 0 or pi randomly for extra_theta
-                extra_theta = torch.randint(0, 2, (1,)) * torch.pi
-                alpha_tensor = torch.cat((alpha_tensor, extra_radius * torch.cos(extra_theta)), 0)
-                omega_tensor = torch.cat((omega_tensor, extra_radius * torch.sin(extra_theta)), 0)
-        else:
-            raise NotImplementedError("The field must be 'complex' or 'real'.")
-
-        Lambda_bar = torch.complex(alpha_tensor, omega_tensor)
-        return Lambda_bar.view(-1, 1)
-
-    @staticmethod
-    def _continuous_state_matrix(d_state, min_real, max_real, field):
-        """
-        Create a state matrix Lambda for the continuous dynamics;
-        lambda = log(radius) + i * theta:
-        Re(lambda) in [min_real, max_real) = [log(min_radius), log(max_radius)),
-        Im(lambda) in [0, 2pi).
-        :param d_state: latent state dimension
-        :param field: 'complex' or 'real'
-        :return: Lambda
-        """
-        if field == 'complex':
-            real_tensor = min_real + (max_real - min_real) * torch.rand(d_state, dtype=torch.float32)
-            imag_tensor = 2 * torch.pi * torch.rand(d_state, dtype=torch.float32)
-        elif field == 'real':
-            half_d_state = d_state // 2
-            real_tensor = min_real + (max_real - min_real) * torch.rand(half_d_state, dtype=torch.float32)
-            imag_tensor = torch.pi * torch.rand(half_d_state, dtype=torch.float32)
-            real_tensor = torch.cat((real_tensor, real_tensor), 0)
-            imag_tensor = torch.cat((imag_tensor, -imag_tensor), 0)
-            if d_state % 2 == 1:
-                extra_real = min_real + (max_real - min_real) * torch.rand(1, dtype=torch.float32)
-                # Choose 0 or pi randomly for extra_imag (extra_theta)
-                extra_imag = torch.randint(0, 2, (1,)) * torch.pi
-                real_tensor = torch.cat((real_tensor, extra_real), 0)
-                imag_tensor = torch.cat((imag_tensor, extra_imag), 0)
-        else:
-            raise NotImplementedError("The field must be 'complex' or 'real'.")
-
-        Lambda = torch.complex(real_tensor, imag_tensor)
-        return Lambda.view(-1, 1)
 
     def plot_discrete_spectrum(self):
         """
@@ -130,8 +77,8 @@ class S5R(torch.nn.Module):
         """
         # Extracting real and imaginary parts
         Lambda_bar = self.Lambda_bar.clone().detach()
-        real_parts = Lambda_bar.real
-        imaginary_parts = Lambda_bar.imag
+        real_parts = Lambda_bar[:, 0]
+        imaginary_parts = Lambda_bar[:, 1]
 
         # Plotting
         plt.figure(figsize=(10, 10))
@@ -161,10 +108,11 @@ class S5R(torch.nn.Module):
         :param Delta: Timestep (1 for each input dimension)
         :return: Lambda_bar, B_bar (Discrete System)
         """
-        Ones = torch.ones(Lambda.shape[0], 1, dtype=torch.float32)
+        Ones = torch.ones(Lambda.shape[0], dtype=torch.float32)
 
         Lambda_bar = torch.exp(torch.mul(Lambda, Delta))
-        B_bar = torch.mul(torch.mul(1 / Lambda, (Lambda_bar - Ones)), B)
+
+        B_bar = torch.einsum('p,ph->ph', torch.mul(1 / Lambda, (Lambda_bar - Ones)), B)
 
         return Lambda_bar, B_bar
 
@@ -185,52 +133,25 @@ class S5R(torch.nn.Module):
 
         return A_power, convolution
 
-    # def _apply_ssm(self, input_sequence):
-    #     """
-    #     Apply the SSM to the single input sequence
-    #     Args:
-    #      input_sequence: tensor of shape (H,L) = (d_input, length)
-    #     Returns:
-    #     """
-    #     complex_input_sequence = input_sequence.to(self.Lambda_bar.dtype)  # Cast to correct complex type
-    #
-    #     # Time Invariant B(t) = B of shape (P,H)
-    #     Bu_elements = torch.mm(self.B_bar, complex_input_sequence)  # Tensor of shape (P,L)
-    #
-    #     Lambda_elements = self.Lambda_bar.tile(1, input_sequence.shape[1])  # Tensor of shape (P,L)
-    #
-    #     # xs of shape (P,L)
-    #     _, xs = associative_scan(SSM.binary_operator,
-    #                              (Lambda_elements.transpose(0, 1), Bu_elements.transpose(0, 1)))
-    #     xs = xs.transpose(0, 1)
-    #
-    #     # Du of shape (H,L)
-    #     Du = torch.mm(self.D, input_sequence)
-    #
-    #     # TODO: the last element of xs (non-bidir) is the hidden state, allow returning it
-    #     #return torch.vmap(lambda x: (torch.mm(self.C, x).real)(xs) + Du
-    #     #print("torch.vmap(lambda x: torch.mm(self.C, x).real)(xs)", torch.vmap(lambda x: torch.mm(self.C, x).real)(xs).shape)
-    #
-    #     # result of shape (H,L)
-    #     return self.output_linear(torch.mm(self.C, xs).real + Du)
-
     def _apply_scan(self, input_sequence):
         """
         Apply the SSM to the single input sequence
         :param input_sequence: tensor of shape (H,L) = (d_input, input_length)
         :return: convolution: tensor of shape (P,L) = (d_state, input_length)
         """
-        complex_input_sequence = input_sequence.to(self.Lambda_bar.dtype)  # Cast to correct complex type
+        # Materialize parameters
+        Lambda_bar = torch.view_as_complex(self.Lambda_bar)  # (P)
+        B_bar = torch.view_as_complex(self.B_bar)  # (P,H)
+        complex_input_sequence = input_sequence.to(Lambda_bar.dtype)  # Cast to correct complex type
 
-        # Time Invariant B(t) = B of shape (P,H)
-        Bu_elements = torch.mm(self.B_bar, complex_input_sequence)  # Tensor of shape (P,L)
+        # Time Invariant B(t) = B
+        Bu_elements = torch.mm(B_bar, complex_input_sequence)  # (P, L)
 
-        Lambda_elements = self.Lambda_bar.tile(1, input_sequence.shape[1])  # Tensor of shape (P,L)
+        Lambda_elements = repeat(Lambda_bar, 'p -> p l', l=input_sequence.shape[1])
 
-        # convolution, resulting tensor of shape (P,L)
-        _, convolution = associative_scan(S5R.binary_operator, (Lambda_elements, Bu_elements), axis=1)
+        # Compute convolution
+        _, convolution = associative_scan(S5R.binary_operator, (Lambda_elements, Bu_elements), axis=1)  # (P, L)
 
-        # Result of shape (P,L)
         return convolution
 
     def forward(self, u):
@@ -239,8 +160,11 @@ class S5R(torch.nn.Module):
         :param u: batched input sequence of shape (B,H,L) = (batch_size, d_input, input_length)
         :return: y: batched output sequence of shape (B,H,L) = (batch_size, d_output, input_length)
         """
+        # Materialize parameters
+        C = torch.view_as_complex(self.C)
+
         A_Bu = torch.vmap(self._apply_scan)(u)
-        C_A_Bu = torch.einsum('hp,bpl->bhl', self.C, A_Bu).real
+        C_A_Bu = torch.einsum('hp,bpl->bhl', C, A_Bu).real
 
         # Compute Du part
         Du = torch.einsum('hh,bhl->bhl', self.D, u)
