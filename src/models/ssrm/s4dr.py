@@ -10,7 +10,7 @@ from src.models.nn.dropout import DropoutNd
 """
 see: https://github.com/state-spaces/s4/blob/main/models/s4/s4d.py
 """
-class S4RKernel(nn.Module):
+class S4DRKernel(nn.Module):
     """Generate convolution kernel from diagonal SSM parameters."""
 
     def __init__(self, d_input, d_state=64, high_stability=-0.9, low_stability=-0.8, dt_min=0.001, dt_max=0.1, lr=None):
@@ -50,7 +50,11 @@ class S4RKernel(nn.Module):
         # repeat dt N=d_state times on dim = 1
         dt_n = repeat(dt, 'h-> h n', n=self.d_state)  # (H, N)
 
-        # Vandermonde multiplication (see Kernel od DSS_EXP in the paper DSS)
+        # Vandermonde multiplication (see Kernel od DSS_EXP in the paper DSS):
+        # On modern parallelizable hardware such as GPUs, a simple fast algorithm is to compute
+        # Vandermonde multiplication with naive summation (using O(N L) operations),
+        # but without materializing the Vandermonde matrix (using O(N + L) space) (see S4 with SSMKernelDiag
+        # or S4DR with S4DRKernel).
         dtA = torch.einsum('n,hn->hn', A, dt_n)  # (H, N)
         K = dtA.unsqueeze(-1) * torch.arange(input_length, device=A.device)  # (H, N, L)
         C = C * (torch.exp(dtA) - 1.) / A  # (H, N)
@@ -77,7 +81,7 @@ class S4RKernel(nn.Module):
             setattr(getattr(self, name), "_optim", optim)
 
 
-class S4R(nn.Module):
+class S4DR(nn.Module):
     def __init__(self, d_input, d_state=64, dropout=0.0, **kernel_args):
         super().__init__()
 
@@ -88,7 +92,7 @@ class S4R(nn.Module):
         self.D = nn.Parameter(torch.randn(self.d_input, dtype=torch.float32))  # (H)
 
         # SSM Kernel
-        self.kernel = S4RKernel(self.d_input, d_state=self.d_state, **kernel_args)
+        self.kernel = S4DRKernel(self.d_input, d_state=self.d_state, **kernel_args)
 
         # Point-wise
         self.activation = nn.GELU()

@@ -45,10 +45,9 @@ class S5R(torch.nn.Module):
             else:
                 self.high_stability = high_stability
                 self.low_stability = low_stability
-                cr = ContinuousStateReservoir(self.d_state, self.high_stability, self.low_stability, field)
-                Lambda = cr.diagonal_state_matrix()
-                Delta = torch.ones(self.d_state, dtype=torch.float32)  # Placeholder for future customization
-                Lambda_bar, B_bar = self._zoh(Lambda, B, Delta)  # Discretization
+                dr = DiscreteStateReservoir(self.d_state, self.high_stability, self.low_stability, field)
+                Lambda_bar = dr.diagonal_state_matrix()
+                B_bar = B
         elif dynamics == 'continuous':
             if high_stability > low_stability or low_stability > 0:
                 raise ValueError("For the continuous dynamics stability we must have: "
@@ -56,9 +55,10 @@ class S5R(torch.nn.Module):
             else:
                 self.high_stability = high_stability
                 self.low_stability = low_stability
-                dr = DiscreteStateReservoir(self.d_state, self.high_stability, self.low_stability, field)
-                Lambda_bar = dr.diagonal_state_matrix()
-                B_bar = B
+                cr = ContinuousStateReservoir(self.d_state, self.high_stability, self.low_stability, field)
+                Lambda = cr.diagonal_state_matrix()
+                Delta = torch.ones(self.d_state, dtype=torch.float32)  # Placeholder for future customization
+                Lambda_bar, B_bar = self._zoh(Lambda, B, Delta)  # Discretization
         else:
             raise ValueError("Dynamics must be 'continuous' or 'discrete'.")
         self.dynamics = dynamics
