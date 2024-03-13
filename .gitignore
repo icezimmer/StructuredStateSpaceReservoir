@@ -129,3 +129,7 @@ dmypy.json
 # Notebooks
 notebooks/*
 !notebooks/.gitkeep
+
+# Saved Data
+saved_data/*
+!saved_data/.gitkeep
