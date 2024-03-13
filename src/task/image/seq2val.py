@@ -22,14 +22,8 @@ class Seq2Val(nn.Module):
         # Pass input through model
         y, _ = self.model(x)  # y shape is (B, H, L)
 
-        # Global average pooling across the length sequence L
-        # y_pooled = self.global_avg_pool(y)
-        y_pooled = y[:, :, -1]  # Now y_last is (B, H, 1) with L pooled to 1
-
-        # Squeeze the last dimension to get (B, H)
-        y_squeezed = torch.squeeze(y_pooled, -1)  # Now y_squeezed is (B, H)
+        y_pooled = y[:, :, -1]  # Now y_pooled is (B, H)
 
         # Process the output through the classification layer
-        output = self.output_layer(y_squeezed)  # output is (B, 1)
-
+        output = self.output_layer(y_pooled)  # output is (B, 1)
         return output

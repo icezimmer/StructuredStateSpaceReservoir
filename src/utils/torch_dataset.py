@@ -4,8 +4,7 @@ import tensorflow as tf
 
 def image_classifier(dataset):
     global mode, batch_size, num_input_features, length
-    torch_input_list = []
-    torch_label_list = []
+    dataloader = []
 
     for input_batch, _ in dataset.take(1):
         if len(input_batch.shape) == 4:
@@ -52,7 +51,9 @@ def image_classifier(dataset):
             label = torch.from_numpy(label.numpy())
             torch_label[i, :] = label
 
-        torch_input_list.append(torch_input)
-        torch_label_list.append(torch_label)
+        dataloader.append(
+            (torch_input,
+             torch_label)
+        )
 
-    return torch_input_list, torch_label_list
+    return dataloader

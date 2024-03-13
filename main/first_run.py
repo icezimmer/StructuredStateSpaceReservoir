@@ -8,11 +8,9 @@ builder_dataset = Pathfinder32()  # Or Pathfinder64, Pathfinder128, Pathfinder25
 builder_dataset.download_and_prepare()
 dataset_train, dataset_test = builder_dataset.as_dataset(split=['easy[80%:]', 'easy[:20%]'], as_supervised=True,
                                                          shuffle_files=True)
-batch_size = 32
+batch_size = 128
 dataset_train = dataset_train.shuffle(1024).batch(batch_size).prefetch(tf.data.experimental.AUTOTUNE)
-input_train, label_train = image_classifier(dataset_train)
-input_test, label_test = image_classifier(dataset_test)
-save_temp_data(input_train, 'torch_input_list_train')
-save_temp_data(label_train, 'torch_label_list_train')
-save_temp_data(input_test, 'torch_input_list_test')
-save_temp_data(label_test, 'torch_label_list_test')
+train_dataloader = image_classifier(dataset_train)
+test_dataloader = image_classifier(dataset_test)
+save_temp_data(train_dataloader, 'train_dataloader')
+save_temp_data(test_dataloader, 'test_dataloader')
