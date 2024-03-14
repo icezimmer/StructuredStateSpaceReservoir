@@ -1,35 +1,76 @@
 import torch
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
-import numpy as np
+from torchmetrics import Accuracy, Precision, Recall, F1Score, AUROC
 
 
-def evaluate_classifier(classifier, test_dataloader):
-    classifier.eval()  # Set the model to evaluation mode
-    predictions = []
-    true_labels = []
+class EvaluateBinaryClassifier:
+    def __init__(self, model, test_dataloader, device_name):
+        self.device = torch.device(device_name)
+        self.model = model.to(self.device)
+        self.test_dataloader = test_dataloader
+        self.num_batches = len(self.test_dataloader)
+        self.accuracy = Accuracy().to(self.device)
+        self.precision = Precision().to(self.device)
+        self.recall = Recall().to(self.device)
+        self.f1 = F1Score().to(self.device)
+        #self.roc_auc = AUROC(pos_label=1).to(self.device)
 
-    with torch.no_grad():  # Inference mode, no gradients needed
-        for input_, label in test_dataloader:
-            input_, label = (input_.to(torch.device("cuda" if torch.cuda.is_available() else "cpu")),
-                             label.to(torch.device("cuda" if torch.cuda.is_available() else "cpu")))
+    def __predict(self):
+        tp = 0
+        fp = 0
+        tn = 0
+        fn = 0
+        for input_, label in self.test_dataloader:
+            input_, label = (input_.to(self.device, dtype=torch.float32),
+                             label.to(self.device, dtype=torch.float32))
 
+            # set feature dimension of label if not present
             if len(label.shape) == 1:
                 label = label.unsqueeze(1)
 
-            input_ = input_.to(torch.float32)
-            label = label.to(torch.float32)
+            output = self.model(input_)  # outputs of model are logits (raw values)
+            print(torch.sigmoid(output))
+            #print(label)
+            #output = (torch.sigmoid(output) > 0.5).float()
 
-            output = classifier(input_)
-            predicted = (output > 0.5).float()  # Convert probabilities to binary predictions
-            predictions.extend(predicted.view(-1).numpy())
-            true_labels.extend(label.numpy())
+            tp += torch.sum(((torch.sigmoid(output) > 0.5).int() == 1) & (label == 1)).item()
+            fp += torch.sum(((torch.sigmoid(output) > 0.5).int() == 1) & (label == 0)).item()
+            tn += torch.sum(((torch.sigmoid(output) > 0.5).int() == 0) & (label == 0)).item()
+            fn += torch.sum(((torch.sigmoid(output) > 0.5).int() == 0) & (label == 1)).item()
 
-    # Convert predictions and labels to appropriate formats if necessary
-    predictions = np.array(predictions)
-    true_labels = np.array(true_labels)
+            # Update metrics
+            self.accuracy.update(output, label.int())
+            self.precision.update(output, label.int())
+            self.recall.update(output, label.int())
+            self.f1.update(output, label.int())
+            #self.roc_auc.update(output, label.int())
 
-    print(f"Accuracy: {accuracy_score(true_labels, predictions)}")
-    print(f"Precision: {precision_score(true_labels, predictions)}")
-    print(f"Recall: {recall_score(true_labels, predictions)}")
-    print(f"F1 Score: {f1_score(true_labels, predictions)}")
-    print(f"ROC-AUC Score: {roc_auc_score(true_labels, predictions)}")
+        confusion_matrix = torch.tensor([[tp, fp], [fn, tn]])
+        return confusion_matrix
+
+    def evaluate(self):
+        self.model.eval()  # Set the model to evaluation mode
+
+        with torch.no_grad():  # Inference mode, no gradients needed
+            confusion_matrix = self.__predict()
+
+        # Compute final metric values
+        final_accuracy = self.accuracy.compute()
+        final_precision = self.precision.compute()
+        final_recall = self.recall.compute()
+        final_f1 = self.f1.compute()
+        #final_roc_auc = self.roc_auc.compute()
+
+        print(f"Accuracy: {final_accuracy.item()}")
+        print(f"Precision: {final_precision.item()}")
+        print(f"Recall: {final_recall.item()}")
+        print(f"F1 Score: {final_f1.item()}")
+        print("Confusion Matrix:\n", confusion_matrix)
+        #print(f"ROC-AUC Score: {final_roc_auc.item()}")
+
+        # Reset metrics for future use
+        self.accuracy.reset()
+        self.precision.reset()
+        self.recall.reset()
+        self.f1.reset()
+        #self.roc_auc.reset()
+

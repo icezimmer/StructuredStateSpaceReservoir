@@ -1,4 +1,3 @@
-import torch
 import torch.nn as nn
 
 
@@ -11,12 +10,11 @@ class Seq2Val(nn.Module):
         super(Seq2Val, self).__init__()
         self.model = model  # Instance of the model
 
-        # Aggregate the output (B, H, L) across the L dimension.
-        #self.global_avg_pool = nn.AdaptiveAvgPool1d(1)
+        if not hasattr(self.model, 'd_output'):
+            raise AttributeError("The model must have a 'd_output' attribute specifying the output feature dimension.")
 
-        # Modify the classification layer to take the pooled output
-        # Since the pooled output will be (B, H, 1), we adjust the input features of the linear layer accordingly
-        self.output_layer = nn.Linear(self.model.d_output, 1)
+        # Classification layer to take the pooled output
+        self.output_layer = nn.Linear(in_features=self.model.d_output, out_features=1)
 
     def forward(self, x):
         # Pass input through model
