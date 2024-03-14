@@ -52,5 +52,5 @@ if __name__ == "__main__":
     train_dataloader = load_temp_data('train_dataloader')
     test_dataloader = load_temp_data('test_dataloader')
     pathfinder = TestPathFinder(model_name='S4D', d_state=100, n_layers=10)
-    pathfinder.fit_model(num_epochs=10, lr=0.001, train_dataloader=train_dataloader, device_name='cuda:1')
+    pathfinder.fit_model(num_epochs=5, lr=0.001, train_dataloader=train_dataloader, device_name='cuda:1')
     pathfinder.evaluate_model(train_dataloader, device_name='cuda:1')
