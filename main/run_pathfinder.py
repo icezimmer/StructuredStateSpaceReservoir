@@ -28,7 +28,7 @@ class TestPathFinder:
             ssm_block = S5R(d_input=num_features_input, d_state=d_state, high_stability=0.9, low_stability=1,
                             dynamics='discrete')
         else:
-            ValueError('model undefined. Possible choice: [S4, S4D, S5R]')
+            raise ValueError('model undefined. Possible choice: [S4, S4D, S5R]')
 
         ssm_stacked = NaiveStacked(block=ssm_block, n_layers=n_layers)
         ssm_classifier = Seq2Val(ssm_stacked)
@@ -52,5 +52,5 @@ if __name__ == "__main__":
     train_dataloader = load_temp_data('train_dataloader')
     test_dataloader = load_temp_data('test_dataloader')
     pathfinder = TestPathFinder(model_name='S4D', d_state=100, n_layers=10)
-    pathfinder.fit_model(num_epochs=10, lr=0.0001, train_dataloader=train_dataloader, device_name='cuda:1')
+    pathfinder.fit_model(num_epochs=10, lr=0.001, train_dataloader=train_dataloader, device_name='cuda:1')
     pathfinder.evaluate_model(train_dataloader, device_name='cuda:1')

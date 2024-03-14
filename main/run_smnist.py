@@ -38,7 +38,7 @@ class TestSequentialMNIST:
 
 
     def __fit_model(self, num_epochs, lr, train_dataloader):
-        criterion = torch.nn.CrossEntropyLoss()  # Classification task: sigmoid layer + BCE loss (more stable)
+        criterion = torch.nn.MSELoss()  # Classification task: sigmoid layer + BCE loss (more stable)
         optimizer = optim.Adam(self.model.parameters(), lr=lr)
         trainer = TrainModel(self.model, optimizer, criterion, train_dataloader, self.device_train)
         test_device(trainer.model)
@@ -67,6 +67,6 @@ class TestSequentialMNIST:
 
 
 if __name__ == "__main__":
-    TestSequentialMNIST.main(model_name='S4D', d_state=1, n_layers=1, num_epochs=1, lr=0.01,
+    TestSequentialMNIST.main(model_name='S4D', d_state=10, n_layers=10, num_epochs=10, lr=0.001,
                              device_train='cuda:0', device_eval='cpu')
 

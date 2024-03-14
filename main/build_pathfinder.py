@@ -9,7 +9,7 @@ builder_dataset.download_and_prepare()
 dataset_train, dataset_test = builder_dataset.as_dataset(split=['easy[80%:]', 'easy[:20%]'], as_supervised=True,
                                                          shuffle_files=True)
 batch_size = 128
-dataset_train = dataset_train.shuffle(1024).batch(batch_size).prefetch(tf.data.experimental.AUTOTUNE)
+dataset_train = dataset_train.batch(batch_size)
 train_dataloader = image_classifier(dataset_train)
 test_dataloader = image_classifier(dataset_test)
 save_temp_data(train_dataloader, 'train_dataloader')
