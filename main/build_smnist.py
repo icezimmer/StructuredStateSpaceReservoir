@@ -13,7 +13,7 @@ trainset = SequentialImage2Classify(datasets.MNIST(root='../saved_data/',
                                                    train=True,
                                                    transform=transform,
                                                    download=True))
-train_dataloader = DataLoader(trainset, batch_size=512, shuffle=True)
+train_dataloader = DataLoader(trainset, batch_size=128, shuffle=True)
 
 testset = SequentialImage2Classify(datasets.MNIST(root='../saved_data/',
                                                   train=False,

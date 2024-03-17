@@ -43,8 +43,11 @@ if __name__ == "__main__":
     NUM_FEATURES_INPUT = 1
     train_dataloader = load_temp_data('smnist_train_dataloader')
     test_dataloader = load_temp_data('smnist_test_dataloader')
-    block = S5FR(d_input=NUM_FEATURES_INPUT, d_state=64)
-    smnist = TestSequentialMNIST(block, n_layers=8)
-    smnist.fit_model(num_epochs=5, lr=0.001, train_dataloader=train_dataloader, device_name='cuda:1')
+
+    block = S4D(d_input=NUM_FEATURES_INPUT, d_state=2048)
+    smnist = TestSequentialMNIST(block, n_layers=1)
+
+    smnist.fit_model(num_epochs=50, lr=0.001, train_dataloader=train_dataloader, device_name='cuda:1')
+
     smnist.evaluate_model(train_dataloader, 'cuda:1')
     smnist.evaluate_model(test_dataloader, 'cuda:1')
