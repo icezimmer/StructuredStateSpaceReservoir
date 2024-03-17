@@ -12,7 +12,7 @@ see: https://github.com/i404788/s5-pytorch/tree/74e2fdae00b915a62c914bf3615c0b8a
 
 
 class S5R(torch.nn.Module):
-    def __init__(self, d_input, d_state, high_stability, low_stability, dynamics, field='complex'):
+    def __init__(self, d_input, d_state, high_stability=0.9, low_stability=1, dynamics='discrete', field='complex'):
         """
         Construct an SSM model with frozen state matrix Lambda_bar:
         x_new = Lambda_bar * x_old + B_bar * u_new
@@ -163,7 +163,9 @@ class S5R(torch.nn.Module):
         # Materialize parameters
         C = torch.view_as_complex(self.C)
 
-        A_Bu = torch.vmap(self._apply_scan)(u)
+        #A_Bu = functorch.vmap(self._apply_scan)(u)
+        A_Bu = torch.stack([self._apply_scan(u[i]) for i in range(u.size(0))])
+
         C_A_Bu = torch.einsum('hp,bpl->bhl', C, A_Bu).real
 
         # Compute Du part

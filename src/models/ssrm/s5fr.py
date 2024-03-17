@@ -12,7 +12,7 @@ see: https://github.com/i404788/s5-pytorch/tree/74e2fdae00b915a62c914bf3615c0b8a
 
 
 class S5FR(torch.nn.Module):
-    def __init__(self, d_input, d_state, high_stability, low_stability, dynamics, field='complex'):
+    def __init__(self, d_input, d_state, high_stability=0.99, low_stability=1, dynamics='discrete', field='complex'):
         """
         Construct an SSM model with frozen state matrix Lambda_bar:
         x_new = Lambda_bar * x_old + B_bar * u_new
@@ -66,10 +66,6 @@ class S5FR(torch.nn.Module):
         # Initialize parameters Lambda_bar and B_bar
         self.Lambda_bar = nn.Parameter(torch.view_as_real(Lambda_bar), requires_grad=False)  # Frozen Lambda_bar (P)
         self.B_bar = nn.Parameter(torch.view_as_real(B_bar), requires_grad=True)  # (P, H, 2)
-
-        # tensor with values from e^(-j*2*pi) to e^(-j*2*pi/L//2+1)
-        self.L = torch.arange(0, d_input // 2 + 1, dtype=torch.float32)
-
 
         # Output linear layer
         self.output_linear = nn.Sequential(nn.GELU())
@@ -150,6 +146,7 @@ class S5FR(torch.nn.Module):
         U_s = torch.fft.rfftn(u)  # (B, H, L//2+1)
 
         omega_s = 2 * torch.pi * torch.fft.rfftfreq(u.shape[-1])  # (L//2+1)
+        omega_s = omega_s.to(device=u.device)
         s = 1j * omega_s
 
         # Compute Du part

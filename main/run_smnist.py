@@ -2,71 +2,49 @@ import torch
 import torch.optim as optim
 
 #from src.models.s4.s4 import S4Block
+from src.models.rnn.vanilla_rnn import RNNBlock
 from src.models.s4d.s4d import S4D
+from src.models.ssrm.s4dr import S4DR
 from src.models.ssrm.s5r import S5R
+from src.models.ssrm.s5fr import S5FR
 from src.models.nn.stacked import NaiveStacked
-from src.task.image.seq2val import Seq2Val
+from src.task.seq2vec import Seq2Vec
 from src.utils.test_torch import test_device
 from src.ml.training import TrainModel
 from src.utils.temp_data import load_temp_data
+from src.ml.evaluation import EvaluateClassifier
+
 
 class TestSequentialMNIST:
-    def __init__(self, model_name, d_state, n_layers, device_train, device_eval):
-        self.model = TestSequentialMNIST.__construct_model(model_name, d_state, n_layers)
-        self.device_train = device_train
-        self.device_eval = device_eval
+    def __init__(self, model_name, n_layers):
+        self.__NUM_CLASSES = 10
+        self.__CRITERION = torch.nn.CrossEntropyLoss()  # Classification task: sigmoid layer + BCE loss (more stable)
+        self.model = self.__construct_model(model_name, n_layers)
 
-    @staticmethod
-    def __construct_model(model_name, d_state, n_layers):
-        # num_features_input = train_dataloader[0][0].size(1)
-        NUM_FEATURES_INPUT = 1
+    def __construct_model(self, block, n_layers):
+        stacked = NaiveStacked(block=block, n_layers=n_layers)
+        classifier = Seq2Vec(model=stacked, d_vec=self.__NUM_CLASSES)
 
-        # if model_name =='S4':
-        #     ssm_block = S4Block(d_model=num_features_input, d_state=d_state)
-        if model_name == 'S4D':
-            ssm_block = S4D(d_input=NUM_FEATURES_INPUT, d_state=d_state)
-        elif model_name == 'S5R':
-            ssm_block = S5R(d_input=NUM_FEATURES_INPUT, d_state=d_state, high_stability=0.9, low_stability=1,
-                            dynamics='discrete')
-        else:
-            ValueError('model undefined. Possible choice: [S4, S4D, S5R]')
+        return classifier
 
-        ssm_stacked = NaiveStacked(block=ssm_block, n_layers=n_layers)
-        ssm_classifier = Seq2Val(ssm_stacked)
-
-        return ssm_classifier
-
-
-    def __fit_model(self, num_epochs, lr, train_dataloader):
-        criterion = torch.nn.MSELoss()  # Classification task: sigmoid layer + BCE loss (more stable)
+    def fit_model(self, num_epochs, lr, train_dataloader, device_name):
         optimizer = optim.Adam(self.model.parameters(), lr=lr)
-        trainer = TrainModel(self.model, optimizer, criterion, train_dataloader, self.device_train)
+        trainer = TrainModel(self.model, optimizer, self.__CRITERION, train_dataloader, device_name)
         test_device(trainer.model)
         trainer.max_epochs(num_epochs=num_epochs)
 
-
-    # def __evaluate_model(self, test_dataloader):
-    #     evaluate_classifier(self.model, test_dataloader, self.device_eval)
-
-
-    @staticmethod
-    def main(model_name, d_state, n_layers, num_epochs, lr, device_train, device_eval):
-        # Input and output shape (B, H, L)
-        #train_dataloader = load_temp_data('train_dataloader')
-
-        smnist = TestSequentialMNIST(model_name, d_state, n_layers, device_train, device_eval)
-
-        train_dataloader = load_temp_data('train_dataloader')
-
-        smnist.__fit_model(num_epochs, lr, train_dataloader)
-
-        test_dataloader = load_temp_data('test_dataloader')
-
-        # smnist.__evaluate_model(test_dataloader)
-
+    def evaluate_model(self, test_dataloader, device_name):
+        eval_c = EvaluateClassifier(self.model, self.__NUM_CLASSES, test_dataloader, device_name)
+        test_device(eval_c.model)
+        eval_c.evaluate()
 
 
 if __name__ == "__main__":
-    TestSequentialMNIST.main(model_name='S4D', d_state=10, n_layers=10, num_epochs=10, lr=0.001,
-                             device_train='cuda:0', device_eval='cpu')
-
+    NUM_FEATURES_INPUT = 1
+    train_dataloader = load_temp_data('smnist_train_dataloader')
+    test_dataloader = load_temp_data('smnist_test_dataloader')
+    block = S5FR(d_input=NUM_FEATURES_INPUT, d_state=64)
+    smnist = TestSequentialMNIST(block, n_layers=8)
+    smnist.fit_model(num_epochs=5, lr=0.001, train_dataloader=train_dataloader, device_name='cuda:1')
+    smnist.evaluate_model(train_dataloader, 'cuda:1')
+    smnist.evaluate_model(test_dataloader, 'cuda:1')

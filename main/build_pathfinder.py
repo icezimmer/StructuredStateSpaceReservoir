@@ -12,5 +12,5 @@ batch_size = 128
 dataset_train = dataset_train.batch(batch_size)
 train_dataloader = image_classifier(dataset_train)
 test_dataloader = image_classifier(dataset_test)
-save_temp_data(train_dataloader, 'train_dataloader')
-save_temp_data(test_dataloader, 'test_dataloader')
+save_temp_data(train_dataloader, 'pathfinder_train_dataloader')
+save_temp_data(test_dataloader, 'pathfinder_test_dataloader')

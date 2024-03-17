@@ -50,7 +50,7 @@ class S4DRKernel(nn.Module):
         # repeat dt N=d_state times on dim = 1
         dt_n = repeat(dt, 'h-> h n', n=self.d_state)  # (H, N)
 
-        # Vandermonde multiplication (see Kernel od DSS_EXP in the paper DSS):
+        # Vandermonde multiplication (see Kernel of DSS_EXP in the paper DSS):
         # On modern parallelizable hardware such as GPUs, a simple fast algorithm is to compute
         # Vandermonde multiplication with naive summation (using O(N L) operations),
         # but without materializing the Vandermonde matrix (using O(N + L) space) (see S4 with SSMKernelDiag
