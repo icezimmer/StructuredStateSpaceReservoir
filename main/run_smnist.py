@@ -44,9 +44,9 @@ if __name__ == "__main__":
     train_dataloader = load_temp_data('smnist_train_dataloader')
     test_dataloader = load_temp_data('smnist_test_dataloader')
 
-    smnist = TestSequentialMNIST(S4D, n_layers=4, d_input=NUM_FEATURES_INPUT, d_state=2048)
+    smnist = TestSequentialMNIST(S4D, n_layers=2, d_input=NUM_FEATURES_INPUT, d_state=256)
 
-    smnist.fit_model(num_epochs=200, lr=0.001, train_dataloader=train_dataloader, device_name='cuda:1')
+    smnist.fit_model(num_epochs=10, lr=0.001, train_dataloader=train_dataloader, device_name='cuda:1')
 
     smnist.evaluate_model(train_dataloader, 'cuda:1')
     smnist.evaluate_model(test_dataloader, 'cuda:1')

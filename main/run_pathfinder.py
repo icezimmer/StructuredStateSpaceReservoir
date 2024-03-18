@@ -2,12 +2,12 @@ import torch
 import torch.optim as optim
 
 #from src.models.s4.s4 import S4Block
-from src.models.rnn.vanilla_rnn import RNNBlock
+from src.models.rnn.vanilla_rnn import VanillaRNN
 from src.models.s4d.s4d import S4D
 from src.models.ssrm.s5r import S5R
 from src.models.rnn.vanilla_rnn import RNNClassifier
 from src.models.nn.stacked import NaiveStacked
-from src.task.seq2val import Seq2Val
+from src.task.seq2vec import Seq2Vec
 from src.utils.test_torch import test_device
 from src.ml.training import TrainModel
 from src.utils.temp_data import load_temp_data
@@ -15,13 +15,13 @@ from src.ml.evaluation import EvaluateBinaryClassifier
 
 
 class TestPathFinder:
-    def __init__(self, block, n_layers, *args, **kwargs):
-        self.__CRITERION = torch.nn.BCEWithLogitsLoss()  # Classification task: sigmoid layer + BCE loss (more stable)
-        self.model = self.__construct_model(block, n_layers, *args, **kwargs)
+    def __init__(self, block_factory, n_layers, *args, **kwargs):
+        self.__CRITERION = torch.nn.CrossEntropyLoss()  # Classification task: sigmoid layer + BCE loss (more stable)
+        self.model = self.__construct_model(block_factory, n_layers, *args, **kwargs)
 
     def __construct_model(self, block_factory, n_layers, *args, **kwargs):
         stacked = NaiveStacked(block_factory=block_factory, n_layers=n_layers, *args, **kwargs)
-        classifier = Seq2Val(stacked)
+        classifier = Seq2Vec(stacked, d_vec=2)
         #classifier = RNNClassifier(input_size=num_features_input, hidden_size=d_state, num_layers=n_layers, output_size=1)
         return classifier
 

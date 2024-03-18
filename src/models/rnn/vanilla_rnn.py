@@ -2,9 +2,9 @@ import torch
 import torch.nn as nn
 
 
-class RNNBlock(nn.Module):
+class VanillaRNN(nn.Module):
     def __init__(self, d_input, d_state):
-        super(RNNBlock, self).__init__()
+        super(VanillaRNN, self).__init__()
         self.d_input = d_input
         self.d_state = d_state
         self.d_output = d_input
