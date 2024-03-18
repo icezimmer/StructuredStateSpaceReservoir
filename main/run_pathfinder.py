@@ -15,12 +15,12 @@ from src.ml.evaluation import EvaluateBinaryClassifier
 
 
 class TestPathFinder:
-    def __init__(self, block, n_layers):
+    def __init__(self, block, n_layers, *args, **kwargs):
         self.__CRITERION = torch.nn.BCEWithLogitsLoss()  # Classification task: sigmoid layer + BCE loss (more stable)
-        self.model = self.__construct_model(block, n_layers)
+        self.model = self.__construct_model(block, n_layers, *args, **kwargs)
 
-    def __construct_model(self, block, n_layers):
-        stacked = NaiveStacked(block=block, n_layers=n_layers)
+    def __construct_model(self, block_factory, n_layers, *args, **kwargs):
+        stacked = NaiveStacked(block_factory=block_factory, n_layers=n_layers, *args, **kwargs)
         classifier = Seq2Val(stacked)
         #classifier = RNNClassifier(input_size=num_features_input, hidden_size=d_state, num_layers=n_layers, output_size=1)
         return classifier
@@ -41,7 +41,6 @@ if __name__ == "__main__":
     NUM_FEATURES_INPUT = 3
     train_dataloader = load_temp_data('pathfinder_train_dataloader')
     test_dataloader = load_temp_data('pathfinder_test_dataloader')
-    block = RNNBlock(d_input=NUM_FEATURES_INPUT, d_state=10)
-    pathfinder = TestPathFinder(block=block, n_layers=1)
+    pathfinder = TestPathFinder(block_factory=S4D, n_layers=4, d_input=NUM_FEATURES_INPUT, d_state=16)
     pathfinder.fit_model(num_epochs=10, lr=0.001, train_dataloader=train_dataloader, device_name='cuda:1')
     pathfinder.evaluate_model(train_dataloader, device_name='cuda:1')
