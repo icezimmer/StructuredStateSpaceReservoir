@@ -20,7 +20,7 @@ testset = SequentialImage2Classify(datasets.MNIST(root='../saved_data/',
                                                   train=False,
                                                   download=True,
                                                   transform=transform))
-test_dataloader = DataLoader(testset, batch_size=len(testset), shuffle=False)
+test_dataloader = DataLoader(testset, batch_size=128, shuffle=False)
 
 save_temp_data(train_dataloader, 'smnist_train_dataloader')
 save_temp_data(test_dataloader, 'smnist_test_dataloader')

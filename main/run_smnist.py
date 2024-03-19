@@ -49,5 +49,5 @@ if __name__ == "__main__":
 
     smnist.fit_model(num_epochs=3, lr=0.001, train_dataloader=train_dataloader, device_name='cuda:1')
 
-    smnist.evaluate_model(train_dataloader, 'cuda:2')
-    smnist.evaluate_model(test_dataloader, 'cuda:2')
+    smnist.evaluate_model(train_dataloader, 'cuda:1')
+    smnist.evaluate_model(test_dataloader, 'cuda:1')
