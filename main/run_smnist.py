@@ -2,7 +2,7 @@ import torch
 import torch.optim as optim
 
 #from src.models.s4.s4 import S4Block
-from src.models.rnn.vanilla_rnn import RNNBlock
+from src.models.rnn.vanilla_rnn import VanillaRNN
 from src.models.s4d.s4d import S4D
 from src.models.ssrm.s4dr import S4DR
 from src.models.ssrm.s5r import S5R
@@ -11,7 +11,7 @@ from src.models.nn.stacked import NaiveStacked
 from src.task.seq2vec import Seq2Vec
 from src.utils.test_torch import test_device
 from src.ml.training import TrainModel
-from src.utils.temp_data import load_temp_data
+from src.utils.temp_data import save_temp_data, load_temp_data
 from src.ml.evaluation import EvaluateClassifier
 
 
@@ -41,6 +41,7 @@ class TestSequentialMNIST:
 
 if __name__ == "__main__":
     NUM_FEATURES_INPUT = 1
+
     train_dataloader = load_temp_data('smnist_train_dataloader')
     test_dataloader = load_temp_data('smnist_test_dataloader')
 
@@ -48,5 +49,5 @@ if __name__ == "__main__":
 
     smnist.fit_model(num_epochs=10, lr=0.001, train_dataloader=train_dataloader, device_name='cuda:1')
 
-    smnist.evaluate_model(train_dataloader, 'cuda:1')
-    smnist.evaluate_model(test_dataloader, 'cuda:1')
+    smnist.evaluate_model(train_dataloader, 'cuda:2')
+    smnist.evaluate_model(test_dataloader, 'cuda:2')

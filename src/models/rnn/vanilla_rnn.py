@@ -24,22 +24,3 @@ class VanillaRNN(nn.Module):
         y = y.reshape(B, H, L)  # (B, H, L)
 
         return y, None
-
-
-class RNNClassifier(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers, output_size):
-        super(RNNClassifier, self).__init__()
-        self.rnn = nn.RNN(input_size, hidden_size, num_layers, batch_first=False)
-        self.fc = nn.Linear(hidden_size, output_size)
-
-    def forward(self, x):
-        # x shape: (B, H, L) -> Need to permute it to (L, B, H)
-        x = x.permute(2, 0, 1)  # Permuting to match RNN input shape
-
-        # Forward propagate the RNN
-        out, _ = self.rnn(x)
-
-        # Decode the hidden state of the last time step
-        out = self.fc(out[-1, :, :])
-
-        return out
