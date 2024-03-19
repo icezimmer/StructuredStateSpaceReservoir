@@ -1,7 +1,7 @@
 import torch
 import torch.optim as optim
 
-#from src.models.s4.s4 import S4Block
+from src.models.s4.s4 import S4Block
 from src.models.rnn.vanilla_rnn import VanillaRNN
 from src.models.s4d.s4d import S4D
 from src.models.ssrm.s4dr import S4DR
@@ -45,9 +45,9 @@ if __name__ == "__main__":
     train_dataloader = load_temp_data('smnist_train_dataloader')
     test_dataloader = load_temp_data('smnist_test_dataloader')
 
-    smnist = TestSequentialMNIST(S4D, n_layers=2, d_input=NUM_FEATURES_INPUT, d_state=256)
+    smnist = TestSequentialMNIST(S4Block, n_layers=2, d_model=128)
 
-    smnist.fit_model(num_epochs=10, lr=0.001, train_dataloader=train_dataloader, device_name='cuda:1')
+    smnist.fit_model(num_epochs=3, lr=0.001, train_dataloader=train_dataloader, device_name='cuda:1')
 
     smnist.evaluate_model(train_dataloader, 'cuda:2')
     smnist.evaluate_model(test_dataloader, 'cuda:2')

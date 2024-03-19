@@ -1,7 +1,7 @@
 import torch
 import torch.optim as optim
 
-#from src.models.s4.s4 import S4Block
+from src.models.s4.s4 import S4Block
 from src.models.rnn.vanilla_rnn import VanillaRNN
 from src.models.s4d.s4d import S4D
 from src.models.ssrm.s5r import S5R
@@ -43,9 +43,9 @@ if __name__ == "__main__":
     train_dataloader = load_temp_data('pathfinder_train_dataloader')
     test_dataloader = load_temp_data('pathfinder_test_dataloader')
 
-    pathfinder = TestPathFinder(block_factory=S4D, n_layers=4, d_input=NUM_FEATURES_INPUT, d_state=2048)
+    pathfinder = TestPathFinder(block_factory=S4Block, n_layers=4, d_model=128)
 
-    pathfinder.fit_model(num_epochs=5, lr=0.001, train_dataloader=train_dataloader, device_name='cuda:1')
+    pathfinder.fit_model(num_epochs=3, lr=0.001, train_dataloader=train_dataloader, device_name='cuda:1')
 
     pathfinder.evaluate_model(train_dataloader, device_name='cuda:2')
     pathfinder.evaluate_model(test_dataloader, device_name='cuda:2')
