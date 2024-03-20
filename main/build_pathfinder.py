@@ -1,5 +1,4 @@
 import tensorflow as tf
-
 from lra_benchmarks.data.pathfinder import Pathfinder32
 from src.torch_dataset.torch_pathfinder import PathfinderDataset
 from src.utils.temp_data import save_temp_data

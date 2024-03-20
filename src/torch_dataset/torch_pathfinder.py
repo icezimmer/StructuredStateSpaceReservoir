@@ -1,11 +1,6 @@
-from torch.utils.data import Dataset
-import torch
-
-
 import torch
 from torch.utils.data import Dataset
-import tensorflow as tf
-import numpy as np
+from torch.nn.functional import normalize
 
 
 class PathfinderDataset(Dataset):
@@ -18,13 +13,16 @@ class PathfinderDataset(Dataset):
         image, label = self.data[idx]
 
         # Convert NumPy arrays to PyTorch tensors
-        image = torch.from_numpy(image)  # Convert to float
-        image = image.permute(2, 0, 1)  # Change HWC to CHW
-        # Normalize each channel of the image
-        mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
-        std = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
-        image = (image - mean) / std
+        image = torch.from_numpy(image)
+        # From (H, W, C) to (C, H, W)
+        image = image.permute(2, 0, 1)  # (C, H, W)
+        # Take only the first channel (grayscale)
+        image = image[0:1, :, :]
+        image = image.float()
+        print(image)
         # Flatten the spatial dimensions and maintain the channel dimension
-        image = image.view(image.shape[0], -1)  # Reshape to (3, 32*32)
+        image = image.view(image.shape[0], -1)  # Reshape to (H = num channels = 1, L = height * width = 32 * 32)
+        # Normalize each channel of the image
+        image = normalize(image, p=2, dim=-1)
 
         return image, label

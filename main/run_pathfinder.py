@@ -38,12 +38,12 @@ class TestPathFinder:
 
 
 if __name__ == "__main__":
-    NUM_FEATURES_INPUT = 3
+    NUM_FEATURES_INPUT = 1
 
     train_dataloader = load_temp_data('pathfinder_train_dataloader')
     test_dataloader = load_temp_data('pathfinder_test_dataloader')
 
-    pathfinder = TestPathFinder(block_factory=S4Block, n_layers=2, d_model=128)
+    pathfinder = TestPathFinder(block_factory=S4D, n_layers=2, d_input=NUM_FEATURES_INPUT, d_state=128)
 
     pathfinder.fit_model(num_epochs=3, lr=0.001, train_dataloader=train_dataloader, device_name='cuda:1')
 
