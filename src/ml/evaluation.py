@@ -3,22 +3,19 @@ from torchmetrics import Accuracy, Precision, Recall, F1Score, ConfusionMatrix, 
 
 
 class EvaluateClassifier:
-    def __init__(self, model, num_classes, test_dataloader, device_name, average='macro'):
-        self.device = torch.device(device_name)
-        self.model = model.to(self.device)
+    def __init__(self, model, num_classes, test_dataloader, average='macro'):
+        self.model = model
+        self.device = next(self.model.parameters()).device
         self.test_dataloader = test_dataloader
-        self.accuracy = Accuracy(num_classes=num_classes, average=average).to(self.device)
-        self.precision = Precision(num_classes=num_classes, average=average).to(self.device)
-        self.recall = Recall(num_classes=num_classes, average=average).to(self.device)
-        self.f1 = F1Score(num_classes=num_classes, average=average).to(self.device)
-        self.roc_auc = AUROC(num_classes=num_classes, average=average, compute_on_step=False).to(self.device)
-        self.confusion_matrix = ConfusionMatrix(num_classes=num_classes).to(self.device)
+        self.accuracy = Accuracy(num_classes=num_classes, average=average).to(device=self.device)
+        self.precision = Precision(num_classes=num_classes, average=average).to(device=self.device)
+        self.recall = Recall(num_classes=num_classes, average=average).to(device=self.device)
+        self.f1 = F1Score(num_classes=num_classes, average=average).to(device=self.device)
+        self.roc_auc = AUROC(num_classes=num_classes, average=average, compute_on_step=False).to(device=self.device)
+        self.confusion_matrix = ConfusionMatrix(num_classes=num_classes).to(device=self.device)
 
     def __predict(self):
         for input_, label in self.test_dataloader:
-            input_, label = (input_.to(self.device, dtype=torch.float32),
-                             label.to(self.device, dtype=torch.long))
-
             output = self.model(input_)  # outputs of model are logits (raw values)
 
             # Update metrics
