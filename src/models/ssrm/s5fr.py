@@ -1,10 +1,8 @@
 import torch
 from src.reservoir.state_reservoir import DiscreteStateReservoir, ContinuousStateReservoir
-from src.utils.jax_compat import associative_scan
 import torch.nn as nn
-import matplotlib.pyplot as plt
-from matplotlib.patches import Circle
-from einops import repeat
+from src.utils.plot import plot_spectrum
+
 
 """
 see: https://github.com/i404788/s5-pytorch/tree/74e2fdae00b915a62c914bf3615c0b8a4279eb84
@@ -12,7 +10,7 @@ see: https://github.com/i404788/s5-pytorch/tree/74e2fdae00b915a62c914bf3615c0b8a
 
 
 class S5FR(torch.nn.Module):
-    def __init__(self, d_input, d_state, high_stability=0.99, low_stability=1, dynamics='discrete', field='complex'):
+    def __init__(self, d_input, kernel_size, d_state, strong_stability=0.98, weak_stability=1, dynamics='discrete', field='complex'):
         """
         Construct an SSM model with frozen state matrix Lambda_bar:
         x_new = Lambda_bar * x_old + B_bar * u_new
@@ -34,38 +32,27 @@ class S5FR(torch.nn.Module):
         # Initialize parameters C and D
         C = torch.randn(self.d_output, self.d_state, dtype=torch.complex64)
         self.C = nn.Parameter(torch.view_as_real(C), requires_grad=True)  # (H, P, 2)
-        D = torch.randn(self.d_output, self.d_input, dtype=torch.complex64)
-        self.D = nn.Parameter(torch.view_as_real(D), requires_grad=True)  # (H, H)
+        self.D = nn.Parameter(torch.randn(self.d_output, self.d_input, dtype=torch.float32), requires_grad=True)  # (H, H)
 
         B = torch.randn(self.d_state, self.d_input, dtype=torch.complex64)
         if dynamics == 'discrete':
-            if high_stability > low_stability or high_stability < 0 or low_stability > 1:
-                raise ValueError("For the discrete dynamics stability we must have: "
-                                 "0 <= 'high_stability' < |lambda| <= 'low_stability' <= 1.")
-            else:
-                self.high_stability = high_stability
-                self.low_stability = low_stability
-                dr = DiscreteStateReservoir(self.d_state, self.high_stability, self.low_stability, field)
+                dr = DiscreteStateReservoir(self.d_state, strong_stability, weak_stability, field)
                 Lambda_bar = dr.diagonal_state_matrix()
                 B_bar = B
         elif dynamics == 'continuous':
-            if high_stability > low_stability or low_stability > 0:
-                raise ValueError("For the continuous dynamics stability we must have: "
-                                 "'high_stability' < Re(lambda) <= 'low_stability' <= 0.")
-            else:
-                self.high_stability = high_stability
-                self.low_stability = low_stability
-                cr = ContinuousStateReservoir(self.d_state, self.high_stability, self.low_stability, field)
+                cr = ContinuousStateReservoir(self.d_state, strong_stability, weak_stability, field)
                 Lambda = cr.diagonal_state_matrix()
                 Delta = torch.ones(self.d_state, dtype=torch.float32)  # Placeholder for future customization
                 Lambda_bar, B_bar = self._zoh(Lambda, B, Delta)  # Discretization
         else:
             raise ValueError("Dynamics must be 'continuous' or 'discrete'.")
-        self.dynamics = dynamics
 
         # Initialize parameters Lambda_bar and B_bar
         self.Lambda_bar = nn.Parameter(torch.view_as_real(Lambda_bar), requires_grad=False)  # Frozen Lambda_bar (P)
         self.B_bar = nn.Parameter(torch.view_as_real(B_bar), requires_grad=True)  # (P, H, 2)
+
+        # Construct the kernel
+        self.kernel = nn.Parameter(self._construct_kernel(kernel_size), requires_grad=False)  # (P, L)
 
         # Output linear layer
         self.output_linear = nn.Sequential(nn.GELU())
@@ -75,25 +62,7 @@ class S5FR(torch.nn.Module):
         Plot the spectrum of the discrete dynamics
         :return:
         """
-        # Extracting real and imaginary parts
-        Lambda_bar = self.Lambda_bar.clone().detach()
-        real_parts = Lambda_bar[:, 0]
-        imaginary_parts = Lambda_bar[:, 1]
-
-        # Plotting
-        plt.figure(figsize=(10, 10))
-        plt.scatter(real_parts, imaginary_parts, color='red', marker='o')
-        plt.title('Complex Eigs (Discrete Dynamics)')
-        plt.xlabel('Real Part')
-        plt.ylabel('Imaginary Part')
-        # Adding a unit circle
-        circle = Circle((0, 0), 1, fill=False, color='blue', linestyle='--')
-        plt.gca().add_patch(circle)
-
-        plt.grid(True)
-        plt.axhline(y=0, color='k')  # Adds x-axis
-        plt.axvline(x=0, color='k')  # Adds y-axis
-        plt.show()
+        plot_spectrum(self.Lambda_bar)
 
     @staticmethod
     def _zoh(Lambda, B, Delta):
@@ -116,24 +85,38 @@ class S5FR(torch.nn.Module):
 
         return Lambda_bar, B_bar
 
-    def _apply_transfer_function(self, U_s, s):
+
+    def _construct_kernel(self, kernel_size):
+        """
+
+        Args:
+            kernel_size:
+
+        Returns:
+
+        """
+        Lambda_bar = torch.view_as_complex(self.Lambda_bar)  # (P)
+        omega_s = 2 * torch.pi * torch.fft.rfftfreq(kernel_size)  # (L//2+1)
+        s = 1j * omega_s
+        kernel = 1 / (s.reshape(1, -1) - Lambda_bar.unsqueeze(-1))  # (P, L)
+        return kernel
+
+    def _apply_transfer_function(self, U_s):
         """
         Apply the transfer function to the input sequence
         :param u: batched input sequence of shape (B,H,L) = (batch_size, d_input, input_length)
         :return: y: batched output sequence of shape (B,H,L) = (batch_size, d_output, input_length)
         """
         # Materialize parameters
-        Lambda_bar = torch.view_as_complex(self.Lambda_bar)  # (P)
+        # Lambda_bar = torch.view_as_complex(self.Lambda_bar)  # (P)
         B_bar = torch.view_as_complex(self.B_bar)  # (P,H)
         C = torch.view_as_complex(self.C)  # (H, P)
-        D = torch.view_as_complex(self.D)  # (H, H)
 
-        # Construct the transfer function G(s) = C * (sI - A)^-1 * B + D
-        mid = 1 / (s.reshape(1, -1) - Lambda_bar.unsqueeze(-1))  # (P, L)
-        C_mid = torch.einsum('hp,pl->hpl', C, mid)  # (H, P, L)
-        G = torch.einsum('hpl,pq->hql', C_mid, B_bar)  # (H, H, L)
+        # Construct the transfer function G(s) = C * (sI - A)^-1 * B + D = C * (Kernel) * B + D
+        C_kernel = torch.einsum('hp,pl->hpl', C, self.kernel)  # (H, P, L)
+        G = torch.einsum('hpl,pq->hql', C_kernel, B_bar)  # (H, H, L)
 
-        Y_s = torch.einsum('hql,bql->bhl', G, U_s) + torch.einsum('hq,bql->bhl', D, U_s)  # (B, H, L)
+        Y_s = torch.einsum('hql,bql->bhl', G, U_s) + torch.einsum('hq,bql->bhl', self.D, U_s)  # (B, H, L)
         return Y_s
 
     def forward(self, u):
@@ -145,12 +128,12 @@ class S5FR(torch.nn.Module):
 
         U_s = torch.fft.rfftn(u)  # (B, H, L//2+1)
 
-        omega_s = 2 * torch.pi * torch.fft.rfftfreq(u.shape[-1])  # (L//2+1)
-        omega_s = omega_s.to(device=u.device)
-        s = 1j * omega_s
+        # omega_s = 2 * torch.pi * torch.fft.rfftfreq(u.shape[-1])  # (L//2+1)
+        # omega_s = omega_s.to(device=u.device)
+        # s = 1j * omega_s
 
         # Compute Du part
-        Y_s = self._apply_transfer_function(U_s, s)
+        Y_s = self._apply_transfer_function(U_s)
 
         y = torch.fft.irfftn(Y_s)  # (B, H, L)
 

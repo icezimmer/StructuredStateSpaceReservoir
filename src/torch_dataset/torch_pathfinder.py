@@ -21,9 +21,9 @@ class PathfinderDataset(Dataset):
             image = image.permute(2, 0, 1)
 
             # Flatten the spatial dimensions while maintaining the channel dimension
-            image = image.view(image.shape[0], -1)
+            image = image.view(image.shape[0], -1)  # (C=1, H*W)
 
-            # Normalize the tensor using L2 normalization
+            # # Normalize the tensor using L2 normalization
             image = torch.nn.functional.normalize(image, p=2, dim=-1)
 
             # Store the preprocessed image and label

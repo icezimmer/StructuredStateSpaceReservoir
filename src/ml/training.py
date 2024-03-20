@@ -23,6 +23,10 @@ class TrainModel:
 
             loss = self.criterion(output, label)
             loss.backward()
+
+            # for param in self.model.parameters():
+            #     print(param.grad)
+
             self.optimizer.step()
 
             running_loss += loss.item()

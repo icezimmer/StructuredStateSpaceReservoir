@@ -1,22 +1,25 @@
 import torch
+import warnings
 
 
 class DiscreteStateReservoir:
-    def __init__(self, d_state, min_radius, max_radius, field):
+    def __init__(self, d_state, strong_stability, weak_stability, field):
         """
         Generate the discrete state matrix A_bar for an SSM model.
-        :param d_state:
-        :param min_radius:
-        :param max_radius:
-        :param field:
+        Args:
+            d_state:
+            strong_stability:
+            weak_stability:
+            field:
         """
         self.d_state = d_state
 
-        if min_radius > max_radius or min_radius < 0 or max_radius > 1:
-            raise ValueError("min_radius should be less than max_radius and both should be in [0, 1].")
-        else:
-            self.min_radius = min_radius
-            self.max_radius = max_radius
+        if strong_stability > weak_stability or strong_stability < 0 or weak_stability > 1:
+            warnings.warn("For the discrete dynamics stability we must have:"
+                          "0 <= strong_stability < |lambda| <= weak_stability <= 1.")
+
+        self.strong_stability = strong_stability
+        self.weak_stability = weak_stability
 
         if field not in ['complex', 'real']:
             raise ValueError("The field must be 'complex' or 'real'.")
@@ -27,25 +30,25 @@ class DiscreteStateReservoir:
         """
         Create a state matrix Lambda_bar for the discrete dynamics;
         lambda = radius * (cos(theta) + i * sin(theta)):
-        radius in [min_radius, max_radius),
+        radius in [strong_stability, weak_stability),
         theta in [0, 2pi).
         :return: Lambda_bar
         """
         if self.field == 'complex':
-            radius = self.min_radius + (self.max_radius - self.min_radius) * torch.rand(self.d_state,
+            radius = self.strong_stability + (self.weak_stability - self.strong_stability) * torch.rand(self.d_state,
                                                                                         dtype=torch.float32)
             theta = 2 * torch.pi * torch.rand(self.d_state, dtype=torch.float32)
             alpha_tensor = radius * torch.cos(theta)
             omega_tensor = radius * torch.sin(theta)
         elif self.field == 'real':
             half_d_state = self.d_state // 2
-            radius = self.min_radius + (self.max_radius - self.min_radius) * torch.rand(half_d_state,
+            radius = self.strong_stability + (self.weak_stability - self.strong_stability) * torch.rand(half_d_state,
                                                                                         dtype=torch.float32)
             theta = torch.pi * torch.rand(half_d_state, dtype=torch.float32)
             alpha_tensor = torch.cat((radius * torch.cos(theta), radius * torch.cos(theta)), 0)
             omega_tensor = torch.cat((radius * torch.sin(theta), -radius * torch.sin(theta)), 0)
             if self.d_state % 2 == 1:
-                extra_radius = self.min_radius + (self.max_radius - self.min_radius) * torch.rand(1,
+                extra_radius = self.strong_stability + (self.weak_stability - self.strong_stability) * torch.rand(1,
                                                                                                   dtype=torch.float32)
                 # Choose 0 or pi randomly for extra_theta
                 extra_theta = torch.randint(0, 2, (1,)) * torch.pi
@@ -59,22 +62,22 @@ class DiscreteStateReservoir:
 
 
 class ContinuousStateReservoir:
-    def __init__(self, d_state, min_starting_real_part, max_starting_real_part, field):
+    def __init__(self, d_state, strong_stability, weak_stability, field):
         """
         Generate the continuous state matrix A for an SSM model.
         :param d_state:
-        :param min_starting_real_part:
-        :param max_starting_real_part:
+        :param strong_stability:
+        :param weak_stability:
         :param field:
         """
         self.d_state = d_state
 
-        if min_starting_real_part > max_starting_real_part or max_starting_real_part > 0:
-            raise ValueError("min_starting_real_part should be less than max_starting_real_part and "
-                             "both should be non-positive.")
-        else:
-            self.min_starting_real_part = min_starting_real_part
-            self.max_starting_real_part = max_starting_real_part
+        if strong_stability > weak_stability or weak_stability > 0:
+            warnings.warn("For the continuous dynamics stability we must have:"
+                          "high_stability < Re(lambda) <= low_stability <= 0.")
+
+        self.strong_stability = strong_stability
+        self.weak_stability = weak_stability
 
         if field not in ['complex', 'real']:
             raise ValueError("The field must be 'complex' or 'real'.")
@@ -89,8 +92,8 @@ class ContinuousStateReservoir:
         Im(lambda) in [0, 2pi).
         :return: Lambda
         """
-        min_real = self.min_starting_real_part
-        max_real = self.max_starting_real_part
+        min_real = self.strong_stability
+        max_real = self.weak_stability
         if self.field == 'complex':
             real_tensor = min_real + (max_real - min_real) * torch.rand(self.d_state, dtype=torch.float32)
             imag_tensor = 2 * torch.pi * torch.rand(self.d_state, dtype=torch.float32)
