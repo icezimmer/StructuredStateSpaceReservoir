@@ -4,8 +4,7 @@ from torch.nn.functional import normalize
 
 
 class PathfinderDataset(Dataset):
-    def __init__(self, tf_dataset, device_name):
-        self.device = torch.device(device_name)
+    def __init__(self, tf_dataset, device_name=None):
         self.data = []
         for image, label in tf_dataset:
             # Take only the first channel (grayscale)
@@ -14,8 +13,8 @@ class PathfinderDataset(Dataset):
             # Convert NumPy arrays to PyTorch tensors and ensure the type is float
             image = torch.from_numpy(image)
 
-            image = image.to(self.device, dtype=torch.float32)
-            label = torch.tensor(label, device=self.device, dtype=torch.long)
+            image = image.to(dtype=torch.float32)
+            label = torch.tensor(label, dtype=torch.long)
 
             # Permute the dimensions from (H, W, C=1) to (C=1, H, W)
             image = image.permute(2, 0, 1)
@@ -25,6 +24,10 @@ class PathfinderDataset(Dataset):
 
             # # Normalize the tensor using L2 normalization
             image = torch.nn.functional.normalize(image, p=2, dim=-1)
+
+            if device_name is not None:
+                image = image.to(torch.device(device_name))
+                label = label.to(torch.device(device_name))
 
             # Store the preprocessed image and label
             self.data.append((image, label))

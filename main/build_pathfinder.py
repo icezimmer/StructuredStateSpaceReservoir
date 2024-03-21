@@ -10,8 +10,8 @@ dataset_train, dataset_test = builder_dataset.as_dataset(split=['easy[80%:]', 'e
 dataset_train = PathfinderDataset(dataset_train, 'cuda:1')
 train_dataloader = DataLoader(dataset_train, batch_size=128, shuffle=True)
 
-dataset_test = PathfinderDataset(dataset_test, 'cuda:1')
-test_dataloader = DataLoader(dataset_test, batch_size=128, shuffle=False)
+dataset_test = PathfinderDataset(dataset_test)
+test_dataloader = DataLoader(dataset_test, batch_size=128, shuffle=False, pin_memory=True, num_workers=128)
 
 save_temp_data(train_dataloader, 'pathfinder_train_dataloader')
 save_temp_data(test_dataloader, 'pathfinder_test_dataloader')

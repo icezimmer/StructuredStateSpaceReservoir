@@ -10,14 +10,15 @@ from src.task.test_classifier import TestClassifier
 
 
 if __name__ == "__main__":
-    NUM_CLASSES = 10
-    NUM_FEATURES_INPUT = 1
-    KERNEL_SIZE = 28 * 28
-
     train_dataloader = load_temp_data('smnist_train_dataloader')
     test_dataloader = load_temp_data('smnist_test_dataloader')
 
-    smnist = TestClassifier(block_factory=S4R, device_name='cuda:1', num_classes=NUM_CLASSES, n_layers=2,
+    NUM_CLASSES = 10
+    NUM_FEATURES_INPUT = 1
+    KERNEL_SIZE = 28 * 28
+    DEVICE = next(iter(train_dataloader))[0].device
+
+    smnist = TestClassifier(block_factory=S4R, device=DEVICE, num_classes=NUM_CLASSES, n_layers=1,
                             #d_model=8)
                             d_input=NUM_FEATURES_INPUT, d_state=16384,
                             kernel_size=KERNEL_SIZE, strong_stability=0.8, weak_stability=0.9)

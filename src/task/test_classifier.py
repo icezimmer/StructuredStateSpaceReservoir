@@ -8,12 +8,11 @@ from src.ml.evaluation import EvaluateClassifier
 
 
 class TestClassifier:
-    def __init__(self, block_factory, device_name, num_classes, n_layers, *args, **kwargs):
+    def __init__(self, block_factory, device, num_classes, n_layers, *args, **kwargs):
         self.__NUM_CLASSES = num_classes
         self.__CRITERION = torch.nn.CrossEntropyLoss()  # Classification task: sigmoid layer + BCE loss (more stable)
-        self.device = torch.device(device_name)
         model = self.__construct_model(block_factory, n_layers, *args, **kwargs)
-        self.model = model.to(self.device)
+        self.model = model.to(device)
 
     def __construct_model(self, block_factory, n_layers, *args, **kwargs):
         stacked = NaiveStacked(block_factory=block_factory, n_layers=n_layers, *args, **kwargs)

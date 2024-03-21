@@ -4,6 +4,8 @@ import torch
 class TrainModel:
     def __init__(self, model, optimizer, criterion, train_dataloader):
         self.model = model
+        self.device = next(self.model.parameters()).device
+        self.need_transfer = next(iter(train_dataloader))[0].device != self.device
         self.optimizer = optimizer
         self.criterion = criterion
         self.train_dataloader = train_dataloader
@@ -14,6 +16,8 @@ class TrainModel:
 
         running_loss = 0.0
         for input_, label in self.train_dataloader:
+            if self.need_transfer:
+                input_, label = input_.to(self.device), label.to(self.device)
 
             # Zero the parameter gradients
             self.optimizer.zero_grad()
