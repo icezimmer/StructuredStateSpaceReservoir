@@ -14,8 +14,12 @@ class DiscreteStateReservoir:
         """
         self.d_state = d_state
 
-        if strong_stability > weak_stability or strong_stability < 0 or weak_stability > 1:
+        if strong_stability > weak_stability or strong_stability < 0:
             warnings.warn("For the discrete dynamics stability we must have:"
+                          "0 <= strong_stability < |lambda| <= weak_stability.")
+
+        if weak_stability > 1:
+            warnings.warn("For a stable discrete dynamics set weak_stability such that:"
                           "0 <= strong_stability < |lambda| <= weak_stability <= 1.")
 
         self.strong_stability = strong_stability

@@ -10,7 +10,7 @@ see: https://github.com/i404788/s5-pytorch/tree/74e2fdae00b915a62c914bf3615c0b8a
 
 
 class S4R(torch.nn.Module):
-    def __init__(self, d_input, kernel_size, d_state, strong_stability=0.99, weak_stability=1, dt=None,
+    def __init__(self, d_input, kernel_size, d_state, strong_stability, weak_stability, dt=None,
                  field='complex'):
         """
         Construct an SSM model with frozen state matrix Lambda_bar:
@@ -18,8 +18,8 @@ class S4R(torch.nn.Module):
         y_new = C * x_new + D * u_new
         :param d_input: dimensionality of the input space
         :param d_state: dimensionality of the latent space
-        :param dynamics: 'continuous' or 'discrete'
-        :param field: 'real' or 'complex'
+        :param dt: delta time for continuous dynamics (default: None for discrete dynamics)
+        :param field: field for the state 'real' or 'complex' (default: 'complex')
         """
         # TODO: Delta trainable parameter not fixed to ones for continuous dynamics:
         #   Lambda_bar = Lambda_Bar(Lambda, Delta), B_bar = B(Lambda, B, Delta)
@@ -47,7 +47,7 @@ class S4R(torch.nn.Module):
             # Delta = torch.ones(self.d_state, dtype=torch.float32)
             Lambda_bar, B_bar = self._zoh(Lambda, B, dt)  # Discretization
         else:
-            raise ValueError("Delta time dt must be positive: set dt>0 else 'discrete dynamics'.")
+            raise ValueError("Delta time dt must be positive: set dt>0 otherwise 'discrete dynamics'.")
 
         # Initialize parameters Lambda_bar and B_bar
         self.Lambda_bar = nn.Parameter(Lambda_bar, requires_grad=False)  # Frozen Lambda_bar (P)

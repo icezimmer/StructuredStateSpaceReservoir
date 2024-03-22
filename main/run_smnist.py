@@ -10,16 +10,18 @@ from src.task.test_classifier import TestClassifier
 
 
 if __name__ == "__main__":
+    develop_dataloader = load_temp_data('smnist_develop_dataloader')
     train_dataloader = load_temp_data('smnist_train_dataloader')
+    val_dataloader = load_temp_data('smnist_val_dataloader')
     test_dataloader = load_temp_data('smnist_test_dataloader')
 
     NUM_CLASSES = 10
     NUM_FEATURES_INPUT = 1
     KERNEL_SIZE = 28 * 28
-    DEVICE = next(iter(train_dataloader))[0].device
+    DEVICE = next(iter(develop_dataloader))[0].device
 
-    smnist = TestClassifier(block_factory=S4R, device=DEVICE, num_classes=NUM_CLASSES, n_layers=1,
-                            #d_model=8)
+    smnist = TestClassifier(block_factory=S4R, device=DEVICE, num_classes=NUM_CLASSES, n_layers=2,
+                            # d_model=128)
                             d_input=NUM_FEATURES_INPUT, d_state=16384,
                             kernel_size=KERNEL_SIZE, strong_stability=0.8, weak_stability=0.9)
 
@@ -27,11 +29,13 @@ if __name__ == "__main__":
     #     print(param.data.shape)
     #     print(param)
 
-    smnist.fit_model(num_epochs=50, lr=0.001, train_dataloader=train_dataloader)
+    smnist.fit_model(lr=0.001, develop_dataloader=develop_dataloader, patience=5,
+                     train_dataloader=train_dataloader, val_dataloader=val_dataloader,
+                     name='smnist_model')
 
     # for param in smnist.model.parameters():
     #     print(param.data.shape)
     #     print(param)
 
-    smnist.evaluate_model(train_dataloader)
+    smnist.evaluate_model(develop_dataloader)
     smnist.evaluate_model(test_dataloader)

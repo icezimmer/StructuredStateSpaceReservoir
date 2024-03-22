@@ -10,15 +10,16 @@ see: https://github.com/i404788/s5-pytorch/tree/74e2fdae00b915a62c914bf3615c0b8a
 
 
 class S5FR(torch.nn.Module):
-    def __init__(self, d_input, kernel_size, d_state, strong_stability=0.98, weak_stability=1, dynamics='discrete', field='complex'):
+    def __init__(self, d_input, kernel_size, d_state, strong_stability, weak_stability, dt=None,
+                 field='complex'):
         """
         Construct an SSM model with frozen state matrix Lambda_bar:
         x_new = Lambda_bar * x_old + B_bar * u_new
         y_new = C * x_new + D * u_new
         :param d_input: dimensionality of the input space
         :param d_state: dimensionality of the latent space
-        :param dynamics: 'continuous' or 'discrete'
-        :param field: 'real' or 'complex'
+        :param dt: delta time for continuous dynamics (default: None for discrete dynamics)
+        :param field: field for the state 'real' or 'complex' (default: 'complex')
         """
         # TODO: Delta trainable parameter not fixed to ones for continuous dynamics:
         #   Lambda_bar = Lambda_Bar(Lambda, Delta), B_bar = B(Lambda, B, Delta)
@@ -35,17 +36,17 @@ class S5FR(torch.nn.Module):
         self.D = nn.Parameter(torch.randn(self.d_output, self.d_input, dtype=torch.float32), requires_grad=True)  # (H, H)
 
         B = torch.randn(self.d_state, self.d_input, dtype=torch.complex64)
-        if dynamics == 'discrete':
-                dr = DiscreteStateReservoir(self.d_state, strong_stability, weak_stability, field)
-                Lambda_bar = dr.diagonal_state_matrix()
-                B_bar = B
-        elif dynamics == 'continuous':
-                cr = ContinuousStateReservoir(self.d_state, strong_stability, weak_stability, field)
-                Lambda = cr.diagonal_state_matrix()
-                Delta = torch.ones(self.d_state, dtype=torch.float32)  # Placeholder for future customization
-                Lambda_bar, B_bar = self._zoh(Lambda, B, Delta)  # Discretization
+        if dt is None:
+            dr = DiscreteStateReservoir(self.d_state, strong_stability, weak_stability, field)
+            Lambda_bar = dr.diagonal_state_matrix()
+            B_bar = B
+        elif dt > 0:
+            cr = ContinuousStateReservoir(self.d_state, strong_stability, weak_stability, field)
+            Lambda = cr.diagonal_state_matrix()
+            # Delta = torch.ones(self.d_state, dtype=torch.float32)
+            Lambda_bar, B_bar = self._zoh(Lambda, B, dt)  # Discretization
         else:
-            raise ValueError("Dynamics must be 'continuous' or 'discrete'.")
+            raise ValueError("Delta time dt must be positive: set dt>0 otherwise 'discrete dynamics'.")
 
         # Initialize parameters Lambda_bar and B_bar
         self.Lambda_bar = nn.Parameter(torch.view_as_real(Lambda_bar), requires_grad=False)  # Frozen Lambda_bar (P)
