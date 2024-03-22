@@ -9,7 +9,7 @@ see: https://github.com/i404788/s5-pytorch/tree/74e2fdae00b915a62c914bf3615c0b8a
 """
 
 
-class S5FR(torch.nn.Module):
+class S4V(torch.nn.Module):
     def __init__(self, d_input, kernel_size, d_state, strong_stability, weak_stability, dt=None,
                  field='complex'):
         """
@@ -24,11 +24,12 @@ class S5FR(torch.nn.Module):
         # TODO: Delta trainable parameter not fixed to ones for continuous dynamics:
         #   Lambda_bar = Lambda_Bar(Lambda, Delta), B_bar = B(Lambda, B, Delta)
 
-        super(S5FR, self).__init__()
+        super(S4V, self).__init__()
 
         self.d_input = d_input
+        self.kernel_size = kernel_size
         self.d_state = d_state
-        self.d_output = d_input
+        self.d_output = self.d_input
 
         # Initialize parameters C and D
         C = torch.randn(self.d_output, self.d_state, dtype=torch.complex64)
@@ -48,14 +49,17 @@ class S5FR(torch.nn.Module):
             raise ValueError("Delta time dt must be positive: set dt>0 otherwise 'discrete dynamics'.")
 
         # Initialize parameters Lambda_bar and B_bar
-        self.Lambda_bar = nn.Parameter(torch.view_as_real(Lambda_bar), requires_grad=False)  # Frozen Lambda_bar (P)
+        self.Lambda_bar = nn.Parameter(torch.view_as_real(Lambda_bar), requires_grad=True)  # Frozen Lambda_bar (P)
         self.B_bar = nn.Parameter(torch.view_as_real(B_bar), requires_grad=True)  # (P, H, 2)
 
-        # Construct the kernel
-        self.kernel = nn.Parameter(self._construct_kernel(kernel_size), requires_grad=False)  # (P, L)
+        # Non-linearity
+        self.non_linearity = nn.Tanh()
 
-        # Output linear layer
-        self.output_linear = nn.Sequential(nn.GELU())
+        # Mixing Layer
+        self.mixing_layer = nn.Sequential(
+            nn.Conv1d(self.d_input, 2 * self.d_output, kernel_size=1),
+            nn.GLU(dim=-2),
+        )
 
     def plot_discrete_spectrum(self):
         """
@@ -65,7 +69,7 @@ class S5FR(torch.nn.Module):
         plot_spectrum(self.Lambda_bar)
 
     @staticmethod
-    def _zoh(Lambda, B, Delta):
+    def _zoh(Lambda, B, dt):
         """
         Discretize the system using the zero-order-hold transform:
         Lambda_bar = exp(Lambda*Delta)
@@ -79,45 +83,46 @@ class S5FR(torch.nn.Module):
         """
         Ones = torch.ones(Lambda.shape[0], dtype=torch.float32)
 
-        Lambda_bar = torch.exp(torch.mul(Lambda, Delta))
+        # Lambda_bar = torch.exp(torch.mul(Lambda, Delta))
+        Lambda_bar = torch.exp(Lambda * dt)
 
         B_bar = torch.einsum('p,ph->ph', torch.mul(1 / Lambda, (Lambda_bar - Ones)), B)
 
         return Lambda_bar, B_bar
 
-
-    def _construct_kernel(self, kernel_size):
+    def _construct_vandermonde(self):
         """
-
         Args:
             kernel_size:
 
         Returns:
 
         """
-        Lambda_bar = torch.view_as_complex(self.Lambda_bar)  # (P)
-        omega_s = 2 * torch.pi * torch.fft.rfftfreq(kernel_size)  # (L//2+1)
-        s = 1j * omega_s
-        kernel = 1 / (s.reshape(1, -1) - Lambda_bar.unsqueeze(-1))  # (P, L)
-        return kernel
+        Lambda_bar = torch.view_as_complex(self.Lambda_bar)
+        vandermonde = Lambda_bar.unsqueeze(1) ** torch.arange(self.kernel_size, dtype=torch.float32,
+                                                              device=self.Lambda_bar.device)  # (P, L)
+        return vandermonde
 
-    def _apply_transfer_function(self, U_s):
+    def _apply_kernel(self, u):
         """
         Apply the transfer function to the input sequence
         :param u: batched input sequence of shape (B,H,L) = (batch_size, d_input, input_length)
         :return: y: batched output sequence of shape (B,H,L) = (batch_size, d_output, input_length)
         """
-        # Materialize parameters
-        # Lambda_bar = torch.view_as_complex(self.Lambda_bar)  # (P)
-        B_bar = torch.view_as_complex(self.B_bar)  # (P,H)
+        B_bar = torch.view_as_complex(self.B_bar)  # (P, H)
         C = torch.view_as_complex(self.C)  # (H, P)
 
-        # Construct the transfer function G(s) = C * (sI - A)^-1 * B + D = C * (Kernel) * B + D
-        C_kernel = torch.einsum('hp,pl->hpl', C, self.kernel)  # (H, P, L)
-        G = torch.einsum('hpl,pq->hql', C_kernel, B_bar)  # (H, H, L)
+        u_s = torch.fft.fft(u, dim=-1)  # (B, H, L)
 
-        Y_s = torch.einsum('hql,bql->bhl', G, U_s) + torch.einsum('hq,bql->bhl', self.D, U_s)  # (B, H, L)
-        return Y_s
+        # Vandermonde matrix for kernel computation
+        vandermonde = self._construct_vandermonde()  # (P, L)
+
+        kernel = torch.einsum('hp,pl->hl', torch.einsum('hp,ph->hp', C, B_bar), vandermonde)  # (H, L)
+        kernel_s = torch.fft.fft(kernel, dim=-1)
+
+        y = torch.fft.ifft(torch.einsum('bhl,hl->bhl', u_s, kernel_s), dim=-1)  # (B, H, L)
+
+        return y
 
     def forward(self, u):
         """
@@ -126,16 +131,15 @@ class S5FR(torch.nn.Module):
         :return: y: batched output sequence of shape (B,H,L) = (batch_size, d_output, input_length)
         """
 
-        U_s = torch.fft.rfftn(u)  # (B, H, L//2+1)
-
-        # omega_s = 2 * torch.pi * torch.fft.rfftfreq(u.shape[-1])  # (L//2+1)
-        # omega_s = omega_s.to(device=u.device)
-        # s = 1j * omega_s
-
+        # print(self.Lambda_bar.abs())
+        # print(self.Lambda_bar.angle())
         # Compute Du part
-        Y_s = self._apply_transfer_function(U_s)
+        y = self._apply_kernel(u)  # (B, H, L)
+        y = y.real + torch.einsum('hh,bhl->bhl', self.D, u)  # (B, H, L), self.D.unsqueeze(-1) is (H, 1)
 
-        y = torch.fft.irfftn(Y_s)  # (B, H, L)
+        y = self.non_linearity(y)
+
+        y = self.mixing_layer(y)
 
         # Return a dummy state to satisfy this repo's interface, but this can be modified
-        return self.output_linear(y), None
+        return y, None

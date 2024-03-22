@@ -5,6 +5,7 @@ from src.models.ssrm.s4dr import S4DR
 from src.models.ssrm.s5r import S5R
 from src.models.ssrm.s5fr import S5FR
 from src.models.ssrm.s4r import S4R
+from src.models.ssrm.s4v import S4V
 from src.utils.temp_data import save_temp_data, load_temp_data
 from src.task.test_classifier import TestClassifier
 
@@ -20,10 +21,10 @@ if __name__ == "__main__":
     KERNEL_SIZE = 28 * 28
     DEVICE = next(iter(develop_dataloader))[0].device
 
-    smnist = TestClassifier(block_factory=S4R, device=DEVICE, num_classes=NUM_CLASSES, n_layers=2,
+    smnist = TestClassifier(block_factory=S4V, device=DEVICE, num_classes=NUM_CLASSES, n_layers=1,
                             # d_model=128)
-                            d_input=NUM_FEATURES_INPUT, d_state=16384,
-                            kernel_size=KERNEL_SIZE, strong_stability=0.8, weak_stability=0.9)
+                            d_input=NUM_FEATURES_INPUT, d_state=64*64*4,
+                            kernel_size=KERNEL_SIZE, strong_stability=0.5, weak_stability=0.5)
 
     # for param in smnist.model.parameters():
     #     print(param.data.shape)

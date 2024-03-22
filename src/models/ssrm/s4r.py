@@ -32,11 +32,11 @@ class S4R(torch.nn.Module):
         self.d_output = self.d_input
 
         # Initialize parameters C and D
-        C = torch.randn(self.d_state, dtype=torch.complex64)
-        self.C = nn.Parameter(torch.view_as_real(C), requires_grad=True)  # (P, 2)
-        self.D = nn.Parameter(torch.randn(self.d_input, dtype=torch.float32), requires_grad=True)  # (H)
+        C = torch.randn(self.d_output, self.d_state, dtype=torch.complex64)
+        self.C = nn.Parameter(torch.view_as_real(C), requires_grad=True)  # (H, P, 2)
+        self.D = nn.Parameter(torch.randn(self.d_output, self.d_input, dtype=torch.float32), requires_grad=True)  # (H, H)
 
-        B = torch.randn(self.d_state, dtype=torch.complex64)
+        B = torch.randn(self.d_state, self.d_input, dtype=torch.complex64)
         if dt is None:
             dr = DiscreteStateReservoir(self.d_state, strong_stability, weak_stability, field)
             Lambda_bar = dr.diagonal_state_matrix()
@@ -44,20 +44,25 @@ class S4R(torch.nn.Module):
         elif dt > 0:
             cr = ContinuousStateReservoir(self.d_state, strong_stability, weak_stability, field)
             Lambda = cr.diagonal_state_matrix()
-            # Delta = torch.ones(self.d_state, dtype=torch.float32)
             Lambda_bar, B_bar = self._zoh(Lambda, B, dt)  # Discretization
         else:
             raise ValueError("Delta time dt must be positive: set dt>0 otherwise 'discrete dynamics'.")
 
         # Initialize parameters Lambda_bar and B_bar
         self.Lambda_bar = nn.Parameter(Lambda_bar, requires_grad=False)  # Frozen Lambda_bar (P)
-        self.B_bar = nn.Parameter(torch.view_as_real(B_bar), requires_grad=True)  # (P, 2)
+        self.B_bar = nn.Parameter(torch.view_as_real(B_bar), requires_grad=True)  # (P, H, 2)
 
-        # Construct the kernel
+        # Vandermonde matrix for kernel computation
         self.vandermonde = nn.Parameter(self._construct_vandermonde(), requires_grad=False)  # (P, L)
 
-        # Output linear layer
-        self.non_linearity = nn.Sequential(nn.Tanh())
+        # Non-linearity
+        self.non_linearity = nn.Tanh()
+
+        # Mixing Layer
+        self.mixing_layer = nn.Sequential(
+            nn.Conv1d(self.d_input, 2 * self.d_output, kernel_size=1),
+            nn.GLU(dim=-2),
+        )
 
     def plot_discrete_spectrum(self):
         """
@@ -84,7 +89,7 @@ class S4R(torch.nn.Module):
         # Lambda_bar = torch.exp(torch.mul(Lambda, Delta))
         Lambda_bar = torch.exp(Lambda * dt)
 
-        B_bar = torch.einsum('p,p->p', torch.mul(1 / Lambda, (Lambda_bar - Ones)), B)
+        B_bar = torch.einsum('p,ph->ph', torch.mul(1 / Lambda, (Lambda_bar - Ones)), B)
 
         return Lambda_bar, B_bar
 
@@ -105,15 +110,15 @@ class S4R(torch.nn.Module):
         :param u: batched input sequence of shape (B,H,L) = (batch_size, d_input, input_length)
         :return: y: batched output sequence of shape (B,H,L) = (batch_size, d_output, input_length)
         """
-        B_bar = torch.view_as_complex(self.B_bar)  # (P)
-        C = torch.view_as_complex(self.C)  # (P)
+        B_bar = torch.view_as_complex(self.B_bar)  # (P, H)
+        C = torch.view_as_complex(self.C)  # (H, P)
 
         u_s = torch.fft.fft(u, dim=-1)  # (B, H, L)
 
-        kernel = torch.einsum('p,pl->l', torch.einsum('p,p->p', C, B_bar), self.vandermonde)  # (L)
+        kernel = torch.einsum('hp,pl->hl', torch.einsum('hp,ph->hp', C, B_bar), self.vandermonde)  # (H, L)
         kernel_s = torch.fft.fft(kernel, dim=-1)
 
-        y = torch.fft.ifft(torch.einsum('bhl,l->bhl', u_s, kernel_s), dim=-1)  # (B, H, L)
+        y = torch.fft.ifft(torch.einsum('bhl,hl->bhl', u_s, kernel_s), dim=-1)  # (B, H, L)
 
         return y
 
@@ -125,10 +130,12 @@ class S4R(torch.nn.Module):
         """
 
         # Compute Du part
-        y = self._apply_kernel(u)
-        y = y.real + torch.einsum('h,bhl->bhl', self.D, u)  # (B, H, L), self.D.unsqueeze(-1) is (H, 1)
+        y = self._apply_kernel(u)  # (B, H, L)
+        y = y.real + torch.einsum('hh,bhl->bhl', self.D, u)  # (B, H, L), self.D.unsqueeze(-1) is (H, 1)
 
         y = self.non_linearity(y)
+
+        # y = self.mixing_layer(y)
 
         # Return a dummy state to satisfy this repo's interface, but this can be modified
         return y, None
