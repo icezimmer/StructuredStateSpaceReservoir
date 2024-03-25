@@ -21,7 +21,7 @@ if __name__ == "__main__":
     KERNEL_SIZE = 28 * 28
     DEVICE = next(iter(develop_dataloader))[0].device
 
-    smnist = TestClassifier(block_factory=S4V, device=DEVICE, num_classes=NUM_CLASSES, n_layers=1,
+    smnist = TestClassifier(block_factory=S4R, device=DEVICE, num_classes=NUM_CLASSES, n_layers=1,
                             # d_model=128)
                             d_input=NUM_FEATURES_INPUT, d_state=64*64*4,
                             kernel_size=KERNEL_SIZE, strong_stability=0.5, weak_stability=0.5)
@@ -30,7 +30,7 @@ if __name__ == "__main__":
     #     print(param.data.shape)
     #     print(param)
 
-    smnist.fit_model(lr=0.001, develop_dataloader=develop_dataloader, patience=5,
+    smnist.fit_model(lr=0.001, develop_dataloader=develop_dataloader, num_epochs=10,
                      train_dataloader=train_dataloader, val_dataloader=val_dataloader,
                      name='smnist_model')
 
