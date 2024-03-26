@@ -42,15 +42,15 @@ class TrainModel:
 
             return running_loss / len(dataloader)
 
-    def max_epochs(self, num_epochs, name):
+    def max_epochs(self, num_epochs, checkpoint_path):
         for epoch in range(num_epochs):
             loss_epoch = self.__epoch(self.develop_dataloader)
             print('[%d] loss: %.3f' % (epoch + 1, loss_epoch))
 
-        torch.save(self.model.state_dict(), os.path.join('./saved_data/', name+'.pt'))
+        torch.save(self.model.state_dict(), checkpoint_path)
         print('Finished Training')
 
-    def early_stopping(self, train_dataloader, val_dataloader, patience, name, num_epochs=float('inf')):
+    def early_stopping(self, train_dataloader, val_dataloader, patience, checkpoint_path, num_epochs=float('inf')):
         epoch = 0
         buffer = 0
         best_val_loss = float('inf')
@@ -60,15 +60,15 @@ class TrainModel:
             if val_loss_epoch < best_val_loss:
                 best_val_loss = val_loss_epoch
                 buffer = 0
-                torch.save(self.model.state_dict(), os.path.join('./saved_data/', name+'.pt'))
+                torch.save(self.model.state_dict(), checkpoint_path)
             else:
                 buffer += 1
             print('[%d] train_loss: %.3f; val_loss: %.3f' % (epoch + 1, train_loss_epoch, val_loss_epoch))
             epoch += 1
 
-        self.model.load_state_dict(torch.load(os.path.join('./saved_data/', name+'.pt')))
+        self.model.load_state_dict(torch.load(checkpoint_path))
         develop_loss = self.__epoch(self.develop_dataloader)
-        torch.save(self.model.state_dict(), os.path.join('./saved_data/', name + '.pt'))
+        torch.save(self.model.state_dict(), checkpoint_path)
 
         print('[END] develop_loss: %.3f' % develop_loss)
         print('Finished Training')
