@@ -81,7 +81,7 @@ def main():
     if args.block == "S4Block":
         model = Classifier(block_factory=block_factory, device=device, num_classes=num_classes, n_layers=n_layers,
                            d_model=d_state)
-    elif args.block == "S4D":
+    elif args.block == "S4D" or args.block == "VanillaRNN":
         model = Classifier(block_factory=block_factory, device=device, num_classes=num_classes, n_layers=n_layers,
                            d_input=num_features_input, d_state=d_state)
     else:
