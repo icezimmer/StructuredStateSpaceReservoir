@@ -1,12 +1,12 @@
 import torch
 from torchmetrics import Accuracy, Precision, Recall, F1Score, ConfusionMatrix, AUROC
+from src.utils.check_device import check_data_device
 
 
 class EvaluateClassifier:
     def __init__(self, model, num_classes, test_dataloader, average='macro'):
-        self.model = model
-        self.device = next(self.model.parameters()).device
-        self.need_transfer = next(iter(test_dataloader))[0].device != self.device
+        self.device = check_data_device(test_dataloader)
+        self.model = model.to(self.device)
         self.test_dataloader = test_dataloader
         self.accuracy = Accuracy(num_classes=num_classes, average=average).to(device=self.device)
         self.precision = Precision(num_classes=num_classes, average=average).to(device=self.device)
@@ -17,8 +17,6 @@ class EvaluateClassifier:
 
     def __predict(self):
         for input_, label in self.test_dataloader:
-            if self.need_transfer:
-                input_, label = input_.to(self.device), label.to(self.device)
             output = self.model(input_)  # outputs of model are logits (raw values)
 
             # Update metrics

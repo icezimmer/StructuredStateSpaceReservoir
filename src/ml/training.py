@@ -1,12 +1,10 @@
 import torch
-import os
+from src.utils.check_device import check_data_device
 
 
 class TrainModel:
     def __init__(self, model, optimizer, criterion, develop_dataloader):
-        self.model = model
-        self.device = next(self.model.parameters()).device
-        self.need_transfer = next(iter(develop_dataloader))[0].device != self.device
+        self.model = model.to(check_data_device(develop_dataloader))
         self.optimizer = optimizer
         self.criterion = criterion
         self.develop_dataloader = develop_dataloader
@@ -16,9 +14,6 @@ class TrainModel:
 
         running_loss = 0.0
         for input_, label in dataloader:
-            if self.need_transfer:
-                input_, label = input_.to(self.device), label.to(self.device)
-
             self.optimizer.zero_grad()
             output = self.model(input_)
             loss = self.criterion(output, label)
@@ -34,9 +29,6 @@ class TrainModel:
         with torch.no_grad():
             running_loss = 0.0
             for input_, label in dataloader:
-                if self.need_transfer:
-                    input_, label = input_.to(self.device), label.to(self.device)
-
                 output = self.model(input_)
                 running_loss += self.criterion(output, label).item()
 

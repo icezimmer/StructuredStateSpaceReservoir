@@ -14,7 +14,7 @@ from src.task.classifier import Classifier
 from src.utils.check_device import check_data_device
 
 block_factories = {
-    'S4Block': S4Block,
+    'S4': S4Block,
     'VanillaRNN': VanillaRNN,
     'S4D': S4D,
     'S4DR': S4DR,
@@ -28,7 +28,7 @@ block_factories = {
 def parse_args():
     parser = argparse.ArgumentParser(description='Run classification task.')
     parser.add_argument('--task', default='smnist', help='Name of task.')
-    parser.add_argument('--block', choices=block_factories.keys(), default='S4Block',
+    parser.add_argument('--block', choices=block_factories.keys(), default='S4',
                         help='Block factory to use for the model.')
 
     args, unknown = parser.parse_known_args()
@@ -68,20 +68,19 @@ def main():
     test_dataloader = load_temp_data(os.path.join('./checkpoint', args.task + '_test_dataloader'))
 
     checkpoint_path = os.path.join('./checkpoint', args.task + '_model' + '.pt')
-    device = check_data_device(develop_dataloader)
     block_factory = block_factories[args.block]
 
     logging.basicConfig(level=logging.INFO)
     logging.info('Starting Task.')
 
-    if args.block == 'S4Block':
-        model = Classifier(block_factory=block_factory, device=device, num_classes=num_classes, n_layers=args.layers,
+    if args.block == 'S4':
+        model = Classifier(block_factory=block_factory, num_classes=num_classes, n_layers=args.layers,
                            d_model=args.neurons)
     elif args.block == 'S4D' or args.block == 'VanillaRNN':
-        model = Classifier(block_factory=block_factory, device=device, num_classes=num_classes, n_layers=args.layers,
+        model = Classifier(block_factory=block_factory, num_classes=num_classes, n_layers=args.layers,
                            d_input=num_features_input, d_state=args.neurons)
     else:
-        model = Classifier(block_factory=block_factory, device=device, num_classes=num_classes, n_layers=args.layers,
+        model = Classifier(block_factory=block_factory, num_classes=num_classes, n_layers=args.layers,
                            d_input=num_features_input, d_state=args.neurons,
                            kernel_size=kernel_size, strong_stability=args.strong, weak_stability=args.weak, dt=args.dt)
 
