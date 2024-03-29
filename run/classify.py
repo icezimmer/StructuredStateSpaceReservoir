@@ -14,31 +14,31 @@ from src.task.classifier import Classifier
 from src.utils.check_device import check_data_device
 
 block_factories = {
-    "S4Block": S4Block,
-    "VanillaRNN": VanillaRNN,
-    "S4D": S4D,
-    "S4DR": S4DR,
-    "S5R": S5R,
-    "S5FR": S5FR,
-    "S4R": S4R,
-    "S4V": S4V
+    'S4Block': S4Block,
+    'VanillaRNN': VanillaRNN,
+    'S4D': S4D,
+    'S4DR': S4DR,
+    'S5R': S5R,
+    'S5FR': S5FR,
+    'S4R': S4R,
+    'S4V': S4V
 }
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Run classification task.")
-    parser.add_argument("--task", default='smnist', help="Name of task.")
-    parser.add_argument("--block", choices=block_factories.keys(), default="S4Block",
-                        help="Block factory to use for the model.")
-    parser.add_argument("--layers", type=int, default=1, help="Number of layers.")
-    parser.add_argument("--neurons", type=int, default=64, help="Number of hidden neurons (hidden state size).")
-    parser.add_argument("--weak", type=int, default=0.9, help="Weak Stability for internal dynamics.")
-    parser.add_argument("--strong", type=int, default=1, help="Strong Stability for internal dynamics.")
-    parser.add_argument("--dt", type=int, default=None, help="Sampling rate (only for continuous dynamics).")
+    parser = argparse.ArgumentParser(description='Run classification task.')
+    parser.add_argument('--task', default='smnist', help='Name of task.')
+    parser.add_argument('--block', choices=block_factories.keys(), default='S4Block',
+                        help='Block factory to use for the model.')
+    parser.add_argument('--layers', type=int, default=1, help='Number of layers.')
+    parser.add_argument('--neurons', type=int, default=64, help='Number of hidden neurons (hidden state size).')
+    parser.add_argument('--weak', type=int, default=0.9, help='Weak Stability for internal dynamics.')
+    parser.add_argument('--strong', type=int, default=1, help='Strong Stability for internal dynamics.')
+    parser.add_argument('--dt', type=int, default=None, help='Sampling rate (only for continuous dynamics).')
     
-    parser.add_argument("--lr", type=float, default=0.001, help="Learning rate.")
-    parser.add_argument("--epochs", type=int, default=float('inf'), help="Number of epochs.")
-    parser.add_argument("--patience", type=int, default=10, help="Patience for the early stopping.")
+    parser.add_argument('--lr', type=float, default=0.001, help='Learning rate.')
+    parser.add_argument('--epochs', type=int, default=float('inf'), help='Number of epochs.')
+    parser.add_argument('--patience', type=int, default=10, help='Patience for the early stopping.')
     
     return parser.parse_args()
 
@@ -55,7 +55,7 @@ def main():
         num_features_input = 1
         kernel_size = 32 * 32
     else:
-        raise ValueError("Invalid task name")
+        raise ValueError('Invalid task name')
 
     develop_dataloader = load_temp_data(os.path.join('./saved_data', args.task + '_develop_dataloader'))
     train_dataloader = load_temp_data(os.path.join('./saved_data', args.task + '_train_dataloader'))
@@ -76,12 +76,12 @@ def main():
     dt = args.dt
 
     logging.basicConfig(level=logging.INFO)
-    logging.info("Starting classification task.")
+    logging.info('Starting classification task.')
 
-    if args.block == "S4Block":
+    if args.block == 'S4Block':
         model = Classifier(block_factory=block_factory, device=device, num_classes=num_classes, n_layers=n_layers,
                            d_model=d_state)
-    elif args.block == "S4D" or args.block == "VanillaRNN":
+    elif args.block == 'S4D' or args.block == 'VanillaRNN':
         model = Classifier(block_factory=block_factory, device=device, num_classes=num_classes, n_layers=n_layers,
                            d_input=num_features_input, d_state=d_state)
     else:
@@ -104,5 +104,5 @@ def main():
     model.evaluate_model(test_dataloader)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
