@@ -30,11 +30,16 @@ def parse_args():
     parser.add_argument('--task', default='smnist', help='Name of task.')
     parser.add_argument('--block', choices=block_factories.keys(), default='S4Block',
                         help='Block factory to use for the model.')
+
+    args, unknown = parser.parse_known_args()
+
+    if args.block == 'S4DR' or args.block == 'S5R' or args.block == 'S5FR' or args.block == 'S4R' or args.block == 'S4V':
+        parser.add_argument('--dt', type=int, default=None, help='Sampling rate (only for continuous dynamics).')
+        parser.add_argument('--weak', type=int, default=0.9, help='Weak Stability for internal dynamics.')
+        parser.add_argument('--strong', type=int, default=1, help='Strong Stability for internal dynamics.')
+
     parser.add_argument('--layers', type=int, default=1, help='Number of layers.')
     parser.add_argument('--neurons', type=int, default=64, help='Number of hidden neurons (hidden state size).')
-    parser.add_argument('--weak', type=int, default=0.9, help='Weak Stability for internal dynamics.')
-    parser.add_argument('--strong', type=int, default=1, help='Strong Stability for internal dynamics.')
-    parser.add_argument('--dt', type=int, default=None, help='Sampling rate (only for continuous dynamics).')
     
     parser.add_argument('--lr', type=float, default=0.001, help='Learning rate.')
     parser.add_argument('--epochs', type=int, default=float('inf'), help='Number of epochs.')
@@ -57,43 +62,34 @@ def main():
     else:
         raise ValueError('Invalid task name')
 
-    develop_dataloader = load_temp_data(os.path.join('./saved_data', args.task + '_develop_dataloader'))
-    train_dataloader = load_temp_data(os.path.join('./saved_data', args.task + '_train_dataloader'))
-    val_dataloader = load_temp_data(os.path.join('./saved_data', args.task + '_val_dataloader'))
-    test_dataloader = load_temp_data(os.path.join('./saved_data', args.task + '_test_dataloader'))
+    develop_dataloader = load_temp_data(os.path.join('./checkpoint', args.task + '_develop_dataloader'))
+    train_dataloader = load_temp_data(os.path.join('./checkpoint', args.task + '_train_dataloader'))
+    val_dataloader = load_temp_data(os.path.join('./checkpoint', args.task + '_val_dataloader'))
+    test_dataloader = load_temp_data(os.path.join('./checkpoint', args.task + '_test_dataloader'))
 
-    checkpoint_path = os.path.join('./saved_data', args.task + '_model' + '.pt')
+    checkpoint_path = os.path.join('./checkpoint', args.task + '_model' + '.pt')
     device = check_data_device(develop_dataloader)
-
     block_factory = block_factories[args.block]
-    n_layers = args.layers
-    d_state = args.neurons
-    learning_rate = args.lr
-    num_epochs = args.epochs
-    patience = args.patience
-    weak_stability = args.weak
-    strong_stability = args.strong
-    dt = args.dt
 
     logging.basicConfig(level=logging.INFO)
     logging.info('Starting classification task.')
 
     if args.block == 'S4Block':
-        model = Classifier(block_factory=block_factory, device=device, num_classes=num_classes, n_layers=n_layers,
-                           d_model=d_state)
+        model = Classifier(block_factory=block_factory, device=device, num_classes=num_classes, n_layers=args.layers,
+                           d_model=args.neurons)
     elif args.block == 'S4D' or args.block == 'VanillaRNN':
-        model = Classifier(block_factory=block_factory, device=device, num_classes=num_classes, n_layers=n_layers,
-                           d_input=num_features_input, d_state=d_state)
+        model = Classifier(block_factory=block_factory, device=device, num_classes=num_classes, n_layers=args.layers,
+                           d_input=num_features_input, d_state=args.neurons)
     else:
-        model = Classifier(block_factory=block_factory, device=device, num_classes=num_classes, n_layers=n_layers,
-                           d_input=num_features_input, d_state=d_state,
-                           kernel_size=kernel_size, strong_stability=strong_stability, weak_stability=weak_stability, dt=dt)
+        model = Classifier(block_factory=block_factory, device=device, num_classes=num_classes, n_layers=args.layers,
+                           d_input=num_features_input, d_state=args.neurons,
+                           kernel_size=kernel_size, strong_stability=args.strong, weak_stability=args.weak, dt=args.dt)
 
     # for param in model.model.parameters():
     #     print(param.data.shape)
     #     print(param)
 
-    model.fit_model(lr=learning_rate, develop_dataloader=develop_dataloader, num_epochs=num_epochs, patience=patience,
+    model.fit_model(lr=args.lr, develop_dataloader=develop_dataloader, num_epochs=args.epochs, patience=args.patience,
                     train_dataloader=train_dataloader, val_dataloader=val_dataloader, checkpoint_path=checkpoint_path)
 
     # for param in model.model.parameters():
