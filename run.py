@@ -72,7 +72,7 @@ def main():
     block_factory = block_factories[args.block]
 
     logging.basicConfig(level=logging.INFO)
-    logging.info('Starting classification task.')
+    logging.info('Starting Task.')
 
     if args.block == 'S4Block':
         model = Classifier(block_factory=block_factory, device=device, num_classes=num_classes, n_layers=args.layers,

@@ -27,7 +27,6 @@ if args.task == 'smnist':
                                                               train=True,
                                                               transform=transforms.ToTensor(),
                                                               download=True), device_name=args.device)
-
     test_dataset = SequentialImage2Classify(datasets.MNIST(root='./checkpoint/',
                                                            train=False,
                                                            transform=transforms.ToTensor(),
