@@ -4,20 +4,17 @@ import os
 from src.models.s4.s4 import S4Block
 from src.models.rnn.vanilla_rnn import VanillaRNN
 from src.models.s4d.s4d import S4D
-from src.models.ssrm.s4dr import S4DR
 from src.models.ssrm.s5r import S5R
 from src.models.ssrm.s5fr import S5FR
 from src.models.ssrm.s4r import S4R
 from src.models.ssrm.s4v import S4V
 from src.utils.temp_data import load_temp_data
 from src.task.classifier import Classifier
-from src.utils.check_device import check_data_device
 
 block_factories = {
     'S4': S4Block,
     'VanillaRNN': VanillaRNN,
     'S4D': S4D,
-    'S4DR': S4DR,
     'S5R': S5R,
     'S5FR': S5FR,
     'S4R': S4R,
@@ -33,10 +30,10 @@ def parse_args():
 
     args, unknown = parser.parse_known_args()
 
-    if args.block == 'S4DR' or args.block == 'S5R' or args.block == 'S5FR' or args.block == 'S4R' or args.block == 'S4V':
+    if args.block == 'S5R' or args.block == 'S5FR' or args.block == 'S4R' or args.block == 'S4V':
         parser.add_argument('--dt', type=int, default=None, help='Sampling rate (only for continuous dynamics).')
-        parser.add_argument('--weak', type=int, default=0.9, help='Weak Stability for internal dynamics.')
-        parser.add_argument('--strong', type=int, default=1, help='Strong Stability for internal dynamics.')
+        parser.add_argument('--strong', type=int, default=0.9, help='Strong Stability for internal dynamics.')
+        parser.add_argument('--weak', type=int, default=1, help='Weak Stability for internal dynamics.')
 
     parser.add_argument('--layers', type=int, default=1, help='Number of layers.')
     parser.add_argument('--neurons', type=int, default=64, help='Number of hidden neurons (hidden state size).')

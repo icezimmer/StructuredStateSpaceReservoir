@@ -15,12 +15,12 @@ class DiscreteStateReservoir:
         self.d_state = d_state
 
         if strong_stability > weak_stability or strong_stability < 0:
-            warnings.warn("For the discrete dynamics stability we must have:"
-                          "0 <= strong_stability < |lambda| <= weak_stability.")
+            raise ValueError("For the discrete dynamics we must have:"
+                             "0 <= strong_stability <= |lambda| < weak_stability.")
 
         if weak_stability > 1:
             warnings.warn("For a stable discrete dynamics set weak_stability such that:"
-                          "0 <= strong_stability < |lambda| <= weak_stability <= 1.")
+                          "0 <= strong_stability <= |lambda| < weak_stability <= 1.")
 
         self.strong_stability = strong_stability
         self.weak_stability = weak_stability
@@ -39,21 +39,21 @@ class DiscreteStateReservoir:
         :return: Lambda_bar
         """
         if self.field == 'complex':
-            radius = self.strong_stability + (self.weak_stability - self.strong_stability) * torch.rand(self.d_state,
-                                                                                        dtype=torch.float32)
+            radius = (self.strong_stability + (self.weak_stability - self.strong_stability) *
+                      torch.rand(self.d_state, dtype=torch.float32))
             theta = 2 * torch.pi * torch.rand(self.d_state, dtype=torch.float32)
             alpha_tensor = radius * torch.cos(theta)
             omega_tensor = radius * torch.sin(theta)
         elif self.field == 'real':
             half_d_state = self.d_state // 2
-            radius = self.strong_stability + (self.weak_stability - self.strong_stability) * torch.rand(half_d_state,
-                                                                                        dtype=torch.float32)
+            radius = (self.strong_stability + (self.weak_stability - self.strong_stability) *
+                      torch.rand(half_d_state, dtype=torch.float32))
             theta = torch.pi * torch.rand(half_d_state, dtype=torch.float32)
             alpha_tensor = torch.cat((radius * torch.cos(theta), radius * torch.cos(theta)), 0)
             omega_tensor = torch.cat((radius * torch.sin(theta), -radius * torch.sin(theta)), 0)
             if self.d_state % 2 == 1:
-                extra_radius = self.strong_stability + (self.weak_stability - self.strong_stability) * torch.rand(1,
-                                                                                                  dtype=torch.float32)
+                extra_radius = (self.strong_stability + (self.weak_stability - self.strong_stability) *
+                                torch.rand(1, dtype=torch.float32))
                 # Choose 0 or pi randomly for extra_theta
                 extra_theta = torch.randint(0, 2, (1,)) * torch.pi
                 alpha_tensor = torch.cat((alpha_tensor, extra_radius * torch.cos(extra_theta)), 0)
@@ -76,9 +76,13 @@ class ContinuousStateReservoir:
         """
         self.d_state = d_state
 
-        if strong_stability > weak_stability or weak_stability > 0:
-            warnings.warn("For the continuous dynamics stability we must have:"
-                          "high_stability < Re(lambda) <= low_stability <= 0.")
+        if strong_stability > weak_stability:
+            raise ValueError("For the continuous dynamics we must have:"
+                             "strong_stability <= Re(lambda) < weak_stability.")
+
+        if weak_stability > 0:
+            warnings.warn("For a stable continuous dynamics set weak_stability such that:"
+                          "strong_stability <= Re(lambda) < weak_stability <= 0.")
 
         self.strong_stability = strong_stability
         self.weak_stability = weak_stability
