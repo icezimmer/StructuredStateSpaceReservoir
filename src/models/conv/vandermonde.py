@@ -50,7 +50,7 @@ class VandermondeConv(nn.Module):
 
         self.powers = nn.Parameter(torch.arange(kernel_size, dtype=torch.float32), requires_grad=False)
 
-        self.activation = nn.GELU()
+        self.activation = nn.Tanh()
 
 
     @staticmethod
@@ -87,6 +87,23 @@ class VandermondeConv(nn.Module):
         vandermonde = Lambda_bar.unsqueeze(1) ** self.powers  # (P, L)
         return vandermonde
 
+    def step(self, u, x):
+        """
+        Step one time step as a recurrent model. Intended to be used during validation.
+        x: (B, H)
+        state: (B, P)
+        Returns: y (B, H), state (B, P)
+        """
+        u = torch.view_as_complex(u)
+        A_bar = torch.view_as_complex(self.Lambda_bar)  # (P)
+        B_bar = torch.view_as_complex(self.B_bar)  # (P, H)
+        C = torch.view_as_complex(self.C)  # (H, P)
+
+        x = torch.einsum('p,bp->bp', A_bar, x) + torch.einsum('ph,bh->bp', B_bar, u)  # (B,P)
+        y = torch.einsum('hp,bp->bh', C, x).real + torch.einsum('hh,bh->bh', self.D, u)  # (B,H)
+        y = self.activation(y)
+
+        return y, x
 
     def forward(self, u):
         """

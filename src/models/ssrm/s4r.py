@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from src.models.conv.vandermonde import VandermondeReservoirConv
+from src.models.conv.vandermonde import VandermondeConv, VandermondeReservoirConv
 
 
 """
@@ -26,24 +26,32 @@ class S4R(torch.nn.Module):
 
         self.layer = VandermondeReservoirConv(d_input, **layer_args)
 
-        self.non_linearity = nn.Tanh()
-
-        self.mixing_layer = nn.Sequential(
-            nn.Conv1d(self.d_input, 2 * self.d_output, kernel_size=1),
-            nn.GLU(dim=-2),
+        self.mix_and_gate = nn.Sequential(
+            nn.Conv1d(self.d_output, 2 * self.d_output, kernel_size=1),  # mix and double the number of features
+            nn.GLU(dim=-2),  # gating
         )
+
+    def step(self, u, x):
+        """
+        Step one time step as a recurrent model. Intended to be used during validation.
+        x: (B, H)
+        state: (B, P)
+        Returns: y (B, H), state (B, P)
+        """
+        y, x = self.layer.step(u, x)
+        y = self.mix_and_gate(y)
+
+        return y, x
 
     def forward(self, u):
         """
-        Forward method for the S5R model
+        Forward method for the S4R model
         :param u: batched input sequence of shape (B,H,L) = (batch_size, d_input, input_length)
         :return: y: batched output sequence of shape (B,H,L) = (batch_size, d_output, input_length)
         """
 
         y, _ = self.layer(u)  # (B, H, L)
-        y = self.non_linearity(y)
-
-        y = self.mixing_layer(y)
+        y = self.mix_and_gate(y)
 
         # Return a dummy state to satisfy this repo's interface, but this can be modified
         return y, None
