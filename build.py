@@ -31,6 +31,15 @@ if args.task == 'smnist':
                                                            train=False,
                                                            transform=transforms.ToTensor(),
                                                            download=True))
+if args.task == 'scifar10':
+    develop_dataset = SequentialImage2Classify(datasets.CIFAR10(root='./checkpoint/',
+                                                                train=True,
+                                                                transform=transforms.ToTensor(),
+                                                                download=True), device_name=args.device)
+    test_dataset = SequentialImage2Classify(datasets.CIFAR10(root='./checkpoint/',
+                                                             train=False,
+                                                             transform=transforms.ToTensor(),
+                                                             download=True))
 elif args.task == 'pathfinder':
     pathfinders = {
         '32': Pathfinder32,

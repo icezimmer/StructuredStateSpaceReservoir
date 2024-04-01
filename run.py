@@ -49,11 +49,15 @@ def main():
 
     if args.task == 'smnist':
         num_classes = 10
-        num_features_input = 1
+        num_features = 1
         kernel_size = 28 * 28
     elif args.task == 'pathfinder':
         num_classes = 2
-        num_features_input = 1
+        num_features = 1
+        kernel_size = 32 * 32
+    elif args.task == 'scifar10':
+        num_classes = 10
+        num_features = 3
         kernel_size = 32 * 32
     else:
         raise ValueError('Invalid task name')
@@ -71,19 +75,21 @@ def main():
 
     if args.block == 'S4':
         classifier = Classifier(block_factory=block_factory, num_classes=num_classes, n_layers=args.layers,
-                           d_model=args.neurons)
+                                d_model=args.neurons)
     elif args.block == 'S4D' or args.block == 'VanillaRNN':
         classifier = Classifier(block_factory=block_factory, num_classes=num_classes, n_layers=args.layers,
-                           d_input=num_features_input, d_state=args.neurons)
+                                d_input=num_features, d_state=args.neurons)
     else:
         classifier = Classifier(block_factory=block_factory, num_classes=num_classes, n_layers=args.layers,
-                           d_input=num_features_input, d_state=args.neurons,
-                           kernel_size=kernel_size, strong_stability=args.strong, weak_stability=args.weak, dt=args.dt)
+                                d_input=num_features, d_state=args.neurons,
+                                kernel_size=kernel_size,
+                                dt=args.dt, strong_stability=args.strong, weak_stability=args.weak)
 
     # print_parameters(classifier.model)
 
-    classifier.fit_model(lr=args.lr, develop_dataloader=develop_dataloader, num_epochs=args.epochs, patience=args.patience,
-                    train_dataloader=train_dataloader, val_dataloader=val_dataloader, checkpoint_path=checkpoint_path)
+    classifier.fit_model(lr=args.lr, develop_dataloader=develop_dataloader, num_epochs=args.epochs,
+                         patience=args.patience, train_dataloader=train_dataloader, val_dataloader=val_dataloader,
+                         checkpoint_path=checkpoint_path)
 
     # print_parameters(classifier.model)
 
