@@ -18,7 +18,7 @@ class Classifier:
         classifier = Seq2Vec(stacked, d_vec=self.__NUM_CLASSES)
         return classifier
 
-    def fit_model(self, lr, develop_dataloader, checkpoint_path, num_epochs=float('inf'), patience=None, *args, **kwargs):
+    def fit_model(self, lr, develop_dataloader, checkpoint_path, num_epochs, patience, *args, **kwargs):
         optimizer = optim.Adam(self.model.parameters(), lr=lr)
         trainer = TrainModel(self.model, optimizer, self.__CRITERION, develop_dataloader)
         # print('Model device in Training: ', check_model_device(trainer.model))
