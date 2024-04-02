@@ -9,7 +9,7 @@ see: https://github.com/i404788/s5-pytorch/tree/74e2fdae00b915a62c914bf3615c0b8a
 
 
 class S4R(torch.nn.Module):
-    def __init__(self, d_input, *args, **kwargs):
+    def __init__(self, d_model, *args, **kwargs):
         """
         Construct an SSM model with frozen state matrix Lambda_bar:
         x_new = Lambda_bar * x_old + B_bar * u_new
@@ -21,13 +21,12 @@ class S4R(torch.nn.Module):
         """
         super().__init__()
 
-        self.d_input = d_input
-        self.d_output = d_input
+        self.d_model = d_model
 
-        self.layer = VandermondeReservoirConv(d_input, *args, **kwargs)
+        self.layer = VandermondeReservoirConv(d_input=self.d_model, d_state=self.d_model, *args, **kwargs)
 
         self.mix_and_gate = nn.Sequential(
-            nn.Conv1d(self.d_output, 2 * self.d_output, kernel_size=1),  # mix and double the number of features
+            nn.Conv1d(self.d_model, 2 * self.d_model, kernel_size=1),  # mix and double the number of features
             nn.GLU(dim=-2),  # gating
         )
 

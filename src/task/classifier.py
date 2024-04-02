@@ -1,21 +1,19 @@
 import torch
 import torch.optim as optim
-from src.models.nn.stacked import NaiveStacked
-from src.task.seq2vec import Seq2Vec
-from src.utils.check_device import check_model_device
+from src.models.deep.stacked import NaiveStacked
 from src.ml.training import TrainModel
 from src.ml.evaluation import EvaluateClassifier
 
 
 class Classifier:
-    def __init__(self, block_factory, num_classes, n_layers, *args, **kwargs):
+    def __init__(self, block_factory, n_layers, d_input, d_model, num_classes, *args, **kwargs):
         self.__NUM_CLASSES = num_classes
         self.__CRITERION = torch.nn.CrossEntropyLoss()  # Classification task: softmax layer + CE loss (more stable)
-        self.model = self.__construct_model(block_factory, n_layers, *args, **kwargs)
+        self.model = self.__construct_model(block_factory, n_layers, d_input, d_model, *args, **kwargs)
 
-    def __construct_model(self, block_factory, n_layers, *args, **kwargs):
-        stacked = NaiveStacked(block_factory=block_factory, n_layers=n_layers, *args, **kwargs)
-        classifier = Seq2Vec(stacked, d_vec=self.__NUM_CLASSES)
+    def __construct_model(self,  block_factory, n_layers, d_input, d_model, *args, **kwargs):
+        classifier = NaiveStacked(block_factory=block_factory, n_layers=n_layers, d_input=d_input, d_model=d_model,
+                                  d_output=self.__NUM_CLASSES, to_vec=True, *args, **kwargs)
         return classifier
 
     def fit_model(self, lr, develop_dataloader, checkpoint_path, num_epochs, patience, *args, **kwargs):

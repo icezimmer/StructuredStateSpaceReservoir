@@ -3,7 +3,6 @@ import logging
 import os
 from src.models.s4.s4 import S4Block
 from src.models.rnn.vanilla import VanillaRNN, VanillaGRU
-from src.models.s4d.s4d import S4D
 from src.models.ssrm.s5r import S5R
 from src.models.ssrm.s5fr import S5FR
 from src.models.ssrm.s4r import S4R
@@ -13,7 +12,6 @@ from src.utils.prints import print_parameters
 
 block_factories = {
     'S4': S4Block,
-    'S4D': S4D,
     'VanillaRNN': VanillaRNN,
     'VanillaGRU': VanillaGRU,
     'S5R': S5R,
@@ -74,15 +72,12 @@ def main():
     logging.basicConfig(level=logging.INFO)
     logging.info('Starting Task.')
 
-    if args.block == 'S4':
-        classifier = Classifier(block_factory=block_factory, num_classes=num_classes, n_layers=args.layers,
-                                d_model=args.neurons)
-    elif args.block == 'S4D' or args.block == 'VanillaRNN' or args.block == 'VanillaGRU':
-        classifier = Classifier(block_factory=block_factory, num_classes=num_classes, n_layers=args.layers,
-                                d_input=num_features, d_state=args.neurons)
+    if args.block == 'S4' or args.block == 'VanillaRNN' or args.block == 'VanillaGRU':
+        classifier = Classifier(block_factory=block_factory, n_layers=args.layers,
+                                d_input=num_features, d_model=args.neurons, num_classes=num_classes)
     else:
-        classifier = Classifier(block_factory=block_factory, num_classes=num_classes, n_layers=args.layers,
-                                d_input=num_features, d_state=args.neurons,
+        classifier = Classifier(block_factory=block_factory, n_layers=args.layers,
+                                d_input=num_features, d_model=args.neurons, num_classes=num_classes,
                                 kernel_size=kernel_size,
                                 dt=args.dt, strong_stability=args.strong, weak_stability=args.weak)
 

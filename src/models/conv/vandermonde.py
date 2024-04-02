@@ -6,7 +6,7 @@ import torch.nn as nn
 class VandermondeConv(nn.Module):
     """Generate convolution kernel from diagonal SSM parameters."""
 
-    def __init__(self, d_input, kernel_size, d_state, strong_stability, weak_stability, dt=None,
+    def __init__(self, d_input, d_state, kernel_size, strong_stability, weak_stability, dt=None,
                  field='complex'):
         """
         Construct an SSM model with frozen state matrix Lambda_bar:
@@ -134,7 +134,7 @@ class VandermondeConv(nn.Module):
 class VandermondeReservoirConv(VandermondeConv):
     """Generate convolution kernel from diagonal SSM parameters."""
 
-    def __init__(self, d_input, kernel_size, d_state, strong_stability, weak_stability, dt=None,
+    def __init__(self, d_input, d_state, kernel_size, strong_stability, weak_stability, dt=None,
                  field='complex'):
         """
         Construct an SSM model with frozen state matrix Lambda_bar:
@@ -148,7 +148,7 @@ class VandermondeReservoirConv(VandermondeConv):
         # TODO: Hyperparameter dt>0 for continuous dynamics:
         #   Lambda_bar = Lambda_Bar(Lambda, dt), B_bar = B(Lambda, B, dt)
 
-        super().__init__(d_input, kernel_size, d_state, strong_stability, weak_stability, dt, field)
+        super().__init__(d_input, d_state, kernel_size, strong_stability, weak_stability, dt, field)
 
         # Freeze Lambda_bar parameter
         self.Lambda_bar.requires_grad_(False)
