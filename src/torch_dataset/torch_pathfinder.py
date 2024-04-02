@@ -1,6 +1,6 @@
 import torch
 from torch.utils.data import Dataset
-from torch.nn.functional import normalize
+from src.utils.preprocess_data import standardize
 
 
 class PathfinderDataset(Dataset):
@@ -22,8 +22,8 @@ class PathfinderDataset(Dataset):
             # Flatten the spatial dimensions while maintaining the channel dimension
             image = image.view(image.shape[0], -1)  # (C=1, H*W)
 
-            # # Normalize the tensor using L2 normalization
-            image = torch.nn.functional.normalize(image, p=2, dim=-1)
+            # Standardize the data
+            image, _, _ = standardize(image)
 
             if device_name is not None:
                 image = image.to(torch.device(device_name))

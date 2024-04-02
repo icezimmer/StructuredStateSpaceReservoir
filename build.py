@@ -31,7 +31,7 @@ if args.task == 'smnist':
                                                            train=False,
                                                            transform=transforms.ToTensor(),
                                                            download=True))
-if args.task == 'scifar10':
+elif args.task == 'scifar10':
     develop_dataset = SequentialImage2Classify(datasets.CIFAR10(root='./checkpoint/',
                                                                 train=True,
                                                                 transform=transforms.ToTensor(),

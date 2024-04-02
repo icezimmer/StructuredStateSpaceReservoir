@@ -1,6 +1,7 @@
 import torch
 from torch.nn.functional import normalize
 from torch.utils.data import Dataset
+from src.utils.preprocess_data import standardize
 
 
 class SequentialImage2Classify(Dataset):
@@ -12,6 +13,10 @@ class SequentialImage2Classify(Dataset):
             image = image.view(image.shape[0], -1)
             image = normalize(image, p=2, dim=-1)
             label = torch.tensor(label, dtype=torch.long)
+
+            # Standardize the data
+            image, _, _ = standardize(image)
+
             if device_name is not None:
                 image = image.to(torch.device(device_name))
                 label = label.to(torch.device(device_name))
