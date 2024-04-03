@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from src.models.conv.vandermonde import VandermondeConv, VandermondeReservoirConv
-
+from src.models.conv.simplify_vandermonde import SimpleVandermondeConv, SimpleVandermondeReservoirConv
 
 """
 see: https://github.com/i404788/s5-pytorch/tree/74e2fdae00b915a62c914bf3615c0b8a4279eb84

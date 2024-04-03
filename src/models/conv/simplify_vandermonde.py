@@ -148,7 +148,7 @@ class SimpleVandermondeReservoirConv(SimpleVandermondeConv):
         # Freeze Lambda_bar parameter
         self.Lambda_bar.requires_grad_(False)
         # Frozen Vandermonde matrix for kernel computation (P, L)
-        self.vandermonde_s = nn.Parameter(self._construct_vandermonde(), requires_grad=False)
+        self.vandermonde_s = nn.Parameter(torch.fft.fft(self._construct_vandermonde(), dim=-1), requires_grad=False)
 
     def forward(self, u):
         """
