@@ -27,7 +27,7 @@ class S4R(torch.nn.Module):
         self.layer = VandermondeReservoirConv(d_input=self.d_model, d_state=self.d_model, **conv_args)
 
         self.mix_and_gate = nn.Sequential(
-            nn.Conv1d(self.d_model, 2 * self.d_model, kernel_size=1),  # mix and double the number of features
+            nn.Conv1d(self.d_model, 2 * self.d_model, kernel_size=1),  # mix and double the num of features (no context)
             nn.GLU(dim=-2),  # gating
         )
 

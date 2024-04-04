@@ -50,7 +50,7 @@ class VandermondeConv(nn.Module):
         self.Lambda_bar = nn.Parameter(torch.view_as_real(Lambda_bar), requires_grad=True)  # (P, 2)
         self.B_bar = nn.Parameter(torch.view_as_real(B_bar), requires_grad=True)  # (P, H, 2)
 
-        self.powers = nn.Parameter(torch.arange(kernel_size, dtype=torch.float32), requires_grad=False)
+        self.powers = torch.arange(kernel_size, dtype=torch.float32, device=self.Lambda_bar.device)
 
         self.drop_kernel = nn.Dropout(drop_kernel) if drop_kernel > 0 else nn.Identity()
         self.drop = nn.Dropout(dropout) if dropout > 0 else nn.Identity()

@@ -11,12 +11,12 @@ class ResidualNetwork(nn.Module):
         self.to_vec = to_vec
         self.pre_norm = pre_norm
 
-        self.encoder = nn.Linear(d_input, d_model)
+        self.encoder = nn.Conv1d(d_input, d_model, kernel_size=1)
         self.layers = nn.ModuleList([block_factory(d_model=d_model, **block_args) for _ in range(n_layers)])
         self.norms = nn.ModuleList([nn.LayerNorm(d_model) for _ in range(n_layers)])
         self.dropouts = nn.ModuleList([nn.Dropout(layer_dropout) if layer_dropout > 0 else nn.Identity()
                                        for _ in range(n_layers)])
-        self.decoder = nn.Linear(d_model, d_output)
+        self.decoder = nn.Conv1d(d_model, d_output, kernel_size=1)
 
     def forward(self, x):
         """
@@ -25,7 +25,7 @@ class ResidualNetwork(nn.Module):
         return:
             x: torch tensor of shape (B, d_output) or (B, d_output, L))
         """
-        x = self.encoder(x.transpose(-1, -2)).transpose(-1, -2)  # (B, d_input, L) -> (B, d_model, L)
+        x = self.encoder(x)  # (B, d_input, L) -> (B, d_model, L)
 
         for layer, norm, dropout in zip(self.layers, self.norms, self.dropouts):
 
@@ -38,6 +38,7 @@ class ResidualNetwork(nn.Module):
             z = dropout(z)
 
             # Residual connection
+            #print(z.device, x.device)
             x = z + x  # (B, d_model, L) + (B, d_model, L) -> (B, d_model, L)
 
             if not self.pre_norm:
@@ -45,10 +46,8 @@ class ResidualNetwork(nn.Module):
                 x = norm(x.transpose(-1, -2)).transpose(-1, -2)
 
         if self.to_vec:
-            x = x[:, :, -1]  # (B, d_model, L) -> (B, d_model)
+            x = self.decoder(x[:, :, -1:]).squeeze(-1)   # (B, d_model, L) -> (B, d_output)
         else:
-            x = x.transpose(-1, -2)  # (B, d_model, L) -> (B, L , d_model)
-
-        x = self.decoder(x)  # (*, d_model) -> (*, d_output)
+            x = self.decoder(x)  # (*, d_model) -> (*, d_output)
 
         return x

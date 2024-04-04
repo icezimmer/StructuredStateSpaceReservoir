@@ -3,8 +3,7 @@ import logging
 import os
 from src.models.s4.s4 import S4Block
 from src.models.rnn.vanilla import VanillaRNN, VanillaGRU
-from src.models.ssrm.s5r import S5R
-from src.models.ssrm.s5fr import S5FR
+from src.models.esn.esn import ESN
 from src.models.ssrm.s4r import S4R
 from src.task.classifier import Classifier
 from src.utils.temp_data import load_temp_data
@@ -14,6 +13,7 @@ block_factories = {
     'S4': S4Block,
     'VanillaRNN': VanillaRNN,
     'VanillaGRU': VanillaGRU,
+    'ESN': ESN,
     'S4R': S4R
 }
 
@@ -28,7 +28,7 @@ def parse_args():
     args, unknown = parser.parse_known_args()
 
     # Conditional argument additions based on block type
-    if args.block in ['S4', 'S4R']:
+    if args.block in ['S4', 'S4R', 'ESN']:
         parser.add_argument('--kerneldrop', type=float, default=0.0, help='Dropout the kernel inside the block.')
         if args.block == 'S4R':
             parser.add_argument('--dt', type=int, default=None, help='Sampling rate (only for continuous dynamics).')
@@ -82,6 +82,12 @@ def main():
         classifier = Classifier(block_factory=block_factory, n_layers=args.layers,
                                 d_input=num_features, d_model=args.neurons, num_classes=num_classes,
                                 layer_dropout=args.layerdrop, pre_norm=args.prenorm)
+
+    elif args.block == 'ESN':
+        classifier = Classifier(block_factory=block_factory, n_layers=args.layers,
+                                d_input=num_features, d_model=args.neurons, num_classes=num_classes,
+                                layer_dropout=args.layerdrop, pre_norm=args.prenorm,
+                                drop_kernel=args.kerneldrop, dropout=args.dropout)
     elif args.block == 'S4':
         classifier = Classifier(block_factory=block_factory, n_layers=args.layers,
                                 d_input=num_features, d_model=args.neurons, num_classes=num_classes,
