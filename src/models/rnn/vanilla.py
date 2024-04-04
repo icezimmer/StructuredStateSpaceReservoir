@@ -3,13 +3,12 @@ import torch.nn as nn
 
 
 class VanillaRecurrent(nn.Module):
-    def __init__(self, d_model):
+    def __init__(self, d_model,
+                 dropout=0.0):
         super().__init__()
-        self.d_input = d_model
-        self.d_state = self.d_input
-        self.d_output = self.d_input
+        self.d_model = d_model
         self.rnn = None
-        self.fc = nn.Linear(in_features=self.d_state, out_features=self.d_output)
+        self.drop = nn.Dropout(dropout) if dropout > 0 else nn.Identity()
         self.nl = nn.Tanh()
 
     def forward(self, x):
@@ -19,7 +18,7 @@ class VanillaRecurrent(nn.Module):
 class VanillaRNN(VanillaRecurrent):
     def __init__(self, d_model):
         super().__init__(d_model)
-        self.rnn = nn.RNN(input_size=self.d_input, hidden_size=self.d_state, num_layers=1, nonlinearity='tanh',
+        self.rnn = nn.RNN(input_size=self.d_model, hidden_size=self.d_model, num_layers=1, nonlinearity='tanh',
                           batch_first=True)
 
     def forward(self, x):
@@ -27,27 +26,32 @@ class VanillaRNN(VanillaRecurrent):
         x = x.transpose(-1, -2)  # (B, L, H)
 
         # Forward propagate the RNN
-        h, _ = self.rnn(x)  # (B, L, N)
-        y = self.nl(self.fc(h))  # (B, L, H)
+        y, _ = self.rnn(x)  # (B, L, H)
 
-        x = x.transpose(-1, -2)  # (B, H, L)
+        y = self.drop(y)
+        y = self.nl(y)  # (B, L, H)
+
+        y = y.transpose(-1, -2)  # (B, H, L)
 
         return y, None
 
 
 class VanillaGRU(VanillaRecurrent):
-    def __init__(self, d_model):
-        super().__init__(d_model)
-        self.rnn = nn.GRU(input_size=self.d_input, hidden_size=self.d_state, num_layers=1, batch_first=True)
+    def __init__(self, d_model,
+                 dropout=0.0):
+        super().__init__(d_model, dropout)
+        self.rnn = nn.GRU(input_size=self.d_model, hidden_size=self.d_model, num_layers=1, batch_first=True)
 
     def forward(self, x):
         # x shape: (B, H, L) -> Need to permute it to (B, L, H)
         x = x.transpose(-1, -2)  # (B, L, H)
 
         # Forward propagate the RNN
-        h, _ = self.rnn(x)  # (B, L, N)
-        y = self.nl(self.fc(h))  # (B, L, H)
+        y, _ = self.rnn(x)  # (B, L, H)
 
-        x = x.transpose(-1, -2)  # (B, H, L)
+        y = self.drop(y)
+        y = self.nl(y)  # (B, L, H)
+
+        y = y.transpose(-1, -2)  # (B, H, L)
 
         return y, None

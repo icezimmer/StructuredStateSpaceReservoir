@@ -6,7 +6,9 @@ import torch.nn as nn
 class VandermondeConv(nn.Module):
     """Generate convolution kernel from diagonal SSM parameters."""
 
-    def __init__(self, d_input, d_state, kernel_size, strong_stability, weak_stability, dt=None,
+    def __init__(self, d_input, d_state, kernel_size,
+                 strong_stability, weak_stability, dt=None,
+                 drop_kernel=0.0, dropout=0.0,
                  field='complex'):
         """
         Construct an SSM model with frozen state matrix Lambda_bar:
@@ -49,6 +51,9 @@ class VandermondeConv(nn.Module):
         self.B_bar = nn.Parameter(torch.view_as_real(B_bar), requires_grad=True)  # (P, H, 2)
 
         self.powers = nn.Parameter(torch.arange(kernel_size, dtype=torch.float32), requires_grad=False)
+
+        self.drop_kernel = nn.Dropout(drop_kernel) if drop_kernel > 0 else nn.Identity()
+        self.drop = nn.Dropout(dropout) if dropout > 0 else nn.Identity()
 
         self.activation = nn.Tanh()
 
@@ -116,11 +121,15 @@ class VandermondeConv(nn.Module):
         vandermonde = self._construct_vandermonde()  # (P, L)
         kernel = torch.einsum('hp,pl->hl', torch.einsum('hp,ph->hp', C, B_bar), vandermonde)  # (H, L)
 
+        kernel = self.drop_kernel(kernel)
+
         u_s = torch.fft.fft(u, dim=-1)  # (B, H, L)
         kernel_s = torch.fft.fft(kernel, dim=-1)
 
         y = torch.fft.ifft(torch.einsum('bhl,hl->bhl', u_s, kernel_s), dim=-1)  # (B, H, L)
         y = y.real + torch.einsum('hh,bhl->bhl', self.D, u)  # (B, H, L)
+
+        y = self.drop(y)
         y = self.activation(y)
 
         return y, None
@@ -129,7 +138,9 @@ class VandermondeConv(nn.Module):
 class VandermondeReservoirConv(VandermondeConv):
     """Generate convolution kernel from diagonal SSM parameters."""
 
-    def __init__(self, d_input, d_state, kernel_size, strong_stability, weak_stability, dt=None,
+    def __init__(self, d_input, d_state, kernel_size,
+                 strong_stability, weak_stability, dt=None,
+                 drop_kernel=0.0, dropout=0.0,
                  field='complex'):
         """
         Construct an SSM model with frozen state matrix Lambda_bar:
@@ -143,7 +154,10 @@ class VandermondeReservoirConv(VandermondeConv):
         # TODO: Hyperparameter dt>0 for continuous dynamics:
         #   Lambda_bar = Lambda_Bar(Lambda, dt), B_bar = B(Lambda, B, dt)
 
-        super().__init__(d_input, d_state, kernel_size, strong_stability, weak_stability, dt, field)
+        super().__init__(d_input, d_state, kernel_size,
+                         strong_stability, weak_stability, dt,
+                         drop_kernel, dropout,
+                         field)
 
         # Freeze Lambda_bar parameter
         self.Lambda_bar.requires_grad_(False)
@@ -160,11 +174,15 @@ class VandermondeReservoirConv(VandermondeConv):
         C = torch.view_as_complex(self.C)  # (H, P)
         kernel = torch.einsum('hp,pl->hl', torch.einsum('hp,ph->hp', C, B_bar), self.vandermonde)  # (H, L)
 
+        kernel = self.drop_kernel(kernel)
+
         u_s = torch.fft.fft(u, dim=-1)  # (B, H, L)
         kernel_s = torch.fft.fft(kernel, dim=-1)
 
         y = torch.fft.ifft(torch.einsum('bhl,hl->bhl', u_s, kernel_s), dim=-1)  # (B, H, L)
         y = y.real + torch.einsum('hh,bhl->bhl', self.D, u)  # (B, H, L)
+
+        y = self.drop(y)
         y = self.activation(y)
 
         return y, None

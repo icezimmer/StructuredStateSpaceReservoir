@@ -14,8 +14,6 @@ block_factories = {
     'S4': S4Block,
     'VanillaRNN': VanillaRNN,
     'VanillaGRU': VanillaGRU,
-    'S5R': S5R,
-    'S5FR': S5FR,
     'S4R': S4R
 }
 
@@ -26,20 +24,28 @@ def parse_args():
     parser.add_argument('--block', choices=block_factories.keys(), default='S4',
                         help='Block factory to use for the model.')
 
+    # First parse known arguments to decide on adding additional arguments based on the block type
     args, unknown = parser.parse_known_args()
 
-    if args.block == 'S5R' or args.block == 'S5FR' or args.block == 'S4R':
-        parser.add_argument('--dt', type=int, default=None, help='Sampling rate (only for continuous dynamics).')
-        parser.add_argument('--strong', type=float, default=0.9, help='Strong Stability for internal dynamics.')
-        parser.add_argument('--weak', type=float, default=1.0, help='Weak Stability for internal dynamics.')
+    # Conditional argument additions based on block type
+    if args.block in ['S4', 'S4R']:
+        parser.add_argument('--kerneldrop', type=float, default=0.0, help='Dropout the kernel inside the block.')
+        if args.block == 'S4R':
+            parser.add_argument('--dt', type=int, default=None, help='Sampling rate (only for continuous dynamics).')
+            parser.add_argument('--strong', type=float, default=0.9, help='Strong Stability for internal dynamics.')
+            parser.add_argument('--weak', type=float, default=1.0, help='Weak Stability for internal dynamics.')
 
+    # Add the rest of the arguments
     parser.add_argument('--layers', type=int, default=1, help='Number of layers.')
     parser.add_argument('--neurons', type=int, default=64, help='Number of hidden neurons (hidden state size).')
-    
+    parser.add_argument('--layerdrop', type=float, default=0.0, help='Dropout the output of each layer.')
+    parser.add_argument('--prenorm', type=bool, default=False, help='Pre normalization or post normalization for each layer.')
+    parser.add_argument('--dropout', type=float, default=0.0, help='Dropout the preactivation inside the block.')
     parser.add_argument('--lr', type=float, default=0.001, help='Learning rate.')
     parser.add_argument('--epochs', type=int, default=float('inf'), help='Number of epochs.')
     parser.add_argument('--patience', type=int, default=10, help='Patience for the early stopping.')
-    
+
+    # Now, parse args again to include any additional arguments
     return parser.parse_args()
 
 
@@ -72,14 +78,24 @@ def main():
     logging.basicConfig(level=logging.INFO)
     logging.info('Starting Task.')
 
-    if args.block == 'S4' or args.block == 'VanillaRNN' or args.block == 'VanillaGRU':
+    if args.block in ['VanillaRNN', 'VanillaGRU']:
         classifier = Classifier(block_factory=block_factory, n_layers=args.layers,
-                                d_input=num_features, d_model=args.neurons, num_classes=num_classes)
-    else:
+                                d_input=num_features, d_model=args.neurons, num_classes=num_classes,
+                                layer_dropout=args.layerdrop, pre_norm=args.prenorm)
+    elif args.block == 'S4':
+        classifier = Classifier(block_factory=block_factory, n_layers=args.layers,
+                                d_input=num_features, d_model=args.neurons, num_classes=num_classes,
+                                layer_dropout=args.layerdrop, pre_norm=args.prenorm,
+                                drop_kernel=args.kerneldrop, dropout=args.dropout)
+    elif args.block == 'S4R':
         classifier = Classifier(block_factory=block_factory, n_layers=args.layers,
                                 d_input=num_features, d_model=args.neurons, num_classes=num_classes,
                                 kernel_size=kernel_size,
-                                dt=args.dt, strong_stability=args.strong, weak_stability=args.weak)
+                                layer_dropout=args.layerdrop, pre_norm=args.prenorm,
+                                dt=args.dt, strong_stability=args.strong, weak_stability=args.weak,
+                                drop_kernel=args.kerneldrop, dropout=args.dropout)
+    else:
+        raise ValueError('Invalid block name')
 
     # print_parameters(classifier.model)
 

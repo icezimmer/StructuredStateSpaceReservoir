@@ -8,7 +8,9 @@ see: https://github.com/i404788/s5-pytorch/tree/74e2fdae00b915a62c914bf3615c0b8a
 
 
 class S4R(torch.nn.Module):
-    def __init__(self, d_model, *args, **kwargs):
+    def __init__(self, d_model,
+                 dropout=0.0,
+                 **conv_args):
         """
         Construct an SSM model with frozen state matrix Lambda_bar:
         x_new = Lambda_bar * x_old + B_bar * u_new
@@ -22,12 +24,14 @@ class S4R(torch.nn.Module):
 
         self.d_model = d_model
 
-        self.layer = VandermondeReservoirConv(d_input=self.d_model, d_state=self.d_model, *args, **kwargs)
+        self.layer = VandermondeReservoirConv(d_input=self.d_model, d_state=self.d_model, **conv_args)
 
         self.mix_and_gate = nn.Sequential(
             nn.Conv1d(self.d_model, 2 * self.d_model, kernel_size=1),  # mix and double the number of features
             nn.GLU(dim=-2),  # gating
         )
+
+        self.drop = nn.Dropout(dropout) if dropout > 0 else nn.Identity()
 
     def step(self, u, x):
         """
@@ -38,6 +42,7 @@ class S4R(torch.nn.Module):
         """
         y, x = self.layer.step(u, x)
         y = self.mix_and_gate(y)
+        y = self.drop(y)
 
         return y, x
 
@@ -47,9 +52,9 @@ class S4R(torch.nn.Module):
         :param u: batched input sequence of shape (B,H,L) = (batch_size, d_input, input_length)
         :return: y: batched output sequence of shape (B,H,L) = (batch_size, d_output, input_length)
         """
-
-        y, _ = self.layer(u)  # (B, H, L)
+        y, _ = self.layer(u)
         y = self.mix_and_gate(y)
+        y = self.drop(y)
 
         # Return a dummy state to satisfy this repo's interface, but this can be modified
         return y, None
