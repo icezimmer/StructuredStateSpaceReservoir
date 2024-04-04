@@ -133,3 +133,6 @@ notebooks/*
 # Saved Data
 checkpoint/*
 !checkpoint/.gitkeep
+
+# Backup files
+backup/
