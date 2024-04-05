@@ -38,7 +38,6 @@ class ResidualNetwork(nn.Module):
             z = dropout(z)
 
             # Residual connection
-            #print(z.device, x.device)
             x = z + x  # (B, d_model, L) + (B, d_model, L) -> (B, d_model, L)
 
             if not self.pre_norm:
