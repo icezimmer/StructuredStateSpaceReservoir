@@ -1,12 +1,12 @@
 """Standalone version of Structured State Space sequence model (S4)."""
 
 from collections import defaultdict
-from typing import Optional, Mapping, Tuple, Union
+from typing import Optional, Mapping, Union
 import logging
 from functools import partial
 import math
 import numpy as np
-from src.functionals.krylov import krylov
+from src.models.s4.functionals.krylov import krylov
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -43,8 +43,8 @@ log = get_logger(__name__)
 
 # Try CUDA extension
 try:
-    from src.extensions.kernels.cauchy import cauchy_mult as cauchy_cuda
-    from src.extensions.kernels.vandermonde import log_vandermonde_cuda
+    from src.models.s4.extensions.kernels.cauchy import cauchy_mult as cauchy_cuda
+    from src.models.s4.extensions.kernels.vandermonde import log_vandermonde_cuda
     has_cuda_extension = True
     log.info("CUDA extension for structured kernels (Cauchy and Vandermonde multiplication) found.")
 except:

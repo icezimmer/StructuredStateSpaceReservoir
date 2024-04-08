@@ -2,7 +2,7 @@ import torch.nn as nn
 
 
 class StackedNetwork(nn.Module):
-    def __init__(self, block_factory, n_layers, d_input, d_model, d_output,
+    def __init__(self, block_cls, n_layers, d_input, d_model, d_output,
                  layer_dropout=0.0, pre_norm=False,
                  to_vec=False,
                  **block_args):
@@ -10,7 +10,7 @@ class StackedNetwork(nn.Module):
         self.to_vec = to_vec
         self.pre_norm = pre_norm
         self.encoder = nn.Conv1d(d_input, d_model, kernel_size=1)
-        self.layers = nn.ModuleList([block_factory(d_model=d_model, **block_args) for _ in range(n_layers)])
+        self.layers = nn.ModuleList([block_cls(d_model=d_model, **block_args) for _ in range(n_layers)])
         self.norms = nn.ModuleList([nn.LayerNorm(d_model) for _ in range(n_layers)])
         self.dropouts = nn.ModuleList([nn.Dropout(layer_dropout) if layer_dropout > 0 else nn.Identity()
                                        for _ in range(n_layers)])

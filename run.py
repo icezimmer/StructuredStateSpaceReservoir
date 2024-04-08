@@ -5,9 +5,9 @@ from src.models.s4.s4 import S4Block
 from src.models.rnn.vanilla import VanillaRNN, VanillaGRU
 from src.models.esn.esn import ESN
 from src.models.ssrm.s4r import S4R
+from src.kernels.vandermonde import VandermondeKernel, VandermondeStateReservoirKernel
 from src.task.classifier import Classifier
 from src.utils.temp_data import load_temp_data
-from src.utils.prints import print_parameters
 
 block_factories = {
     'S4': S4Block,
@@ -17,12 +17,16 @@ block_factories = {
     'S4R': S4R
 }
 
+kernel_classes = {
+    'std': VandermondeKernel,
+    'freezeA': VandermondeStateReservoirKernel,
+}
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Run classification task.')
     parser.add_argument('--task', default='smnist', help='Name of task.')
     parser.add_argument('--block', choices=block_factories.keys(), default='S4',
-                        help='Block factory to use for the model.')
+                        help='Block class to use for the model.')
 
     # First parse known arguments to decide on adding additional arguments based on the block type
     args, unknown = parser.parse_known_args()
@@ -31,6 +35,7 @@ def parse_args():
     if args.block in ['S4', 'S4R', 'ESN']:
         parser.add_argument('--kerneldrop', type=float, default=0.0, help='Dropout the kernel inside the block.')
         if args.block == 'S4R':
+            parser.add_argument('--kernel', choices=kernel_classes.keys(), default='freezeA', help='Block class to use for the model.')
             parser.add_argument('--dt', type=int, default=None, help='Sampling rate (only for continuous dynamics).')
             parser.add_argument('--strong', type=float, default=0.9, help='Strong Stability for internal dynamics.')
             parser.add_argument('--weak', type=float, default=1.0, help='Weak Stability for internal dynamics.')
@@ -73,31 +78,33 @@ def main():
     test_dataloader = load_temp_data(os.path.join('./checkpoint', args.task + '_test_dataloader'))
 
     checkpoint_path = os.path.join('./checkpoint', args.task + '_model' + '.pt')
-    block_factory = block_factories[args.block]
+    block_cls = block_factories[args.block]
+    kernel_cls = kernel_classes[args.kernel]
 
     logging.basicConfig(level=logging.INFO)
     logging.info('Starting Task.')
 
     if args.block in ['VanillaRNN', 'VanillaGRU']:
-        classifier = Classifier(block_factory=block_factory, n_layers=args.layers,
+        classifier = Classifier(block_cls=block_cls, n_layers=args.layers,
                                 d_input=num_features, d_model=args.neurons, num_classes=num_classes,
                                 layer_dropout=args.layerdrop, pre_norm=args.prenorm)
 
     elif args.block == 'ESN':
-        classifier = Classifier(block_factory=block_factory, n_layers=args.layers,
+        classifier = Classifier(block_cls=block_cls, n_layers=args.layers,
                                 d_input=num_features, d_model=args.neurons, num_classes=num_classes,
                                 layer_dropout=args.layerdrop, pre_norm=args.prenorm,
                                 drop_kernel=args.kerneldrop, dropout=args.dropout)
     elif args.block == 'S4':
-        classifier = Classifier(block_factory=block_factory, n_layers=args.layers,
+        classifier = Classifier(block_cls=block_cls, n_layers=args.layers,
                                 d_input=num_features, d_model=args.neurons, num_classes=num_classes,
                                 layer_dropout=args.layerdrop, pre_norm=args.prenorm,
                                 drop_kernel=args.kerneldrop, dropout=args.dropout)
     elif args.block == 'S4R':
-        classifier = Classifier(block_factory=block_factory, n_layers=args.layers,
+        classifier = Classifier(block_cls=block_cls, n_layers=args.layers,
                                 d_input=num_features, d_model=args.neurons, num_classes=num_classes,
                                 kernel_size=kernel_size,
                                 layer_dropout=args.layerdrop, pre_norm=args.prenorm,
+                                kernel_cls=kernel_cls,
                                 dt=args.dt, strong_stability=args.strong, weak_stability=args.weak,
                                 drop_kernel=args.kerneldrop, dropout=args.dropout)
     else:

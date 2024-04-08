@@ -3,10 +3,10 @@ from src.reservoir.state_reservoir import DiscreteStateReservoir, ContinuousStat
 import torch.nn as nn
 
 
-class VandermondeConv(nn.Module):
+class VandermondeKernel(nn.Module):
     """Generate convolution kernel from diagonal SSM parameters."""
 
-    def __init__(self, d_input, d_state, kernel_size,
+    def __init__(self, d_model, kernel_size,
                  strong_stability, weak_stability, dt=None,
                  drop_kernel=0.0, dropout=0.0,
                  field='complex'):
@@ -22,17 +22,15 @@ class VandermondeConv(nn.Module):
         # TODO: Delta trainable parameter not fixed to ones for continuous dynamics:
         #   Lambda_bar = Lambda_Bar(Lambda, Delta), B_bar = B(Lambda, B, Delta)
 
-        super(VandermondeConv, self).__init__()
+        super().__init__()
 
-        self.d_input = d_input
-        self.d_state = d_state
-        self.d_output = self.d_input
+        self.d_input = d_model
+        self.d_state = d_model
+        self.d_output = d_model
 
         # Initialize parameters C and D
         C = torch.randn(self.d_output, self.d_state, dtype=torch.complex64)
         self.C = nn.Parameter(torch.view_as_real(C), requires_grad=True)  # (H, P, 2)
-        self.D = nn.Parameter(torch.randn(self.d_output, self.d_input, dtype=torch.float32),
-                              requires_grad=True)  # (H, H)
 
         B = torch.randn(self.d_state, self.d_input, dtype=torch.complex64)
         if dt is None:
@@ -110,35 +108,26 @@ class VandermondeConv(nn.Module):
 
         return y, x
 
-    def forward(self, u):
+    def forward(self):
         """
         Apply the convolution to the input sequence
-        :param u: batched input sequence of shape (B,H,L) = (batch_size, d_input, input_length)
-        :return: y: batched output sequence of shape (B,H,L) = (batch_size, d_output, input_length)
+        :return: kernel: 1d convolution kernel of shape (H, L)
         """
+        vandermonde = self._construct_vandermonde()  # (P, L)
         B_bar = torch.view_as_complex(self.B_bar)  # (P, H)
         C = torch.view_as_complex(self.C)  # (H, P)
-        vandermonde = self._construct_vandermonde()  # (P, L)
+
         kernel = torch.einsum('hp,pl->hl', torch.einsum('hp,ph->hp', C, B_bar), vandermonde)  # (H, L)
 
         kernel = self.drop_kernel(kernel)
 
-        u_s = torch.fft.fft(u, dim=-1)  # (B, H, L)
-        kernel_s = torch.fft.fft(kernel, dim=-1)
-
-        y = torch.fft.ifft(torch.einsum('bhl,hl->bhl', u_s, kernel_s), dim=-1)  # (B, H, L)
-        y = y.real + torch.einsum('hh,bhl->bhl', self.D, u)  # (B, H, L)
-
-        y = self.drop(y)
-        y = self.activation(y)
-
-        return y, None
+        return kernel, None
 
 
-class VandermondeReservoirConv(VandermondeConv):
+class VandermondeStateReservoirKernel(VandermondeKernel):
     """Generate convolution kernel from diagonal SSM parameters."""
 
-    def __init__(self, d_input, d_state, kernel_size,
+    def __init__(self, d_model, kernel_size,
                  strong_stability, weak_stability, dt=None,
                  drop_kernel=0.0, dropout=0.0,
                  field='complex'):
@@ -154,7 +143,7 @@ class VandermondeReservoirConv(VandermondeConv):
         # TODO: Hyperparameter dt>0 for continuous dynamics:
         #   Lambda_bar = Lambda_Bar(Lambda, dt), B_bar = B(Lambda, B, dt)
 
-        super().__init__(d_input, d_state, kernel_size,
+        super().__init__(d_model, kernel_size,
                          strong_stability, weak_stability, dt,
                          drop_kernel, dropout,
                          field)
@@ -164,7 +153,7 @@ class VandermondeReservoirConv(VandermondeConv):
         # Frozen Vandermonde matrix for kernel computation
         self.vandermonde = nn.Parameter(self._construct_vandermonde(), requires_grad=False)  # (P, L)
 
-    def forward(self, u):
+    def forward(self):
         """
         Apply the convolution to the input sequence
         :param u: batched input sequence of shape (B,H,L) = (batch_size, d_input, input_length)
@@ -176,13 +165,4 @@ class VandermondeReservoirConv(VandermondeConv):
 
         kernel = self.drop_kernel(kernel)
 
-        u_s = torch.fft.fft(u, dim=-1)  # (B, H, L)
-        kernel_s = torch.fft.fft(kernel, dim=-1)
-
-        y = torch.fft.ifft(torch.einsum('bhl,hl->bhl', u_s, kernel_s), dim=-1)  # (B, H, L)
-        y = y.real + torch.einsum('hh,bhl->bhl', self.D, u)  # (B, H, L)
-
-        y = self.drop(y)
-        y = self.activation(y)
-
-        return y, None
+        return kernel, None

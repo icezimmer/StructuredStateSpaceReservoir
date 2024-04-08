@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from src.models.conv.vandermonde import VandermondeReservoirConv
+from src.convolutions.fft import FFTConv
 
 """
 see: https://github.com/i404788/s5-pytorch/tree/74e2fdae00b915a62c914bf3615c0b8a4279eb84
@@ -10,7 +10,7 @@ see: https://github.com/i404788/s5-pytorch/tree/74e2fdae00b915a62c914bf3615c0b8a
 class S4R(torch.nn.Module):
     def __init__(self, d_model,
                  dropout=0.0,
-                 **conv_args):
+                 **layer_args):
         """
         Construct an SSM model with frozen state matrix Lambda_bar:
         x_new = Lambda_bar * x_old + B_bar * u_new
@@ -24,7 +24,7 @@ class S4R(torch.nn.Module):
 
         self.d_model = d_model
 
-        self.layer = VandermondeReservoirConv(d_input=self.d_model, d_state=self.d_model, **conv_args)
+        self.layer = FFTConv(d_model=self.d_model, **layer_args)
 
         self.mix_and_gate = nn.Sequential(
             nn.Conv1d(self.d_model, 2 * self.d_model, kernel_size=1),  # mix and double the num of features (no context)

@@ -1,23 +1,22 @@
 import torch
 import torch.optim as optim
-from src.models.deep.stacked import StackedNetwork
-from src.models.deep.residual import ResidualNetwork
+from src.deep.residual import ResidualNetwork
 from src.ml.training import TrainModel
 from src.ml.evaluation import EvaluateClassifier
 
 
 class Classifier:
-    def __init__(self, block_factory, n_layers, d_input, d_model, num_classes,
+    def __init__(self, block_cls, n_layers, d_input, d_model, num_classes,
                  layer_dropout, pre_norm,
                  **block_args):
         self.__TO_VEC = True
         self.__NUM_CLASSES = num_classes
         self.__CRITERION = torch.nn.CrossEntropyLoss()  # Classification task: softmax layer + CE loss (more stable)
-        self.model = self.__construct_model(block_factory, n_layers, d_input, d_model, layer_dropout, pre_norm,
+        self.model = self.__construct_model(block_cls, n_layers, d_input, d_model, layer_dropout, pre_norm,
                                             **block_args)
 
-    def __construct_model(self,  block_factory, n_layers, d_input, d_model, layer_dropout, pre_norm, **block_args):
-        classifier = ResidualNetwork(block_factory=block_factory,
+    def __construct_model(self,  block_cls, n_layers, d_input, d_model, layer_dropout, pre_norm, **block_args):
+        classifier = ResidualNetwork(block_cls=block_cls,
                                      n_layers=n_layers,
                                      d_input=d_input, d_model=d_model, d_output=self.__NUM_CLASSES,
                                      layer_dropout=layer_dropout, pre_norm=pre_norm,
