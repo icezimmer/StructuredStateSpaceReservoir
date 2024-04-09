@@ -1,5 +1,7 @@
 import torch
 import torch.nn as nn
+from src.reservoir.state_reservoir import DiscreteStateReservoir
+from src.reservoir.reservoir import Reservoir
 
 
 class ESN(nn.Module):
@@ -13,12 +15,14 @@ class ESN(nn.Module):
         self.d_model = d_model
         self.leakage_rate = leakage_rate
 
-        self.w_in = nn.Parameter((torch.rand(self.d_model, self.d_model, dtype=torch.float32) * 2 - 1) * input_scaling,
-                                 requires_grad=False)
+        reservoir = Reservoir(d_in=d_model, d_out=d_model)
+        w_in = reservoir.uniform_matrix(scaling=input_scaling, field='real')
+        self.w_in = nn.Parameter(w_in, requires_grad=False)
 
-        w_hh = torch.rand(self.d_model, self.d_model, dtype=torch.float32) * 2 - 1
-        eigenvalues = torch.linalg.eigvals(w_hh)
-        self.w_hh = nn.Parameter(w_hh * spectral_radius / torch.max(torch.abs(eigenvalues)), requires_grad=False)
+        state_reservoir = DiscreteStateReservoir(self.d_state)
+        w_hh = state_reservoir.echo_state_matrix(max_radius=spectral_radius)
+        self.w_hh = nn.Parameter(w_hh, requires_grad=False)
+
         self.bias = nn.Parameter(torch.rand(self.d_model) * 2 - 1, requires_grad=False)
 
         self.drop_kernel = nn.Dropout(drop_kernel) if drop_kernel > 0 else nn.Identity()

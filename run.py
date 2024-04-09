@@ -35,7 +35,8 @@ def parse_args():
     if args.block in ['S4', 'S4R', 'ESN']:
         parser.add_argument('--kerneldrop', type=float, default=0.0, help='Dropout the kernel inside the block.')
         if args.block == 'S4R':
-            parser.add_argument('--kernel', choices=kernel_classes.keys(), default='freezeA', help='Block class to use for the model.')
+            parser.add_argument('--kernel', choices=kernel_classes.keys(), default='freezeA',
+                                help='Block class to use for the model.')
             parser.add_argument('--dt', type=int, default=None, help='Sampling rate (only for continuous dynamics).')
             parser.add_argument('--strong', type=float, default=0.9, help='Strong Stability for internal dynamics.')
             parser.add_argument('--weak', type=float, default=1.0, help='Weak Stability for internal dynamics.')
@@ -44,7 +45,8 @@ def parse_args():
     parser.add_argument('--layers', type=int, default=1, help='Number of layers.')
     parser.add_argument('--neurons', type=int, default=64, help='Number of hidden neurons (hidden state size).')
     parser.add_argument('--layerdrop', type=float, default=0.0, help='Dropout the output of each layer.')
-    parser.add_argument('--prenorm', type=bool, default=False, help='Pre normalization or post normalization for each layer.')
+    parser.add_argument('--prenorm', type=bool, default=False,
+                        help='Pre normalization or post normalization for each layer.')
     parser.add_argument('--dropout', type=float, default=0.0, help='Dropout the preactivation inside the block.')
     parser.add_argument('--lr', type=float, default=0.001, help='Learning rate.')
     parser.add_argument('--epochs', type=int, default=float('inf'), help='Number of epochs.')
@@ -79,7 +81,6 @@ def main():
 
     checkpoint_path = os.path.join('./checkpoint', args.task + '_model' + '.pt')
     block_cls = block_factories[args.block]
-    kernel_cls = kernel_classes[args.kernel]
 
     logging.basicConfig(level=logging.INFO)
     logging.info('Starting Task.')
@@ -104,7 +105,7 @@ def main():
                                 d_input=num_features, d_model=args.neurons, num_classes=num_classes,
                                 kernel_size=kernel_size,
                                 layer_dropout=args.layerdrop, pre_norm=args.prenorm,
-                                kernel_cls=kernel_cls,
+                                kernel_cls=kernel_classes[args.kernel],
                                 dt=args.dt, strong_stability=args.strong, weak_stability=args.weak,
                                 drop_kernel=args.kerneldrop, dropout=args.dropout)
     else:

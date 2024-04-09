@@ -1,5 +1,5 @@
 import torch
-from src.reservoir.state_reservoir import DiscreteStateReservoir, ContinuousStateReservoir
+from src.reservoir.reservoir import Reservoir
 import torch.nn as nn
 
 
@@ -27,8 +27,9 @@ class FFTConv(nn.Module):
 
         self.kernel = kernel_cls(d_model=self.d_model, **kernel_args)
 
-        self.D = nn.Parameter(torch.randn(self.d_input, self.d_output, dtype=torch.float32),
-                              requires_grad=True)  # (H, H)
+        input_output_reservoir = Reservoir(d_in=self.d_input, d_out=self.d_output)
+        D = input_output_reservoir.uniform_matrix(scaling=1.0, field='real')
+        self.D = nn.Parameter(D, requires_grad=True)  # (H, H)
 
         self.drop = nn.Dropout(dropout) if dropout > 0 else nn.Identity()
 

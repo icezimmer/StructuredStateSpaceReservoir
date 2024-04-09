@@ -1,5 +1,6 @@
 import torch
 from src.reservoir.state_reservoir import DiscreteStateReservoir, ContinuousStateReservoir
+from src.reservoir.reservoir import Reservoir
 import torch.nn as nn
 
 
@@ -24,29 +25,34 @@ class VandermondeKernel(nn.Module):
 
         super().__init__()
 
-        self.d_input = d_model
         self.d_state = d_model
-        self.d_output = d_model
+        self.d_input = d_model  # For simplicity but not necessary
 
-        # Initialize parameters C and D
-        C = torch.randn(self.d_output, self.d_state, dtype=torch.complex64)
-        self.C = nn.Parameter(torch.view_as_real(C), requires_grad=True)  # (H, P, 2)
+        self.d_output = self.d_input  # Necessary condition for the Vandermonde kernel
 
-        B = torch.randn(self.d_state, self.d_input, dtype=torch.complex64)
+        input_state_reservoir = Reservoir(d_in=self.d_input, d_out=self.d_state)
+        state_output_reservoir = Reservoir(d_in=self.d_state, d_out=self.d_output)
+
+        B = input_state_reservoir.uniform_matrix(scaling=1.0, field=field)
+        C = state_output_reservoir.uniform_matrix(scaling=1.0, field=field)
+
         if dt is None:
-            dr = DiscreteStateReservoir(self.d_state, strong_stability, weak_stability, field)
-            Lambda_bar = dr.diagonal_state_matrix()
+            state_reservoir = DiscreteStateReservoir(self.d_state)
+            Lambda_bar = state_reservoir.diagonal_state_space_matrix(
+                min_radius=strong_stability, max_radius=weak_stability, field=field)
             B_bar = B
         elif dt > 0:
-            cr = ContinuousStateReservoir(self.d_state, strong_stability, weak_stability, field)
-            Lambda = cr.diagonal_state_matrix()
-            Lambda_bar, B_bar = self._zoh(Lambda, B, dt)  # Discretization
+            state_reservoir = ContinuousStateReservoir(self.d_state)
+            Lambda = state_reservoir.diagonal_state_space_matrix(
+                min_real_part=strong_stability, max_real_part=weak_stability, field=field)
+            Lambda_bar, B_bar = self._zoh(Lambda, B, dt)
         else:
             raise ValueError("Delta time dt must be positive: set dt>0 or None for 'discrete dynamics'.")
 
         # Initialize parameters Lambda_bar and B_bar
         self.Lambda_bar = nn.Parameter(torch.view_as_real(Lambda_bar), requires_grad=True)  # (P, 2)
         self.B_bar = nn.Parameter(torch.view_as_real(B_bar), requires_grad=True)  # (P, H, 2)
+        self.C = nn.Parameter(torch.view_as_real(C), requires_grad=True)  # (H, P, 2)
 
         self.powers = torch.arange(kernel_size, dtype=torch.float32, device=self.Lambda_bar.device)
 
@@ -66,7 +72,7 @@ class VandermondeKernel(nn.Module):
         D = D
         :param Lambda: State Diagonal Matrix (Continuous System)
         :param B: Input->State Matrix (Continuous System)
-        :param Delta: Timestep (1 for each input dimension)
+        :param dt: Delta time for discretization
         :return: Lambda_bar, B_bar (Discrete System)
         """
         Ones = torch.ones(Lambda.shape[0], dtype=torch.float32)
