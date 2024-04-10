@@ -5,7 +5,8 @@ from src.models.s4.s4 import S4Block
 from src.models.rnn.vanilla import VanillaRNN, VanillaGRU
 from src.models.esn.esn import ESN
 from src.models.ssrm.s4r import S4R
-from src.kernels.vandermonde import VandermondeKernel, VandermondeStateReservoirKernel
+from src.kernels.vandermonde import VandermondeKernel, VandermondeInput2StateReservoirKernel, VandermondeStateReservoirKernel, VandermondeReservoirKernel
+from src.kernels.mini_vandermonde import MiniVandermondeKernel
 from src.task.classifier import Classifier
 from src.utils.temp_data import load_temp_data
 
@@ -18,8 +19,14 @@ block_factories = {
 }
 
 kernel_classes = {
-    'std': VandermondeKernel,
-    'freezeA': VandermondeStateReservoirKernel,
+    'V': VandermondeKernel,
+    'V-freezeB': VandermondeInput2StateReservoirKernel,
+    'V-freezeA': VandermondeStateReservoirKernel,
+    'V-freezeAB': VandermondeReservoirKernel,
+    'miniV': MiniVandermondeKernel,
+    'miniV-freezeBC': VandermondeInput2StateReservoirKernel,
+    'miniV-freezeA': VandermondeStateReservoirKernel,
+    'miniV-freezeABC': VandermondeReservoirKernel,
 }
 
 def parse_args():

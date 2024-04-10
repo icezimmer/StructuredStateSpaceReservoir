@@ -12,9 +12,7 @@ class S4R(torch.nn.Module):
                  dropout=0.0,
                  **layer_args):
         """
-        Construct an SSM model with frozen state matrix Lambda_bar:
-        x_new = Lambda_bar * x_old + B_bar * u_new
-        y_new = C * x_new + D * u_new
+        S4R model.
         :param d_input: dimensionality of the input space
         :param d_state: dimensionality of the latent space
         :param dt: delta time for continuous dynamics (default: None for discrete dynamics)
