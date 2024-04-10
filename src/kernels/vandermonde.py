@@ -7,7 +7,7 @@ import torch.nn as nn
 class VandermondeKernel(nn.Module):
     """Generate convolution kernel from diagonal SSM parameters."""
 
-    def __init__(self, d_model, kernel_size,
+    def __init__(self, d_input, d_state, kernel_size,
                  strong_stability, weak_stability, dt=None,
                  drop_kernel=0.0, dropout=0.0,
                  field='complex'):
@@ -25,16 +25,15 @@ class VandermondeKernel(nn.Module):
 
         super().__init__()
 
-        self.d_state = d_model
-        self.d_input = d_model  # For simplicity but not necessary
+        self.d_input = d_input
+        self.d_state = d_state
+        self.d_output = self.d_input  # Necessary condition for the Vandermonde kernel (SISO)
 
-        self.d_output = self.d_input  # Necessary condition for the Vandermonde kernel
+        input2state_reservoir = Reservoir(d_in=self.d_input, d_out=self.d_state)
+        state2output_reservoir = Reservoir(d_in=self.d_state, d_out=self.d_output)
 
-        input_state_reservoir = Reservoir(d_in=self.d_input, d_out=self.d_state)
-        state_output_reservoir = Reservoir(d_in=self.d_state, d_out=self.d_output)
-
-        B = input_state_reservoir.uniform_matrix(scaling=1.0, field=field)
-        C = state_output_reservoir.uniform_matrix(scaling=1.0, field=field)
+        B = input2state_reservoir.uniform_matrix(scaling=1.0, field=field)
+        C = state2output_reservoir.uniform_matrix(scaling=1.0, field=field)
 
         if dt is None:
             state_reservoir = DiscreteStateReservoir(self.d_state)
@@ -54,7 +53,7 @@ class VandermondeKernel(nn.Module):
         self.B_bar = nn.Parameter(torch.view_as_real(B_bar), requires_grad=True)  # (P, H, 2)
         self.C = nn.Parameter(torch.view_as_real(C), requires_grad=True)  # (H, P, 2)
 
-        self.powers = torch.arange(kernel_size, dtype=torch.float32, device=self.Lambda_bar.device)
+        self.powers = torch.arange(kernel_size, dtype=torch.float32)
 
         self.drop_kernel = nn.Dropout(drop_kernel) if drop_kernel > 0 else nn.Identity()
         self.drop = nn.Dropout(dropout) if dropout > 0 else nn.Identity()
@@ -93,7 +92,8 @@ class VandermondeKernel(nn.Module):
 
         """
         Lambda_bar = torch.view_as_complex(self.Lambda_bar)
-        vandermonde = Lambda_bar.unsqueeze(1) ** self.powers  # (P, L)
+        powers = self.powers.to(device=Lambda_bar.device)
+        vandermonde = Lambda_bar.unsqueeze(1) ** powers  # (P, L)
         return vandermonde
 
     def step(self, u, x):
@@ -133,7 +133,7 @@ class VandermondeKernel(nn.Module):
 class VandermondeStateReservoirKernel(VandermondeKernel):
     """Generate convolution kernel from diagonal SSM parameters."""
 
-    def __init__(self, d_model, kernel_size,
+    def __init__(self, d_input, d_state, kernel_size,
                  strong_stability, weak_stability, dt=None,
                  drop_kernel=0.0, dropout=0.0,
                  field='complex'):
@@ -141,15 +141,17 @@ class VandermondeStateReservoirKernel(VandermondeKernel):
         Construct an SSM model with frozen state matrix Lambda_bar:
         x_new = Lambda_bar * x_old + B_bar * u_new
         y_new = C * x_new + D * u_new
-        :param d_input: dimensionality of the input space
-        :param d_state: dimensionality of the latent space
-        :param dt: delta time for continuous dynamics (default: None for discrete dynamics)
-        :param field: field for the state 'real' or 'complex' (default: 'complex')
+        :param
+            d_input: dimensionality of the input space
+            d_state: dimensionality of the latent space
+            kernel_size: size of the convolution kernel (length of the input sequence)
+            dt: delta time for continuous dynamics (default: None for discrete dynamics)
+            field: field for the state 'real' or 'complex' (default: 'complex')
         """
         # TODO: Hyperparameter dt>0 for continuous dynamics:
         #   Lambda_bar = Lambda_Bar(Lambda, dt), B_bar = B(Lambda, B, dt)
 
-        super().__init__(d_model, kernel_size,
+        super().__init__(d_input, d_state, kernel_size,
                          strong_stability, weak_stability, dt,
                          drop_kernel, dropout,
                          field)
@@ -161,9 +163,7 @@ class VandermondeStateReservoirKernel(VandermondeKernel):
 
     def forward(self):
         """
-        Apply the convolution to the input sequence
-        :param u: batched input sequence of shape (B,H,L) = (batch_size, d_input, input_length)
-        :return: y: batched output sequence of shape (B,H,L) = (batch_size, d_output, input_length)
+        Generate the convolution kernel from the diagonal SSM parameters
         """
         B_bar = torch.view_as_complex(self.B_bar)  # (P, H)
         C = torch.view_as_complex(self.C)  # (H, P)

@@ -6,7 +6,7 @@ import torch.nn as nn
 class FFTConv(nn.Module):
     """Generate convolution kernel from diagonal SSM parameters."""
 
-    def __init__(self, d_model, kernel_cls, dropout=0.0, **kernel_args):
+    def __init__(self, d_input, d_state, kernel_cls, dropout=0.0, **kernel_args):
         """
         Construct an SSM model with frozen state matrix Lambda_bar:
         x_new = Lambda_bar * x_old + B_bar * u_new
@@ -16,19 +16,16 @@ class FFTConv(nn.Module):
         :param dt: delta time for continuous dynamics (default: None for discrete dynamics)
         :param field: field for the state 'real' or 'complex' (default: 'complex')
         """
-        # TODO: Delta trainable parameter not fixed to ones for continuous dynamics:
-        #   Lambda_bar = Lambda_Bar(Lambda, Delta), B_bar = B(Lambda, B, Delta)
-
         super().__init__()
 
-        self.d_input = d_model
-        self.d_model = d_model
-        self.d_output = d_model
+        self.d_input = d_input
+        self.d_state = d_state
+        self.d_output = self.d_input  # SISO model
 
-        self.kernel = kernel_cls(d_model=self.d_model, **kernel_args)
+        self.kernel = kernel_cls(d_input=self.d_input, d_state=self.d_state, **kernel_args)
 
-        input_output_reservoir = Reservoir(d_in=self.d_input, d_out=self.d_output)
-        D = input_output_reservoir.uniform_matrix(scaling=1.0, field='real')
+        input2output_reservoir = Reservoir(d_in=self.d_input, d_out=self.d_output)
+        D = input2output_reservoir.uniform_matrix(scaling=1.0, field='real')
         self.D = nn.Parameter(D, requires_grad=True)  # (H, H)
 
         self.drop = nn.Dropout(dropout) if dropout > 0 else nn.Identity()
