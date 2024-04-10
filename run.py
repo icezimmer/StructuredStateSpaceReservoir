@@ -5,10 +5,13 @@ from src.models.s4.s4 import S4Block
 from src.models.rnn.vanilla import VanillaRNN, VanillaGRU
 from src.models.esn.esn import ESN
 from src.models.ssrm.s4r import S4R
-from src.kernels.vandermonde import VandermondeKernel, VandermondeInput2StateReservoirKernel, VandermondeStateReservoirKernel, VandermondeReservoirKernel
-from src.kernels.mini_vandermonde import MiniVandermondeKernel
+from src.kernels.vandermonde import (VandermondeKernel, VandermondeInput2StateReservoirKernel,
+                                     VandermondeStateReservoirKernel, VandermondeReservoirKernel)
+from src.kernels.mini_vandermonde import (MiniVandermondeKernel, MiniVandermondeInputOutputReservoirKernel,
+                                          MiniVandermondeStateReservoirKernel, MiniVandermondeReservoirKernel)
 from src.task.classifier import Classifier
 from src.utils.temp_data import load_temp_data
+from src.utils.prints import print_buffers, print_parameters
 
 block_factories = {
     'S4': S4Block,
@@ -24,9 +27,9 @@ kernel_classes = {
     'V-freezeA': VandermondeStateReservoirKernel,
     'V-freezeAB': VandermondeReservoirKernel,
     'miniV': MiniVandermondeKernel,
-    'miniV-freezeBC': VandermondeInput2StateReservoirKernel,
-    'miniV-freezeA': VandermondeStateReservoirKernel,
-    'miniV-freezeABC': VandermondeReservoirKernel,
+    'miniV-freezeW': MiniVandermondeInputOutputReservoirKernel,
+    'miniV-freezeA': MiniVandermondeStateReservoirKernel,
+    'miniV-freezeAW': MiniVandermondeReservoirKernel,
 }
 
 def parse_args():
@@ -119,6 +122,7 @@ def main():
         raise ValueError('Invalid block name')
 
     # print_parameters(classifier.model)
+    # print_buffers(classifier.model)
 
     classifier.fit_model(lr=args.lr, develop_dataloader=develop_dataloader, num_epochs=args.epochs,
                          patience=args.patience, train_dataloader=train_dataloader, val_dataloader=val_dataloader,

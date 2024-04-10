@@ -35,9 +35,9 @@ class MiniVandermondeKernel(nn.Module):
         self.d_state = d_state
         self.d_output = self.d_input  # Necessary condition for the Vandermonde kernel (SISO)
 
-        state2output_reservoir = Reservoir(d_in=self.d_state, d_out=self.d_output)
+        input_output_reservoir = Reservoir(d_in=self.d_state, d_out=self.d_output)
 
-        W = state2output_reservoir.uniform_matrix(scaling=1.0, field=field)
+        W = input_output_reservoir.uniform_matrix(scaling=1.0, field=field)
 
         if dt is None:
             state_reservoir = DiscreteStateReservoir(self.d_state)
@@ -122,16 +122,16 @@ class MiniVandermondeKernel(nn.Module):
         return kernel, None
 
 
-class MiniVandermondeInput2StateReservoirKernel(MiniVandermondeKernel):
+class MiniVandermondeInputOutputReservoirKernel(MiniVandermondeKernel):
     """Generate convolution kernel from diagonal SSM parameters."""
 
     def __init__(self, d_input, d_state, kernel_size,
                  strong_stability, weak_stability, dt=None,
                  field='complex'):
         """
-        Construct the convolution kernel with frozen A.
-        Assuming diagonal state matrix A of shape (d_state), the Vandermonde Kernel is:
-            kernel[i,l] = C[i,:] * diag(A)^l * B[:,i] = (C[i,:] .* B[:,i]) * A^l
+        Construct the convolution kernel with frozen W.
+        Assuming diagonal state matrix A of shape (d_state), the Mini-Vandermonde Kernel is:
+            kernel[i,l] = W[i,:] * diag(A)^l = (sqrt(W[i,:]) .* sqrt(W^t[:,i])) * A^l
         where:
             diag(A)[j,j] = A[j]
             A^l[j] = A[j]^l
@@ -148,8 +148,10 @@ class MiniVandermondeInput2StateReservoirKernel(MiniVandermondeKernel):
                          strong_stability, weak_stability, dt,
                          field)
 
-        # Freeze B
-        self.B.requires_grad_(False)
+        # Register W as buffer
+        W_data = self.W.data  # Get the data from the parameter
+        delattr(self, 'W')  # Remove W from parameters
+        self.register_buffer('W', W_data)
 
 
 class MiniVandermondeStateReservoirKernel(MiniVandermondeKernel):
@@ -160,8 +162,8 @@ class MiniVandermondeStateReservoirKernel(MiniVandermondeKernel):
                  field='complex'):
         """
         Construct the convolution kernel with frozen A.
-        Assuming diagonal state matrix A of shape (d_state), the Vandermonde Kernel is:
-            kernel[i,l] = C[i,:] * diag(A)^l * B[:,i] = (C[i,:] .* B[:,i]) * A^l
+        Assuming diagonal state matrix A of shape (d_state), the Mini-Vandermonde Kernel is:
+            kernel[i,l] = W[i,:] * diag(A)^l = (sqrt(W[i,:]) .* sqrt(W^t[:,i])) * A^l
         where:
             diag(A)[j,j] = A[j]
             A^l[j] = A[j]^l
@@ -178,10 +180,12 @@ class MiniVandermondeStateReservoirKernel(MiniVandermondeKernel):
                          strong_stability, weak_stability, dt,
                          field)
 
-        # Freeze A
-        self.A.requires_grad_(False)
+        # Register A as buffer
+        A_data = self.A.data  # Get the data from the parameter
+        delattr(self, 'A')  # Remove A from parameters
+        self.register_buffer('A', A_data)
 
-        # Register Vandermonde matrix for kernel computation
+        # Register the Vandermonde matrix as buffer
         vandermonde = self._construct_vandermonde()  # (P, L)
         self.register_buffer('vandermonde', vandermonde)
 
@@ -203,9 +207,9 @@ class MiniVandermondeReservoirKernel(MiniVandermondeStateReservoirKernel):
                  strong_stability, weak_stability, dt=None,
                  field='complex'):
         """
-        Construct the convolution kernel with frozen A.
-        Assuming diagonal state matrix A of shape (d_state), the Vandermonde Kernel is:
-            kernel[i,l] = C[i,:] * diag(A)^l * B[:,i] = (C[i,:] .* B[:,i]) * A^l
+        Construct the convolution kernel with frozen A and W.
+        Assuming diagonal state matrix A of shape (d_state), the Mini-Vandermonde Kernel is:
+            kernel[i,l] = W[i,:] * diag(A)^l = (sqrt(W[i,:]) .* sqrt(W^t[:,i])) * A^l
         where:
             diag(A)[j,j] = A[j]
             A^l[j] = A[j]^l
@@ -222,5 +226,7 @@ class MiniVandermondeReservoirKernel(MiniVandermondeStateReservoirKernel):
                          strong_stability, weak_stability, dt,
                          field)
 
-        # Freeze B
-        self.B.requires_grad_(False)
+        # Register W as buffer
+        W_data = self.W.data  # Get the data from the parameter
+        delattr(self, 'W')  # Remove W from parameters
+        self.register_buffer('W', W_data)

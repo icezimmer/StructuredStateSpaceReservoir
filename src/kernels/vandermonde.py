@@ -154,8 +154,10 @@ class VandermondeInput2StateReservoirKernel(VandermondeKernel):
                          strong_stability, weak_stability, dt,
                          field)
 
-        # Freeze B
-        self.B.requires_grad_(False)
+        # Register B as buffer
+        B_data = self.B.data  # Get the data from the parameter
+        delattr(self, 'B')  # Remove B from parameters
+        self.register_buffer('B', B_data)
 
 
 class VandermondeStateReservoirKernel(VandermondeKernel):
@@ -184,10 +186,12 @@ class VandermondeStateReservoirKernel(VandermondeKernel):
                          strong_stability, weak_stability, dt,
                          field)
 
-        # Freeze A
-        self.A.requires_grad_(False)
+        # Register A as buffer
+        A_data = self.A.data  # Get the data from the parameter
+        delattr(self, 'A')  # Remove A from parameters
+        self.register_buffer('A', A_data)
 
-        # Register Vandermonde matrix for kernel computation
+        # Register the Vandermonde matrix as buffer
         vandermonde = self._construct_vandermonde()  # (P, L)
         self.register_buffer('vandermonde', vandermonde)
 
@@ -229,5 +233,7 @@ class VandermondeReservoirKernel(VandermondeStateReservoirKernel):
                          strong_stability, weak_stability, dt,
                          field)
 
-        # Freeze B
-        self.B.requires_grad_(False)
+        # Register B as buffer
+        B_data = self.B.data  # Get the data from the parameter
+        delattr(self, 'B')  # Remove B from parameters
+        self.register_buffer('B', B_data)
