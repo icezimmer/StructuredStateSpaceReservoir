@@ -52,12 +52,14 @@ class VandermondeKernel(nn.Module):
         else:
             raise ValueError("Delta time dt must be positive: set dt>0 or None for 'discrete dynamics'.")
 
-        # Initialize parameters A and B
+        # Initialize parameters A, B and C
         self.A = nn.Parameter(torch.view_as_real(Lambda_bar), requires_grad=True)  # (P, 2)
         self.B = nn.Parameter(torch.view_as_real(B_bar), requires_grad=True)  # (P, H, 2)
         self.C = nn.Parameter(torch.view_as_real(C), requires_grad=True)  # (H, P, 2)
 
-        self.powers = torch.arange(kernel_size, dtype=torch.float32)
+        # Register powers for Vandermonde matrix
+        powers = torch.arange(kernel_size, dtype=torch.float32)
+        self.register_buffer('powers', powers)  # (L)
 
 
     @staticmethod
@@ -90,8 +92,7 @@ class VandermondeKernel(nn.Module):
         returns: vandermonde: (P,L)
         """
         A = torch.view_as_complex(self.A)
-        powers = self.powers.to(device=A.device)
-        vandermonde = A.unsqueeze(1) ** powers  # (P, L)
+        vandermonde = A.unsqueeze(1) ** self.powers  # (P, L)
         return vandermonde
 
     def step(self, u, x):
@@ -185,8 +186,10 @@ class VandermondeStateReservoirKernel(VandermondeKernel):
 
         # Freeze A
         self.A.requires_grad_(False)
-        # Frozen Vandermonde matrix for kernel computation
-        self.vandermonde = nn.Parameter(self._construct_vandermonde(), requires_grad=False)  # (P, L)
+
+        # Register Vandermonde matrix for kernel computation
+        vandermonde = self._construct_vandermonde()  # (P, L)
+        self.register_buffer('vandermonde', vandermonde)
 
     def forward(self):
         """

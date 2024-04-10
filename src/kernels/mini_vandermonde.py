@@ -54,7 +54,9 @@ class MiniVandermondeKernel(nn.Module):
         self.A = nn.Parameter(torch.view_as_real(Lambda_bar), requires_grad=True)  # (P, 2)
         self.W = nn.Parameter(torch.view_as_real(W), requires_grad=True)  # (P, H, 2)
 
-        self.powers = torch.arange(kernel_size, dtype=torch.float32)
+        # Register powers for Vandermonde matrix
+        powers = torch.arange(kernel_size, dtype=torch.float32)
+        self.register_buffer('powers', powers)  # (L)
 
 
     @staticmethod
@@ -81,8 +83,7 @@ class MiniVandermondeKernel(nn.Module):
         returns: vandermonde: (P,L)
         """
         A = torch.view_as_complex(self.A)
-        powers = self.powers.to(device=A.device)
-        vandermonde = A.unsqueeze(1) ** powers  # (P, L)
+        vandermonde = A.unsqueeze(1) ** self.powers  # (P, L)
         return vandermonde
 
     def step(self, u, x):
@@ -179,8 +180,10 @@ class MiniVandermondeStateReservoirKernel(MiniVandermondeKernel):
 
         # Freeze A
         self.A.requires_grad_(False)
-        # Frozen Vandermonde matrix for kernel computation
-        self.vandermonde = nn.Parameter(self._construct_vandermonde(), requires_grad=False)  # (P, L)
+
+        # Register Vandermonde matrix for kernel computation
+        vandermonde = self._construct_vandermonde()  # (P, L)
+        self.register_buffer('vandermonde', vandermonde)
 
     def forward(self):
         """
