@@ -1,6 +1,5 @@
 import torch
 from torch.utils.data import Dataset
-from src.utils.preprocess_data import standardize
 
 
 class PathfinderDataset(Dataset):
@@ -16,14 +15,14 @@ class PathfinderDataset(Dataset):
             image = image.to(dtype=torch.float32)
             label = torch.tensor(label, dtype=torch.long)
 
-            # Permute the dimensions from (H, W, C=1) to (C=1, H, W)
+            # Permute the dimensions from (H, W, C) to (C, H, W)
             image = image.permute(2, 0, 1)
 
             # Flatten the spatial dimensions while maintaining the channel dimension
             image = image.view(image.shape[0], -1)  # (C=1, H*W)
 
-            # Standardize the data
-            image, _, _ = standardize(image)
+            # Transform to [0,1]
+            image = image / 255.0
 
             if device_name is not None:
                 image = image.to(torch.device(device_name))

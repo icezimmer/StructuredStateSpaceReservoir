@@ -34,4 +34,3 @@ def plot_spectrum(Lambda):
     plt.axhline(y=0, color='k')  # Adds x-axis
     plt.axvline(x=0, color='k')  # Adds y-axis
     plt.show()
-    

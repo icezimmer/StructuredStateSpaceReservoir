@@ -23,22 +23,30 @@ parser.add_argument('--device', default='cuda:3', help='Device for training')
 args = parser.parse_args()
 
 if args.task == 'smnist':
+    transform = transforms.Compose([
+        transforms.ToTensor(),  # Convert image to pytorch tensor with values in [0, 1] and shape (C, H, W)
+        transforms.Normalize((0.1307,), (0.3081,)),
+    ])
     develop_dataset = SequentialImage2Classify(datasets.MNIST(root='./checkpoint/',
                                                               train=True,
-                                                              transform=transforms.ToTensor(),
+                                                              transform=transform,
                                                               download=True), device_name=args.device)
     test_dataset = SequentialImage2Classify(datasets.MNIST(root='./checkpoint/',
                                                            train=False,
-                                                           transform=transforms.ToTensor(),
+                                                           transform=transform,
                                                            download=True))
 elif args.task == 'scifar10':
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+        ])
     develop_dataset = SequentialImage2Classify(datasets.CIFAR10(root='./checkpoint/',
                                                                 train=True,
-                                                                transform=transforms.ToTensor(),
+                                                                transform=transform,
                                                                 download=True), device_name=args.device)
     test_dataset = SequentialImage2Classify(datasets.CIFAR10(root='./checkpoint/',
                                                              train=False,
-                                                             transform=transforms.ToTensor(),
+                                                             transform=transform,
                                                              download=True))
 elif args.task == 'pathfinder':
     pathfinders = {

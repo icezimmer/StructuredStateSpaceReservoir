@@ -57,6 +57,18 @@ def parse_args():
             parser.add_argument('--strong', type=float, default=0.9, help='Strong Stability for internal dynamics.')
             parser.add_argument('--weak', type=float, default=1.0, help='Weak Stability for internal dynamics.')
 
+    # Update args with the new conditional arguments
+    args, unknown = parser.parse_known_args()
+
+    # Conditionally add --scaleW if kernel starts with 'miniV'
+    if hasattr(args, 'kernel') and args.kernel.startswith('V'):
+        parser.add_argument('--scaleB', type=float, default=1.0, help='Scaling for the input2state matrix B.')
+        parser.add_argument('--scaleC', type=float, default=1.0, help='Scaling for the state2output matrix C.')
+
+    # Conditionally add --scaleW if kernel starts with 'miniV'
+    if hasattr(args, 'kernel') and args.kernel.startswith('miniV'):
+        parser.add_argument('--scaleW', type=float, default=1.0, help='Scaling for the input-output matrix W.')
+
     # Add the rest of the arguments
     parser.add_argument('--layers', type=int, default=1, help='Number of layers.')
     parser.add_argument('--neurons', type=int, default=64, help='Number of hidden neurons (hidden state size).')
@@ -123,6 +135,13 @@ def main():
         block_args = {'drop_kernel': args.kerneldrop, 'dropout': args.dropout,
                       'kernel_cls': kernel_classes[args.kernel], 'kernel_size': kernel_size,
                       'dt': args.dt, 'strong_stability': args.strong, 'weak_stability': args.weak}
+        if args.kernel.startswith('V'):
+            block_args['input2state_scaling'] = args.scaleB
+            block_args['state2output_scaling'] = args.scaleC
+        elif args.kernel.startswith('miniV'):
+            block_args['input_output_scaling'] = args.scaleW
+        else:
+            raise ValueError('Invalid kernel name')
     else:
         raise ValueError('Invalid block name')
 

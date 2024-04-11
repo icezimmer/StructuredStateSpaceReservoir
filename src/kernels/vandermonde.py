@@ -9,7 +9,9 @@ class Vandermonde(nn.Module):
     Generate convolution kernel from diagonal SSM parameters
     """
     def __init__(self, d_input, d_state, kernel_size,
-                 strong_stability, weak_stability, dt=None,
+                 dt, strong_stability, weak_stability,
+                 input2state_scaling,
+                 state2output_scaling,
                  field='complex'):
         """
         Construct the convolution kernel.
@@ -36,8 +38,8 @@ class Vandermonde(nn.Module):
         input2state_reservoir = Reservoir(d_in=self.d_input, d_out=self.d_state)
         state2output_reservoir = Reservoir(d_in=self.d_state, d_out=self.d_output)
 
-        B = input2state_reservoir.uniform_matrix(scaling=1.0, field=field)
-        C = state2output_reservoir.uniform_matrix(scaling=1.0, field=field)
+        B = input2state_reservoir.uniform_matrix(scaling=input2state_scaling, field=field)
+        C = state2output_reservoir.uniform_matrix(scaling=state2output_scaling, field=field)
 
         if dt is None:
             state_reservoir = DiscreteStateReservoir(self.d_state)
@@ -148,7 +150,9 @@ class VandermondeInput2StateReservoir(Vandermonde):
     """Generate convolution kernel from diagonal SSM parameters."""
 
     def __init__(self, d_input, d_state, kernel_size,
-                 strong_stability, weak_stability, dt=None,
+                 dt, strong_stability, weak_stability,
+                 input2state_scaling,
+                 state2output_scaling,
                  field='complex'):
         """
         Construct the convolution kernel with frozen A.
@@ -167,7 +171,9 @@ class VandermondeInput2StateReservoir(Vandermonde):
         :param field: field for the state 'real' or 'complex' (default: 'complex')
         """
         super().__init__(d_input, d_state, kernel_size,
-                         strong_stability, weak_stability, dt,
+                         dt, strong_stability, weak_stability,
+                         input2state_scaling,
+                         state2output_scaling,
                          field)
 
         self._freeze_parameter('B')
@@ -177,7 +183,9 @@ class VandermondeStateReservoir(Vandermonde):
     """Generate convolution kernel from diagonal SSM parameters."""
 
     def __init__(self, d_input, d_state, kernel_size,
-                 strong_stability, weak_stability, dt=None,
+                 dt, strong_stability, weak_stability,
+                 input2state_scaling,
+                 state2output_scaling,
                  field='complex'):
         """
         Construct the convolution kernel with frozen A.
@@ -196,7 +204,9 @@ class VandermondeStateReservoir(Vandermonde):
         :param field: field for the state 'real' or 'complex' (default: 'complex')
         """
         super().__init__(d_input, d_state, kernel_size,
-                         strong_stability, weak_stability, dt,
+                         dt, strong_stability, weak_stability,
+                         input2state_scaling,
+                         state2output_scaling,
                          field)
 
         self._freeze_parameter('A')
@@ -221,7 +231,9 @@ class VandermondeReservoir(VandermondeStateReservoir):
     """Generate convolution kernel from diagonal SSM parameters."""
 
     def __init__(self, d_input, d_state, kernel_size,
-                 strong_stability, weak_stability, dt=None,
+                 dt, strong_stability, weak_stability,
+                 input2state_scaling,
+                 state2output_scaling,
                  field='complex'):
         """
         Construct the convolution kernel with frozen A.
@@ -240,7 +252,9 @@ class VandermondeReservoir(VandermondeStateReservoir):
         :param field: field for the state 'real' or 'complex' (default: 'complex')
         """
         super().__init__(d_input, d_state, kernel_size,
-                         strong_stability, weak_stability, dt,
+                         dt, strong_stability, weak_stability,
+                         input2state_scaling,
+                         state2output_scaling,
                          field)
 
         # Register B as buffer
