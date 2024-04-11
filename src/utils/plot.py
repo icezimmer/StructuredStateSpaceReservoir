@@ -7,10 +7,18 @@ def plot_spectrum(Lambda):
     Plot the spectrum of the discrete dynamics
     :return:
     """
-    # Extracting real and imaginary parts
-    Lambda = Lambda.clone().detach()
-    real_parts = Lambda[:, 0]
-    imaginary_parts = Lambda[:, 1]
+    if Lambda.is_complex():
+        # Ensure the tensor is detached from the computation graph and cloned
+        Lambda = Lambda.clone().detach()
+        # Extract real and imaginary parts
+        real_parts = Lambda.real
+        imaginary_parts = Lambda.imag
+    else:
+        # Fallback if Lambda is somehow not a complex tensor
+        # Assume Lambda is structured with real parts in the first column and imaginary parts in the second
+        Lambda = Lambda.clone().detach()
+        real_parts = Lambda[:, 0]
+        imaginary_parts = Lambda[:, 1]
 
     # Plotting
     plt.figure(figsize=(10, 10))
@@ -26,3 +34,4 @@ def plot_spectrum(Lambda):
     plt.axhline(y=0, color='k')  # Adds x-axis
     plt.axvline(x=0, color='k')  # Adds y-axis
     plt.show()
+    
