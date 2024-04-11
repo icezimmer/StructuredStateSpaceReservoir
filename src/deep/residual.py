@@ -4,13 +4,13 @@ import torch.nn as nn
 class ResidualNetwork(nn.Module):
 
     def __init__(self, block_cls, n_layers, d_input, d_model, d_output,
-                 layer_dropout=0.0, pre_norm=False,
+                 layer_dropout=0.0, pre_norm=False, post_norm=False,
                  to_vec=False,
                  **block_args):
         super().__init__()
         self.to_vec = to_vec
         self.pre_norm = pre_norm
-
+        self.post_norm = post_norm
         self.encoder = nn.Conv1d(d_input, d_model, kernel_size=1)
         self.layers = nn.ModuleList([block_cls(d_model=d_model, **block_args) for _ in range(n_layers)])
         self.norms = nn.ModuleList([nn.LayerNorm(d_model) for _ in range(n_layers)])
@@ -40,7 +40,7 @@ class ResidualNetwork(nn.Module):
             # Residual connection
             x = z + x  # (B, d_model, L) + (B, d_model, L) -> (B, d_model, L)
 
-            if not self.pre_norm:
+            if self.post_norm:
                 # Post normalization
                 x = norm(x.transpose(-1, -2)).transpose(-1, -2)
 

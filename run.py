@@ -14,6 +14,7 @@ from src.kernels.mini_vandermonde import (MiniVandermonde, MiniVandermondeInputO
                                           MiniVandermondeStateReservoir, MiniVandermondeReservoir)
 import torch.optim as optim
 from src.deep.residual import ResidualNetwork
+from src.deep.stacked import StackedNetwork
 from src.ml.training import TrainModel
 from src.ml.evaluation import EvaluateClassifier
 from src.utils.temp_data import load_temp_data
@@ -73,8 +74,8 @@ def parse_args():
     parser.add_argument('--layers', type=int, default=1, help='Number of layers.')
     parser.add_argument('--neurons', type=int, default=64, help='Number of hidden neurons (hidden state size).')
     parser.add_argument('--layerdrop', type=float, default=0.0, help='Dropout the output of each layer.')
-    parser.add_argument('--prenorm', type=bool, default=False,
-                        help='Pre normalization or post normalization for each layer.')
+    parser.add_argument('--prenorm', type=bool, default=False, help='Pre-normalization for each layer.')
+    parser.add_argument('--postnorm', type=bool, default=False, help='Post-normalization for each layer.')
     parser.add_argument('--dropout', type=float, default=0.0, help='Dropout the preactivation inside the block.')
     parser.add_argument('--lr', type=float, default=0.001, help='Learning rate.')
     parser.add_argument('--epochs', type=int, default=float('inf'), help='Number of epochs.')
@@ -145,9 +146,9 @@ def main():
     else:
         raise ValueError('Invalid block name')
 
-    model = ResidualNetwork(block_cls=block_cls, n_layers=args.layers,
+    model = StackedNetwork(block_cls=block_cls, n_layers=args.layers,
                             d_input=num_features, d_model=args.neurons, d_output=num_classes,
-                            layer_dropout=args.layerdrop, pre_norm=args.prenorm,
+                            layer_dropout=args.layerdrop, pre_norm=args.prenorm, post_norm=args.postnorm,
                             to_vec=True,
                             **block_args)
 
