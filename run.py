@@ -52,8 +52,8 @@ def parse_args():
     if args.block in ['S4', 'S4R', 'ESN']:
         parser.add_argument('--kerneldrop', type=float, default=0.0, help='Dropout the kernel inside the block.')
         if args.block == 'S4R':
-            parser.add_argument('--kernel', choices=kernel_classes.keys(), default='freezeA',
-                                help='Block class to use for the model.')
+            parser.add_argument('--kernel', choices=kernel_classes.keys(), default='V-freezeA',
+                                help='Kernel class to use for the model.')
             parser.add_argument('--dt', type=int, default=None, help='Sampling rate (only for continuous dynamics).')
             parser.add_argument('--strong', type=float, default=0.9, help='Strong Stability for internal dynamics.')
             parser.add_argument('--weak', type=float, default=1.0, help='Weak Stability for internal dynamics.')
