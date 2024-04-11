@@ -60,7 +60,7 @@ def parse_args():
     # Update args with the new conditional arguments
     args, unknown = parser.parse_known_args()
 
-    # Conditionally add --scaleW if kernel starts with 'miniV'
+    # Conditionally add --scaleB and --scaleC if kernel starts with 'miniV'
     if hasattr(args, 'kernel') and args.kernel.startswith('V'):
         parser.add_argument('--scaleB', type=float, default=1.0, help='Scaling for the input2state matrix B.')
         parser.add_argument('--scaleC', type=float, default=1.0, help='Scaling for the state2output matrix C.')
