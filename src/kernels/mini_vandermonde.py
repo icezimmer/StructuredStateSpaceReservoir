@@ -4,7 +4,7 @@ from src.reservoir.reservoir import Reservoir
 import torch.nn as nn
 
 
-class MiniVandermondeKernel(nn.Module):
+class MiniVandermonde(nn.Module):
     """
     Generate convolution kernel from diagonal SSM parameters
     """
@@ -58,6 +58,23 @@ class MiniVandermondeKernel(nn.Module):
         powers = torch.arange(kernel_size, dtype=torch.float32)
         self.register_buffer('powers', powers)  # (L)
 
+    def _freeze_parameter(self, param_name):
+        """
+        Converts a parameter to a buffer, effectively freezing it.
+        This means the parameter will no longer be updated during training.
+
+        Args:
+            param_name (str): The name of the parameter to freeze.
+        """
+        # Ensure the attribute exists and is a parameter
+        if hasattr(self, param_name) and isinstance(getattr(self, param_name), nn.Parameter):
+            # Convert to buffer
+            param = getattr(self, param_name).data
+            delattr(self, param_name)  # Remove as parameter
+            self.register_buffer(param_name, param)  # Register as buffer
+        else:
+            raise ValueError(f"{param_name} is not a parameter in this module.")
+
 
     @staticmethod
     def _zoh(Lambda, dt):
@@ -76,15 +93,15 @@ class MiniVandermondeKernel(nn.Module):
     def _construct_vandermonde(self):
         """
         Construct the Vandermonde Matrix from the diagonal state matrix A:
-            vandermonde[j,l] = A[j]^l,
+            V[j,l] = A[j]^l,
         where:
             j = 0, ..., d_state-1
             l = 0, ..., kernel_size-1.
-        returns: vandermonde: (P,L)
+        returns: V: (P,L)
         """
         A = torch.view_as_complex(self.A)
-        vandermonde = A.unsqueeze(1) ** self.powers  # (P, L)
-        return vandermonde
+        V = A.unsqueeze(1) ** self.powers  # (P, L)
+        return V
 
     def step(self, u, x):
         """
@@ -114,15 +131,15 @@ class MiniVandermondeKernel(nn.Module):
         Apply the convolution to the input sequence
         :return: kernel: 1d convolution kernel of shape (H, L)
         """
-        vandermonde = self._construct_vandermonde()  # (P, L)
+        V = self._construct_vandermonde()  # (P, L)
         W = torch.view_as_complex(self.W)  # (H, P)
 
-        kernel = torch.einsum('hp,pl->hl', W, vandermonde)  # (H, L)
+        kernel = torch.einsum('hp,pl->hl', W, V)  # (H, L)
 
         return kernel, None
 
 
-class MiniVandermondeInputOutputReservoirKernel(MiniVandermondeKernel):
+class MiniVandermondeInputOutputReservoir(MiniVandermonde):
     """Generate convolution kernel from diagonal SSM parameters."""
 
     def __init__(self, d_input, d_state, kernel_size,
@@ -148,13 +165,10 @@ class MiniVandermondeInputOutputReservoirKernel(MiniVandermondeKernel):
                          strong_stability, weak_stability, dt,
                          field)
 
-        # Register W as buffer
-        W_data = self.W.data  # Get the data from the parameter
-        delattr(self, 'W')  # Remove W from parameters
-        self.register_buffer('W', W_data)
+        self._freeze_parameter('W')
 
 
-class MiniVandermondeStateReservoirKernel(MiniVandermondeKernel):
+class MiniVandermondeStateReservoir(MiniVandermonde):
     """Generate convolution kernel from diagonal SSM parameters."""
 
     def __init__(self, d_input, d_state, kernel_size,
@@ -180,14 +194,11 @@ class MiniVandermondeStateReservoirKernel(MiniVandermondeKernel):
                          strong_stability, weak_stability, dt,
                          field)
 
-        # Register A as buffer
-        A_data = self.A.data  # Get the data from the parameter
-        delattr(self, 'A')  # Remove A from parameters
-        self.register_buffer('A', A_data)
+        self._freeze_parameter('A')
 
         # Register the Vandermonde matrix as buffer
-        vandermonde = self._construct_vandermonde()  # (P, L)
-        self.register_buffer('vandermonde', vandermonde)
+        V = self._construct_vandermonde()  # (P, L)
+        self.register_buffer('V', V)
 
     def forward(self):
         """
@@ -195,12 +206,12 @@ class MiniVandermondeStateReservoirKernel(MiniVandermondeKernel):
         :return: kernel: 1d convolution kernel of shape (H, L)
         """
         W = torch.view_as_complex(self.W)  # (H, P)
-        kernel = torch.einsum('hp,pl->hl', W, self.vandermonde)  # (H, L)
+        kernel = torch.einsum('hp,pl->hl', W, self.V)  # (H, L)
 
         return kernel, None
 
 
-class MiniVandermondeReservoirKernel(MiniVandermondeStateReservoirKernel):
+class MiniVandermondeReservoir(MiniVandermondeStateReservoir):
     """Generate convolution kernel from diagonal SSM parameters."""
 
     def __init__(self, d_input, d_state, kernel_size,
@@ -227,6 +238,4 @@ class MiniVandermondeReservoirKernel(MiniVandermondeStateReservoirKernel):
                          field)
 
         # Register W as buffer
-        W_data = self.W.data  # Get the data from the parameter
-        delattr(self, 'W')  # Remove W from parameters
-        self.register_buffer('W', W_data)
+        self._freeze_parameter('W')
