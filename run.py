@@ -12,7 +12,6 @@ from src.kernels.vandermonde import (Vandermonde, VandermondeInput2StateReservoi
                                      VandermondeStateReservoir, VandermondeReservoir)
 from src.kernels.mini_vandermonde import (MiniVandermonde, MiniVandermondeInputOutputReservoir,
                                           MiniVandermondeStateReservoir, MiniVandermondeReservoir)
-from src.task.classifier import Classifier
 import torch.optim as optim
 from src.deep.residual import ResidualNetwork
 from src.ml.training import TrainModel
@@ -127,14 +126,14 @@ def main():
     else:
         raise ValueError('Invalid block name')
 
-    # print_parameters(classifier.model)
-    # print_buffers(classifier.model)
-
     model = ResidualNetwork(block_cls=block_cls, n_layers=args.layers,
                             d_input=num_features, d_model=args.neurons, d_output=num_classes,
                             layer_dropout=args.layerdrop, pre_norm=args.prenorm,
                             to_vec=True,
                             **block_args)
+
+    # print_parameters(model)
+    # print_buffers(model)
 
     optimizer = optim.Adam(params=model.parameters(), lr=args.lr)
     criterion = torch.nn.CrossEntropyLoss()
@@ -143,7 +142,7 @@ def main():
                            patience=args.patience, num_epochs=args.epochs,
                            run_directory=run_dir)
 
-    # print_parameters(classifier.model)
+    # print_parameters(model)
 
     eval_bc = EvaluateClassifier(model=model, num_classes=num_classes, dataloader=develop_dataloader)
     eval_bc.evaluate(run_directory=run_dir, dataset_name='develop')
