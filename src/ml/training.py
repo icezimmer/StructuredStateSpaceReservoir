@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 import torch
 from src.utils.check_device import check_data_device
 
@@ -8,6 +9,8 @@ class TrainModel:
         self.optimizer = optimizer
         self.criterion = criterion
         self.develop_dataloader = develop_dataloader
+        self.training_loss = []
+        self.validation_loss = []
 
     def __epoch(self, dataloader):
         self.model.train()
@@ -35,32 +38,52 @@ class TrainModel:
             return running_loss / len(dataloader)
 
     def max_epochs(self, num_epochs, checkpoint_path):
+        self.training_loss = []
+        self.validation_loss = []
         for epoch in range(num_epochs):
             loss_epoch = self.__epoch(self.develop_dataloader)
+            self.training_loss.append(loss_epoch)
             print('[%d] loss: %.3f' % (epoch + 1, loss_epoch))
 
         torch.save(self.model.state_dict(), checkpoint_path)
         print('Finished Training')
 
     def early_stopping(self, train_dataloader, val_dataloader, patience, checkpoint_path, num_epochs=float('inf')):
+        self.training_loss = []
+        self.validation_loss = []
         epoch = 0
         buffer = 0
         best_val_loss = float('inf')
+        best_model_dict = self.model.state_dict()
         while buffer < patience and epoch < num_epochs:
             train_loss_epoch = self.__epoch(train_dataloader)
             val_loss_epoch = self.__validate(val_dataloader)
+            self.training_loss.append(train_loss_epoch)
+            self.validation_loss.append(val_loss_epoch)
             if val_loss_epoch < best_val_loss:
-                best_val_loss = val_loss_epoch
                 buffer = 0
-                torch.save(self.model.state_dict(), checkpoint_path)
+                best_val_loss = val_loss_epoch
+                best_model_dict = self.model.state_dict()
             else:
                 buffer += 1
             print('[%d] train_loss: %.3f; val_loss: %.3f' % (epoch + 1, train_loss_epoch, val_loss_epoch))
             epoch += 1
 
-        self.model.load_state_dict(torch.load(checkpoint_path))
+        self.model.load_state_dict(best_model_dict)
         develop_loss = self.__epoch(self.develop_dataloader)
         torch.save(self.model.state_dict(), checkpoint_path)
 
         print('[END] develop_loss: %.3f' % develop_loss)
         print('Finished Training')
+
+    def plot_loss(self, image_path):
+        plt.figure(figsize=(10, 5))
+        plt.plot(self.training_loss, label='Training loss')
+        plt.plot(self.validation_loss, label='Validation loss')
+        plt.title('Training and Validation Loss Over Epochs')
+        plt.xlabel('Epochs')
+        plt.ylabel('Loss')
+        plt.grid(True)
+        plt.legend()
+        plt.savefig(image_path)  # Save the plot as a PNG file
+        plt.close()  # Close the plot to free up memory

@@ -4,10 +4,10 @@ from src.utils.check_device import check_data_device
 
 
 class EvaluateClassifier:
-    def __init__(self, model, num_classes, test_dataloader, average='macro'):
-        self.device = check_data_device(test_dataloader)
+    def __init__(self, model, num_classes, dataloader, average='macro'):
+        self.device = check_data_device(dataloader)
         self.model = model.to(self.device)
-        self.test_dataloader = test_dataloader
+        self.dataloader = dataloader
         self.accuracy = Accuracy(num_classes=num_classes, average=average).to(device=self.device)
         self.precision = Precision(num_classes=num_classes, average=average).to(device=self.device)
         self.recall = Recall(num_classes=num_classes, average=average).to(device=self.device)
@@ -16,7 +16,7 @@ class EvaluateClassifier:
         self.confusion_matrix = ConfusionMatrix(num_classes=num_classes).to(device=self.device)
 
     def __predict(self):
-        for input_, label in self.test_dataloader:
+        for input_, label in self.dataloader:
             output = self.model(input_)  # outputs of model are logits (raw values)
 
             # Update metrics

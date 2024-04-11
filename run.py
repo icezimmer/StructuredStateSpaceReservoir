@@ -1,6 +1,9 @@
 import argparse
 import logging
 import os
+from datetime import datetime
+import json
+import torch
 from src.models.s4.s4 import S4Block
 from src.models.rnn.vanilla import VanillaRNN, VanillaGRU
 from src.models.esn.esn import ESN
@@ -10,6 +13,10 @@ from src.kernels.vandermonde import (Vandermonde, VandermondeInput2StateReservoi
 from src.kernels.mini_vandermonde import (MiniVandermonde, MiniVandermondeInputOutputReservoir,
                                           MiniVandermondeStateReservoir, MiniVandermondeReservoir)
 from src.task.classifier import Classifier
+import torch.optim as optim
+from src.deep.residual import ResidualNetwork
+from src.ml.training import TrainModel
+from src.ml.evaluation import EvaluateClassifier
 from src.utils.temp_data import load_temp_data
 from src.utils.prints import print_buffers, print_parameters
 
@@ -66,6 +73,12 @@ def parse_args():
     return parser.parse_args()
 
 
+def save_hyperparameters(args, save_path):
+    with open(save_path, 'w') as f:
+        # Convert args namespace to dictionary and save as JSON
+        json.dump(vars(args), f, indent=4)
+
+
 def main():
     args = parse_args()
 
@@ -84,54 +97,61 @@ def main():
     else:
         raise ValueError('Invalid task name')
 
+    current_time = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    run_dir = os.path.join('./checkpoint', current_time)
+    os.makedirs(run_dir, exist_ok=True)
+
+    hyperparameters_path = os.path.join(run_dir, 'hyperparameters.json')
+    save_hyperparameters(args, hyperparameters_path)
+
     develop_dataloader = load_temp_data(os.path.join('./checkpoint', args.task + '_develop_dataloader'))
     train_dataloader = load_temp_data(os.path.join('./checkpoint', args.task + '_train_dataloader'))
     val_dataloader = load_temp_data(os.path.join('./checkpoint', args.task + '_val_dataloader'))
     test_dataloader = load_temp_data(os.path.join('./checkpoint', args.task + '_test_dataloader'))
 
-    checkpoint_path = os.path.join('./checkpoint', args.task + '_model' + '.pt')
+    model_checkpoint_path = os.path.join(run_dir, args.task + '_model' + '.pt')
     block_cls = block_factories[args.block]
 
     logging.basicConfig(level=logging.INFO)
     logging.info('Starting Task.')
 
     if args.block in ['VanillaRNN', 'VanillaGRU']:
-        classifier = Classifier(block_cls=block_cls, n_layers=args.layers,
-                                d_input=num_features, d_model=args.neurons, num_classes=num_classes,
-                                layer_dropout=args.layerdrop, pre_norm=args.prenorm)
-
+        block_args = {}
     elif args.block == 'ESN':
-        classifier = Classifier(block_cls=block_cls, n_layers=args.layers,
-                                d_input=num_features, d_model=args.neurons, num_classes=num_classes,
-                                layer_dropout=args.layerdrop, pre_norm=args.prenorm,
-                                drop_kernel=args.kerneldrop, dropout=args.dropout)
+        block_args = {'drop_kernel': args.kerneldrop, 'dropout': args.dropout}
     elif args.block == 'S4':
-        classifier = Classifier(block_cls=block_cls, n_layers=args.layers,
-                                d_input=num_features, d_model=args.neurons, num_classes=num_classes,
-                                layer_dropout=args.layerdrop, pre_norm=args.prenorm,
-                                drop_kernel=args.kerneldrop, dropout=args.dropout)
+        block_args = {'drop_kernel': args.kerneldrop, 'dropout': args.dropout}
     elif args.block == 'S4R':
-        classifier = Classifier(block_cls=block_cls, n_layers=args.layers,
-                                d_input=num_features, d_model=args.neurons, num_classes=num_classes,
-                                kernel_size=kernel_size,
-                                layer_dropout=args.layerdrop, pre_norm=args.prenorm,
-                                kernel_cls=kernel_classes[args.kernel],
-                                dt=args.dt, strong_stability=args.strong, weak_stability=args.weak,
-                                drop_kernel=args.kerneldrop, dropout=args.dropout)
+        block_args = {'drop_kernel': args.kerneldrop, 'dropout': args.dropout,
+                      'kernel_cls': kernel_classes[args.kernel], 'kernel_size': kernel_size,
+                      'dt': args.dt, 'strong_stability': args.strong, 'weak_stability': args.weak}
     else:
         raise ValueError('Invalid block name')
 
     # print_parameters(classifier.model)
     # print_buffers(classifier.model)
 
-    classifier.fit_model(lr=args.lr, develop_dataloader=develop_dataloader, num_epochs=args.epochs,
-                         patience=args.patience, train_dataloader=train_dataloader, val_dataloader=val_dataloader,
-                         checkpoint_path=checkpoint_path)
+    model = ResidualNetwork(block_cls=block_cls, n_layers=args.layers,
+                            d_input=num_features, d_model=args.neurons, d_output=num_classes,
+                            layer_dropout=args.layerdrop, pre_norm=args.prenorm,
+                            to_vec=True,
+                            **block_args)
+
+    optimizer = optim.Adam(params=model.parameters(), lr=args.lr)
+    criterion = torch.nn.CrossEntropyLoss()
+    trainer = TrainModel(model=model, optimizer=optimizer, criterion=criterion, develop_dataloader=develop_dataloader)
+    trainer.early_stopping(train_dataloader=train_dataloader, val_dataloader=val_dataloader,
+                           patience=args.patience, checkpoint_path=model_checkpoint_path, num_epochs=args.epochs)
+    image_path = os.path.join(run_dir, args.task + '_loss.png')
+    trainer.plot_loss(image_path=image_path)
 
     # print_parameters(classifier.model)
 
-    classifier.evaluate_model(develop_dataloader)
-    classifier.evaluate_model(test_dataloader)
+    eval_bc = EvaluateClassifier(model=model, num_classes=num_classes, dataloader=develop_dataloader)
+    eval_bc.evaluate()
+
+    eval_bc = EvaluateClassifier(model=model, num_classes=num_classes, dataloader=test_dataloader)
+    eval_bc.evaluate()
 
 
 if __name__ == '__main__':
