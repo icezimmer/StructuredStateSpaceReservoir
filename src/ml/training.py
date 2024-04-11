@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import os
 import torch
 from src.utils.check_device import check_data_device
 
@@ -37,9 +38,7 @@ class TrainModel:
 
             return running_loss / len(dataloader)
 
-    def max_epochs(self, num_epochs, checkpoint_path):
-        self.training_loss = []
-        self.validation_loss = []
+    def max_epochs(self, num_epochs, checkpoint_path, run_directory=None):
         for epoch in range(num_epochs):
             loss_epoch = self.__epoch(self.develop_dataloader)
             self.training_loss.append(loss_epoch)
@@ -48,9 +47,14 @@ class TrainModel:
         torch.save(self.model.state_dict(), checkpoint_path)
         print('Finished Training')
 
-    def early_stopping(self, train_dataloader, val_dataloader, patience, checkpoint_path, num_epochs=float('inf')):
+        if run_directory is not None:
+            self.__plot(run_directory)
+
         self.training_loss = []
         self.validation_loss = []
+
+    def early_stopping(self, train_dataloader, val_dataloader, patience, num_epochs=float('inf'),
+                       run_directory=None):
         epoch = 0
         buffer = 0
         best_val_loss = float('inf')
@@ -71,12 +75,18 @@ class TrainModel:
 
         self.model.load_state_dict(best_model_dict)
         develop_loss = self.__epoch(self.develop_dataloader)
-        torch.save(self.model.state_dict(), checkpoint_path)
 
         print('[END] develop_loss: %.3f' % develop_loss)
         print('Finished Training')
 
-    def plot_loss(self, image_path):
+        if run_directory is not None:
+            torch.save(self.model.state_dict(), os.path.join(run_directory, 'model.pt'))
+            self.__plot(run_directory)
+
+        self.training_loss = []
+        self.validation_loss = []
+
+    def __plot(self, run_directory):
         plt.figure(figsize=(10, 5))
         plt.plot(self.training_loss, label='Training loss')
         plt.plot(self.validation_loss, label='Validation loss')
@@ -85,5 +95,5 @@ class TrainModel:
         plt.ylabel('Loss')
         plt.grid(True)
         plt.legend()
-        plt.savefig(image_path)  # Save the plot as a PNG file
+        plt.savefig(os.path.join(run_directory, 'loss.png'))  # Save the plot as a PNG file
         plt.close()  # Close the plot to free up memory

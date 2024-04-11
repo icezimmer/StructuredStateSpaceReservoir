@@ -109,7 +109,6 @@ def main():
     val_dataloader = load_temp_data(os.path.join('./checkpoint', args.task + '_val_dataloader'))
     test_dataloader = load_temp_data(os.path.join('./checkpoint', args.task + '_test_dataloader'))
 
-    model_checkpoint_path = os.path.join(run_dir, args.task + '_model' + '.pt')
     block_cls = block_factories[args.block]
 
     logging.basicConfig(level=logging.INFO)
@@ -141,17 +140,16 @@ def main():
     criterion = torch.nn.CrossEntropyLoss()
     trainer = TrainModel(model=model, optimizer=optimizer, criterion=criterion, develop_dataloader=develop_dataloader)
     trainer.early_stopping(train_dataloader=train_dataloader, val_dataloader=val_dataloader,
-                           patience=args.patience, checkpoint_path=model_checkpoint_path, num_epochs=args.epochs)
-    image_path = os.path.join(run_dir, args.task + '_loss.png')
-    trainer.plot_loss(image_path=image_path)
+                           patience=args.patience, num_epochs=args.epochs,
+                           run_directory=run_dir)
 
     # print_parameters(classifier.model)
 
     eval_bc = EvaluateClassifier(model=model, num_classes=num_classes, dataloader=develop_dataloader)
-    eval_bc.evaluate()
+    eval_bc.evaluate(run_directory=run_dir, dataset_name='develop')
 
     eval_bc = EvaluateClassifier(model=model, num_classes=num_classes, dataloader=test_dataloader)
-    eval_bc.evaluate()
+    eval_bc.evaluate(run_directory=run_dir, dataset_name='test')
 
 
 if __name__ == '__main__':
