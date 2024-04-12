@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import os
 import torch
 from src.utils.check_device import check_data_device
+import copy
 
 
 class TrainModel:
@@ -67,7 +68,7 @@ class TrainModel:
             if val_loss_epoch < best_val_loss:
                 buffer = 0
                 best_val_loss = val_loss_epoch
-                best_model_dict = self.model.state_dict()
+                best_model_dict = copy.deepcopy(self.model.state_dict())
             else:
                 buffer += 1
             print('[%d] train_loss: %.3f; val_loss: %.3f' % (epoch + 1, train_loss_epoch, val_loss_epoch))

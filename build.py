@@ -25,7 +25,7 @@ args = parser.parse_args()
 if args.task == 'smnist':
     transform = transforms.Compose([
         transforms.ToTensor(),  # Convert image to pytorch tensor with values in [0, 1] and shape (C, H, W)
-        transforms.Normalize((0.1307,), (0.3081,)),
+        #transforms.Normalize((0.1307,), (0.3081,)),
     ])
     develop_dataset = SequentialImage2Classify(datasets.MNIST(root='./checkpoint/',
                                                               train=True,
