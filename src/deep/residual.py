@@ -1,22 +1,39 @@
 import torch.nn as nn
+from src.reservoir.layers import LinearReservoir, NaiveEncoder, NaiveDecoder
 
 
 class ResidualNetwork(nn.Module):
-
     def __init__(self, block_cls, n_layers, d_input, d_model, d_output,
-                 layer_dropout=0.0, pre_norm=False, post_norm=False,
-                 to_vec=False,
+                 encoder, to_vec, decoder,
+                 layer_dropout=0.0, pre_norm=False,
                  **block_args):
+        encoder_models = {
+            'conv1d': nn.Conv1d(in_channels=d_input, out_channels=d_output, kernel_size=1),
+            'reservoir': LinearReservoir(d_input=d_input, d_output=d_model,
+                                         field='real'),
+            'naive': NaiveEncoder(d_input=d_input, d_output=d_model)
+        }
+
+        decoder_models = {
+            'conv1d': nn.Conv1d(in_channels=d_model, out_channels=d_output, kernel_size=1),
+            'reservoir': LinearReservoir(d_input=d_model, d_output=d_output,
+                                         field='real'),
+            'naive': NaiveDecoder(d_input=d_model, d_output=d_output)
+        }
+
+
+        if encoder not in encoder_models or decoder not in decoder_models:
+            raise ValueError('Encoder and Decoder must be one of {}'.format(list(encoder_models.keys())))
+
         super().__init__()
-        self.to_vec = to_vec
-        self.pre_norm = pre_norm
-        self.post_norm = post_norm
-        self.encoder = nn.Conv1d(d_input, d_model, kernel_size=1)
+        self.encoder = encoder_models[encoder]
         self.layers = nn.ModuleList([block_cls(d_model=d_model, **block_args) for _ in range(n_layers)])
+        self.pre_norm = pre_norm
         self.norms = nn.ModuleList([nn.LayerNorm(d_model) for _ in range(n_layers)])
         self.dropouts = nn.ModuleList([nn.Dropout(layer_dropout) if layer_dropout > 0 else nn.Identity()
                                        for _ in range(n_layers)])
-        self.decoder = nn.Conv1d(d_model, d_output, kernel_size=1)
+        self.to_vec = to_vec
+        self.decoder = decoder_models[decoder]
 
     def forward(self, x):
         """
@@ -40,7 +57,7 @@ class ResidualNetwork(nn.Module):
             # Residual connection
             x = z + x  # (B, d_model, L) + (B, d_model, L) -> (B, d_model, L)
 
-            if self.post_norm:
+            if not self.pre_norm:
                 # Post normalization
                 x = norm(x.transpose(-1, -2)).transpose(-1, -2)
 

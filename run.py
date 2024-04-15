@@ -12,9 +12,11 @@ from src.kernels.vandermonde import (Vandermonde, VandermondeInput2StateReservoi
                                      VandermondeStateReservoir, VandermondeReservoir)
 from src.kernels.mini_vandermonde import (MiniVandermonde, MiniVandermondeInputOutputReservoir,
                                           MiniVandermondeStateReservoir, MiniVandermondeReservoir)
+from src.reservoir.layers import NaiveEncoder
 import torch.optim as optim
 from src.deep.residual import ResidualNetwork
 from src.deep.stacked import StackedNetwork
+from src.ml.optimization import setup_optimizer
 from src.ml.training import TrainModel
 from src.ml.evaluation import EvaluateClassifier
 from src.utils.temp_data import load_temp_data
@@ -71,11 +73,12 @@ def parse_args():
         parser.add_argument('--scaleW', type=float, default=1.0, help='Scaling for the input-output matrix W.')
 
     # Add the rest of the arguments
+    parser.add_argument('--encoder', default='conv1d', help='Encoder model.')
+    parser.add_argument('--decoder', default='conv1d', help='Decoder model.')
     parser.add_argument('--layers', type=int, default=1, help='Number of layers.')
     parser.add_argument('--neurons', type=int, default=64, help='Number of hidden neurons (hidden state size).')
     parser.add_argument('--layerdrop', type=float, default=0.0, help='Dropout the output of each layer.')
-    parser.add_argument('--prenorm', type=bool, default=False, help='Pre-normalization for each layer.')
-    parser.add_argument('--postnorm', type=bool, default=False, help='Post-normalization for each layer.')
+    parser.add_argument('--mix', default='glu', help='Mixing layer.')
     parser.add_argument('--dropout', type=float, default=0.0, help='Dropout the preactivation inside the block.')
     parser.add_argument('--lr', type=float, default=0.001, help='Learning rate.')
     parser.add_argument('--epochs', type=int, default=float('inf'), help='Number of epochs.')
@@ -95,17 +98,20 @@ def main():
     args = parse_args()
 
     if args.task == 'smnist':
-        num_classes = 10
-        num_features = 1
-        kernel_size = 28 * 28
+        to_vec = True  # classification task (take last time as output)
+        d_input = 1  # number of input features
+        kernel_size = 28 * 28  # max length of input sequence
+        d_output = 10  # number of classes
     elif args.task == 'pathfinder':
-        num_classes = 2
-        num_features = 1
+        to_vec = True
+        d_input = 1
         kernel_size = 32 * 32
+        d_output = 2
     elif args.task == 'scifar10':
-        num_classes = 10
-        num_features = 3
+        to_vec = True
+        d_input = 3
         kernel_size = 32 * 32
+        d_output = 10
     else:
         raise ValueError('Invalid task name')
 
@@ -133,7 +139,8 @@ def main():
     elif args.block == 'S4':
         block_args = {'drop_kernel': args.kerneldrop, 'dropout': args.dropout}
     elif args.block == 'S4R':
-        block_args = {'drop_kernel': args.kerneldrop, 'dropout': args.dropout,
+        block_args = {'mixing_layer': args.mix,
+                      'drop_kernel': args.kerneldrop, 'dropout': args.dropout,
                       'kernel_cls': kernel_classes[args.kernel], 'kernel_size': kernel_size,
                       'dt': args.dt, 'strong_stability': args.strong, 'weak_stability': args.weak}
         if args.kernel.startswith('V'):
@@ -147,28 +154,33 @@ def main():
         raise ValueError('Invalid block name')
 
     model = StackedNetwork(block_cls=block_cls, n_layers=args.layers,
-                            d_input=num_features, d_model=args.neurons, d_output=num_classes,
-                            layer_dropout=args.layerdrop, pre_norm=args.prenorm, post_norm=args.postnorm,
-                            to_vec=True,
-                            **block_args)
+                           d_input=d_input, d_model=args.neurons, d_output=d_output,
+                           encoder=args.encoder, decoder=args.decoder,
+                           to_vec=to_vec,
+                           layer_dropout=args.layerdrop,
+                           **block_args)
 
     # print_parameters(model)
     # print_buffers(model)
 
-    optimizer = optim.Adam(params=model.parameters(), lr=args.lr)
+    # optimizer = optim.Adam(params=model.parameters(), lr=args.lr)
+    optimizer, scheduler = setup_optimizer(
+        model, lr=args.lr, weight_decay=0.1, epochs=args.epochs
+    )
     criterion = torch.nn.CrossEntropyLoss()
-    trainer = TrainModel(model=model, optimizer=optimizer, criterion=criterion, develop_dataloader=develop_dataloader)
+    trainer = TrainModel(model=model, optimizer=optimizer, scheduler=scheduler, criterion=criterion, develop_dataloader=develop_dataloader)
     trainer.early_stopping(train_dataloader=train_dataloader, val_dataloader=val_dataloader,
                            patience=args.patience, num_epochs=args.epochs,
                            run_directory=run_dir)
 
     # print_parameters(model)
 
-    eval_bc = EvaluateClassifier(model=model, num_classes=num_classes, dataloader=develop_dataloader)
-    eval_bc.evaluate(run_directory=run_dir, dataset_name='develop')
+    if args.task in ['smnist', 'pathfinder', 'scifar10']:
+        eval_bc = EvaluateClassifier(model=model, num_classes=d_output, dataloader=develop_dataloader)
+        eval_bc.evaluate(run_directory=run_dir, dataset_name='develop')
 
-    eval_bc = EvaluateClassifier(model=model, num_classes=num_classes, dataloader=test_dataloader)
-    eval_bc.evaluate(run_directory=run_dir, dataset_name='test')
+        eval_bc = EvaluateClassifier(model=model, num_classes=d_output, dataloader=test_dataloader)
+        eval_bc.evaluate(run_directory=run_dir, dataset_name='test')
 
 
 if __name__ == '__main__':

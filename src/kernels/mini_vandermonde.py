@@ -1,6 +1,6 @@
 import torch
-from src.reservoir.state_reservoir import DiscreteStateReservoir, ContinuousStateReservoir
-from src.reservoir.reservoir import Reservoir
+from src.reservoir.state import DiscreteStateReservoir, ContinuousStateReservoir
+from src.reservoir.matrices import Reservoir
 import torch.nn as nn
 
 
@@ -38,7 +38,7 @@ class MiniVandermonde(nn.Module):
 
         input_output_reservoir = Reservoir(d_in=self.d_state, d_out=self.d_output)
 
-        W = input_output_reservoir.uniform_matrix(scaling=input_output_scaling, field=field)
+        W = input_output_reservoir.uniform_disk_matrix(radius=input_output_scaling, field=field)
 
         if dt is None:
             state_reservoir = DiscreteStateReservoir(self.d_state)
@@ -54,6 +54,9 @@ class MiniVandermonde(nn.Module):
 
         self.A = nn.Parameter(torch.view_as_real(Lambda_bar), requires_grad=True)  # (P, 2)
         self.W = nn.Parameter(torch.view_as_real(W), requires_grad=True)  # (P, H, 2)
+
+        self.A._optim = {'lr': 0.001, 'weight_decay': 0.0}
+        self.W._optim = {'lr': 0.001, 'weight_decay': 0.0}
 
         # Register powers for Vandermonde matrix
         powers = torch.arange(kernel_size, dtype=torch.float32)

@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from src.convolutions.fft import FFTConv
+from src.reservoir.layers import LinearReservoir
 
 """
 see: https://github.com/i404788/s5-pytorch/tree/74e2fdae00b915a62c914bf3615c0b8a4279eb84
@@ -9,6 +10,7 @@ see: https://github.com/i404788/s5-pytorch/tree/74e2fdae00b915a62c914bf3615c0b8a
 
 class S4R(torch.nn.Module):
     def __init__(self, d_model,
+                 mixing_layer,
                  dropout=0.0,
                  **layer_args):
         """
@@ -18,17 +20,23 @@ class S4R(torch.nn.Module):
         :param dt: delta time for continuous dynamics (default: None for discrete dynamics)
         :param field: field for the state 'real' or 'complex' (default: 'complex')
         """
+        mixing_layers = {
+            'glu': nn.Sequential(  # mix and double the num of features + gating
+                nn.Conv1d(in_channels=d_model, out_channels=2 * d_model, kernel_size=1),
+                nn.GLU(dim=-2),
+            ),
+            'reservoir': LinearReservoir(d_input=d_model, d_output=d_model,
+                                         field='real'),
+        }
+        if mixing_layer not in mixing_layers:
+            raise ValueError('Encoder and Decoder must be one of {}'.format(list(mixing_layers.keys())))
+
         super().__init__()
 
         self.d_model = d_model
 
         self.layer = FFTConv(d_input=self.d_model, d_state=self.d_model, **layer_args)
-
-        self.mix_and_gate = nn.Sequential(
-            nn.Conv1d(self.d_model, 2 * self.d_model, kernel_size=1),  # mix and double the num of features (no context)
-            nn.GLU(dim=-2),  # gating
-        )
-
+        self.mixing_layer = mixing_layers[mixing_layer]
         self.drop = nn.Dropout(dropout) if dropout > 0 else nn.Identity()
 
     def step(self, u, x):
@@ -39,7 +47,7 @@ class S4R(torch.nn.Module):
         Returns: y (B, H), state (B, P)
         """
         y, x = self.layer.step(u, x)
-        y = self.mix_and_gate(y)
+        y = self.mixing_layer(y)
         y = self.drop(y)
 
         return y, x
@@ -51,7 +59,7 @@ class S4R(torch.nn.Module):
         :return: y: batched output sequence of shape (B,H,L) = (batch_size, d_output, input_length)
         """
         y, _ = self.layer(u)
-        y = self.mix_and_gate(y)
+        y = self.mixing_layer(y)
         y = self.drop(y)
 
         # Return a dummy state to satisfy this repo's interface, but this can be modified

@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
-from src.reservoir.state_reservoir import DiscreteStateReservoir
-from src.reservoir.reservoir import Reservoir
+from src.reservoir.state import DiscreteStateReservoir
+from src.reservoir.matrices import Reservoir
 
 
 class ESN(nn.Module):

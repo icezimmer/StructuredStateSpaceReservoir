@@ -1,5 +1,5 @@
 import torch
-from src.reservoir.reservoir import Reservoir
+from src.reservoir.matrices import Reservoir
 import torch.nn as nn
 
 
@@ -28,7 +28,7 @@ class FFTConv(nn.Module):
         self.kernel = kernel_cls(d_input=self.d_input, d_state=self.d_state, **kernel_args)
 
         input2output_reservoir = Reservoir(d_in=self.d_input, d_out=self.d_output)
-        D = input2output_reservoir.uniform_matrix(scaling=1.0, field='real')
+        D = input2output_reservoir.uniform_disk_matrix(radius=1.0, field='real')
         self.D = nn.Parameter(D, requires_grad=True)  # (H, H)
 
         self.drop_kernel = nn.Dropout(drop_kernel) if drop_kernel > 0 else nn.Identity()
@@ -57,7 +57,6 @@ class FFTConv(nn.Module):
         :param u: batched input sequence of shape (B,H,L) = (batch_size, d_input, input_length)
         :return: y: batched output sequence of shape (B,H,L) = (batch_size, d_input, input_length)
         """
-
         k, _ = self.kernel()
         k = self.drop_kernel(k)
 

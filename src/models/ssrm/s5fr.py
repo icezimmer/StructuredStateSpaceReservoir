@@ -1,5 +1,5 @@
 import torch
-from src.reservoir.state_reservoir import DiscreteStateReservoir, ContinuousStateReservoir
+from src.reservoir.state import DiscreteStateReservoir, ContinuousStateReservoir
 import torch.nn as nn
 from src.utils.plot import plot_spectrum
 

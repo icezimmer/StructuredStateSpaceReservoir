@@ -1,5 +1,5 @@
 import torch
-from src.reservoir.state_reservoir import DiscreteStateReservoir, ContinuousStateReservoir
+from src.reservoir.state import DiscreteStateReservoir, ContinuousStateReservoir
 from src.utils.jax_compat import associative_scan
 import torch.nn as nn
 import matplotlib.pyplot as plt
