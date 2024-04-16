@@ -8,12 +8,15 @@ from src.models.s4.s4 import S4Block
 from src.models.rnn.vanilla import VanillaRNN, VanillaGRU
 from src.models.esn.esn import ESN
 from src.models.ssrm.s4r import S4R
-from src.kernels.vandermonde import (Vandermonde, VandermondeInput2StateReservoir,
-                                     VandermondeStateReservoir, VandermondeReservoir)
+from src.kernels.vandermonde import (Vandermonde, VandermondeInputReservoir, VandermondeOutputReservoir,
+                                     VandermondeInputOutputReservoir,
+                                     VandermondeStateReservoir,
+                                     VandermondeInputStateReservoir, VandermondeStateOutputReservoir,
+                                     VandermondeFullReservoir)
 from src.kernels.mini_vandermonde import (MiniVandermonde, MiniVandermondeInputOutputReservoir,
-                                          MiniVandermondeStateReservoir, MiniVandermondeReservoir)
-from src.reservoir.layers import NaiveEncoder
-import torch.optim as optim
+                                          MiniVandermondeStateReservoir, MiniVandermondeFullReservoir)
+from torch import optim
+
 from src.deep.residual import ResidualNetwork
 from src.deep.stacked import StackedNetwork
 from src.ml.optimization import setup_optimizer
@@ -32,14 +35,19 @@ block_factories = {
 
 kernel_classes = {
     'V': Vandermonde,
-    'V-freezeB': VandermondeInput2StateReservoir,
+    'V-freezeB': VandermondeInputReservoir,
+    'V-freezeC': VandermondeOutputReservoir,
+    'V-freezeBC': VandermondeInputOutputReservoir,
     'V-freezeA': VandermondeStateReservoir,
-    'V-freezeAB': VandermondeReservoir,
+    'V-freezeAB': VandermondeInputStateReservoir,
+    'V-freezeAC': VandermondeStateOutputReservoir,
+    'V-freezeABC': VandermondeFullReservoir,
     'miniV': MiniVandermonde,
     'miniV-freezeW': MiniVandermondeInputOutputReservoir,
     'miniV-freezeA': MiniVandermondeStateReservoir,
-    'miniV-freezeAW': MiniVandermondeReservoir,
+    'miniV-freezeAW': MiniVandermondeFullReservoir,
 }
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Run classification task.')
@@ -51,14 +59,25 @@ def parse_args():
     args, unknown = parser.parse_known_args()
 
     # Conditional argument additions based on block type
-    if args.block in ['S4', 'S4R', 'ESN']:
+    if args.block in ['VanillaRNN', 'VanillaGRU']:
+        pass
+    elif args.block == 'ESN':
         parser.add_argument('--kerneldrop', type=float, default=0.0, help='Dropout the kernel inside the block.')
-        if args.block == 'S4R':
-            parser.add_argument('--kernel', choices=kernel_classes.keys(), default='V-freezeA',
-                                help='Kernel class to use for the model.')
-            parser.add_argument('--dt', type=int, default=None, help='Sampling rate (only for continuous dynamics).')
-            parser.add_argument('--strong', type=float, default=0.9, help='Strong Stability for internal dynamics.')
-            parser.add_argument('--weak', type=float, default=1.0, help='Weak Stability for internal dynamics.')
+    elif args.block == 'S4':
+        parser.add_argument('--kerneldrop', type=float, default=0.0, help='Dropout the kernel inside the block.')
+        parser.add_argument('--kernellr', type=float, default=0.001, help='Learning rate for kernel pars.')
+        parser.add_argument('--kernelwd', type=float, default=0.0, help='Learning rate for kernel pars.')
+    elif args.block == 'S4R':
+        parser.add_argument('--kerneldrop', type=float, default=0.0, help='Dropout the kernel inside the block.')
+        parser.add_argument('--kernel', choices=kernel_classes.keys(), default='V-freezeA',
+                            help='Kernel class to use for the model.')
+        parser.add_argument('--dt', type=int, default=None, help='Sampling rate (only for continuous dynamics).')
+        parser.add_argument('--strong', type=float, default=0.9, help='Strong Stability for internal dynamics.')
+        parser.add_argument('--weak', type=float, default=1.0, help='Weak Stability for internal dynamics.')
+        parser.add_argument('--kernellr', type=float, default=0.001, help='Learning rate for kernel pars.')
+        parser.add_argument('--kernelwd', type=float, default=0.0, help='Learning rate for kernel pars.')
+    else:
+        raise ValueError('Invalid block name')
 
     # Update args with the new conditional arguments
     args, unknown = parser.parse_known_args()
@@ -73,14 +92,17 @@ def parse_args():
         parser.add_argument('--scaleW', type=float, default=1.0, help='Scaling for the input-output matrix W.')
 
     # Add the rest of the arguments
-    parser.add_argument('--encoder', default='conv1d', help='Encoder model.')
-    parser.add_argument('--decoder', default='conv1d', help='Decoder model.')
-    parser.add_argument('--layers', type=int, default=1, help='Number of layers.')
     parser.add_argument('--neurons', type=int, default=64, help='Number of hidden neurons (hidden state size).')
-    parser.add_argument('--layerdrop', type=float, default=0.0, help='Dropout the output of each layer.')
-    parser.add_argument('--mix', default='glu', help='Mixing layer.')
+    parser.add_argument('--encoder', default='conv1d', help='Encoder model.')
+    parser.add_argument('--mix', default='glu', help='Inner Mixing layer.')
+    parser.add_argument('--decoder', default='conv1d', help='Decoder model.')
     parser.add_argument('--dropout', type=float, default=0.0, help='Dropout the preactivation inside the block.')
-    parser.add_argument('--lr', type=float, default=0.001, help='Learning rate.')
+
+    parser.add_argument('--layers', type=int, default=1, help='Number of layers.')
+    parser.add_argument('--layerdrop', type=float, default=0.0, help='Dropout the output of each layer.')
+
+    parser.add_argument('--lr', type=float, default=0.004, help='Learning rate for NON-kernel parameters.')
+    parser.add_argument('--wd', type=float, default=0.1, help='Weight decay for NON-kernel parameters.')
     parser.add_argument('--epochs', type=int, default=float('inf'), help='Number of epochs.')
     parser.add_argument('--patience', type=int, default=10, help='Patience for the early stopping.')
 
@@ -98,16 +120,19 @@ def main():
     args = parse_args()
 
     if args.task == 'smnist':
+        criterion = torch.nn.CrossEntropyLoss()  # classification task
         to_vec = True  # classification task (take last time as output)
         d_input = 1  # number of input features
         kernel_size = 28 * 28  # max length of input sequence
         d_output = 10  # number of classes
     elif args.task == 'pathfinder':
+        criterion = torch.nn.CrossEntropyLoss()
         to_vec = True
         d_input = 1
         kernel_size = 32 * 32
         d_output = 2
     elif args.task == 'scifar10':
+        criterion = torch.nn.CrossEntropyLoss()
         to_vec = True
         d_input = 3
         kernel_size = 32 * 32
@@ -137,12 +162,14 @@ def main():
     elif args.block == 'ESN':
         block_args = {'drop_kernel': args.kerneldrop, 'dropout': args.dropout}
     elif args.block == 'S4':
-        block_args = {'drop_kernel': args.kerneldrop, 'dropout': args.dropout}
+        block_args = {'drop_kernel': args.kerneldrop, 'dropout': args.dropout,
+                      'lr': args.kernellr, 'wd': args.kernelwd}
     elif args.block == 'S4R':
         block_args = {'mixing_layer': args.mix,
                       'drop_kernel': args.kerneldrop, 'dropout': args.dropout,
                       'kernel_cls': kernel_classes[args.kernel], 'kernel_size': kernel_size,
-                      'dt': args.dt, 'strong_stability': args.strong, 'weak_stability': args.weak}
+                      'dt': args.dt, 'strong_stability': args.strong, 'weak_stability': args.weak,
+                      'lr': args.kernellr, 'wd': args.kernelwd}
         if args.kernel.startswith('V'):
             block_args['input2state_scaling'] = args.scaleB
             block_args['state2output_scaling'] = args.scaleC
@@ -160,20 +187,14 @@ def main():
                            layer_dropout=args.layerdrop,
                            **block_args)
 
-    # print_parameters(model)
-    # print_buffers(model)
+    print_parameters(model)
+    print_buffers(model)
 
-    # optimizer = optim.Adam(params=model.parameters(), lr=args.lr)
-    optimizer, scheduler = setup_optimizer(
-        model, lr=args.lr, weight_decay=0.1, epochs=args.epochs
-    )
-    criterion = torch.nn.CrossEntropyLoss()
-    trainer = TrainModel(model=model, optimizer=optimizer, scheduler=scheduler, criterion=criterion, develop_dataloader=develop_dataloader)
+    optimizer = setup_optimizer(model=model, lr=args.lr, weight_decay=args.wd)
+    trainer = TrainModel(model=model, optimizer=optimizer, criterion=criterion, develop_dataloader=develop_dataloader)
     trainer.early_stopping(train_dataloader=train_dataloader, val_dataloader=val_dataloader,
                            patience=args.patience, num_epochs=args.epochs,
                            run_directory=run_dir)
-
-    # print_parameters(model)
 
     if args.task in ['smnist', 'pathfinder', 'scifar10']:
         eval_bc = EvaluateClassifier(model=model, num_classes=d_output, dataloader=develop_dataloader)

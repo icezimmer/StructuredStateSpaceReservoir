@@ -2,6 +2,7 @@ import torch
 from src.reservoir.state import DiscreteStateReservoir, ContinuousStateReservoir
 from src.reservoir.matrices import Reservoir
 import torch.nn as nn
+import warnings
 
 
 class Vandermonde(nn.Module):
@@ -12,6 +13,7 @@ class Vandermonde(nn.Module):
                  dt, strong_stability, weak_stability,
                  input2state_scaling,
                  state2output_scaling,
+                 lr, wd,
                  field='complex'):
         """
         Construct the convolution kernel.
@@ -52,16 +54,21 @@ class Vandermonde(nn.Module):
                 min_real_part=strong_stability, max_real_part=weak_stability, field=field)
             Lambda_bar, B_bar = self._zoh(Lambda, B, dt)
         else:
-            raise ValueError("Delta time dt must be positive: set dt>0 or None for 'discrete dynamics'.")
+            raise ValueError("Delta time dt must be positive: set dt > 0 or None for 'discrete dynamics'.")
 
         # Initialize parameters A, B and C
         self.A = nn.Parameter(torch.view_as_real(Lambda_bar), requires_grad=True)  # (P, 2)
         self.B = nn.Parameter(torch.view_as_real(B_bar), requires_grad=True)  # (P, H, 2)
         self.C = nn.Parameter(torch.view_as_real(C), requires_grad=True)  # (H, P, 2)
 
-        self.A._optim = {'lr': 0.001, 'weight_decay': 0.0}
-        self.B._optim = {'lr': 0.001, 'weight_decay': 0.0}
-        self.C._optim = {'lr': 0.001, 'weight_decay': 0.0}
+        if lr < 0.0 and wd < 0.0:
+            raise ValueError("Learning rate an weight decay for kernel parameters bust be positive.")
+        if lr > 0.001 and wd > 0.0:
+            warnings.warn("For a better optimization of the kernel parameters set lr <= 0.001 and wd = 0.0.")
+
+        self.A._optim = {'lr': lr, 'weight_decay': wd}
+        self.B._optim = {'lr': lr, 'weight_decay': wd}
+        self.C._optim = {'lr': lr, 'weight_decay': wd}
 
         # Register powers for Vandermonde matrix
         powers = torch.arange(kernel_size, dtype=torch.float32)
@@ -126,7 +133,6 @@ class Vandermonde(nn.Module):
         :param x: time step state of shape (B, P)
         :return: y: time step output of shape (B, H), x: time step state of shape (B, P)
         """
-        u = torch.view_as_complex(u)
         A = torch.view_as_complex(self.A)  # (P)
         B = torch.view_as_complex(self.B)  # (P, H)
         C = torch.view_as_complex(self.C)  # (H, P)
@@ -150,13 +156,14 @@ class Vandermonde(nn.Module):
         return kernel, None
 
 
-class VandermondeInput2StateReservoir(Vandermonde):
+class VandermondeInputReservoir(Vandermonde):
     """Generate convolution kernel from diagonal SSM parameters."""
 
     def __init__(self, d_input, d_state, kernel_size,
                  dt, strong_stability, weak_stability,
                  input2state_scaling,
                  state2output_scaling,
+                 lr, wd,
                  field='complex'):
         """
         Construct the convolution kernel with frozen A.
@@ -178,9 +185,81 @@ class VandermondeInput2StateReservoir(Vandermonde):
                          dt, strong_stability, weak_stability,
                          input2state_scaling,
                          state2output_scaling,
+                         lr, wd,
                          field)
 
         self._freeze_parameter('B')
+
+
+class VandermondeOutputReservoir(Vandermonde):
+    """Generate convolution kernel from diagonal SSM parameters."""
+
+    def __init__(self, d_input, d_state, kernel_size,
+                 dt, strong_stability, weak_stability,
+                 input2state_scaling,
+                 state2output_scaling,
+                 lr, wd,
+                 field='complex'):
+        """
+        Construct the convolution kernel with frozen A.
+        Assuming diagonal state matrix A of shape (d_state), the Vandermonde Kernel is:
+            kernel[i,l] = C[i,:] * diag(A)^l * B[:,i] = (C[i,:] .* B[:,i]) * A^l
+        where:
+            diag(A)[j,j] = A[j]
+            A^l[j] = A[j]^l
+        and:
+            j = 0, ..., d_state-1
+            i = 0, ..., d_input-1
+            l = 0, ..., kernel_size-1.
+        :param d_input: dimensionality of the input space
+        :param d_state: dimensionality of the latent space
+        :param dt: delta time for continuous dynamics (default: None for discrete dynamics)
+        :param field: field for the state 'real' or 'complex' (default: 'complex')
+        """
+        super().__init__(d_input, d_state, kernel_size,
+                         dt, strong_stability, weak_stability,
+                         input2state_scaling,
+                         state2output_scaling,
+                         lr, wd,
+                         field)
+
+        self._freeze_parameter('C')
+
+
+class VandermondeInputOutputReservoir(Vandermonde):
+    """Generate convolution kernel from diagonal SSM parameters."""
+
+    def __init__(self, d_input, d_state, kernel_size,
+                 dt, strong_stability, weak_stability,
+                 input2state_scaling,
+                 state2output_scaling,
+                 lr, wd,
+                 field='complex'):
+        """
+        Construct the convolution kernel with frozen A.
+        Assuming diagonal state matrix A of shape (d_state), the Vandermonde Kernel is:
+            kernel[i,l] = C[i,:] * diag(A)^l * B[:,i] = (C[i,:] .* B[:,i]) * A^l
+        where:
+            diag(A)[j,j] = A[j]
+            A^l[j] = A[j]^l
+        and:
+            j = 0, ..., d_state-1
+            i = 0, ..., d_input-1
+            l = 0, ..., kernel_size-1.
+        :param d_input: dimensionality of the input space
+        :param d_state: dimensionality of the latent space
+        :param dt: delta time for continuous dynamics (default: None for discrete dynamics)
+        :param field: field for the state 'real' or 'complex' (default: 'complex')
+        """
+        super().__init__(d_input, d_state, kernel_size,
+                         dt, strong_stability, weak_stability,
+                         input2state_scaling,
+                         state2output_scaling,
+                         lr, wd,
+                         field)
+
+        self._freeze_parameter('B')
+        self._freeze_parameter('C')
 
 
 class VandermondeStateReservoir(Vandermonde):
@@ -190,6 +269,7 @@ class VandermondeStateReservoir(Vandermonde):
                  dt, strong_stability, weak_stability,
                  input2state_scaling,
                  state2output_scaling,
+                 lr, wd,
                  field='complex'):
         """
         Construct the convolution kernel with frozen A.
@@ -211,6 +291,7 @@ class VandermondeStateReservoir(Vandermonde):
                          dt, strong_stability, weak_stability,
                          input2state_scaling,
                          state2output_scaling,
+                         lr, wd,
                          field)
 
         self._freeze_parameter('A')
@@ -231,13 +312,14 @@ class VandermondeStateReservoir(Vandermonde):
         return kernel, None
 
 
-class VandermondeReservoir(VandermondeStateReservoir):
+class VandermondeInputStateReservoir(VandermondeStateReservoir):
     """Generate convolution kernel from diagonal SSM parameters."""
 
     def __init__(self, d_input, d_state, kernel_size,
                  dt, strong_stability, weak_stability,
                  input2state_scaling,
                  state2output_scaling,
+                 lr=0.0, wd=0.0,
                  field='complex'):
         """
         Construct the convolution kernel with frozen A.
@@ -259,7 +341,78 @@ class VandermondeReservoir(VandermondeStateReservoir):
                          dt, strong_stability, weak_stability,
                          input2state_scaling,
                          state2output_scaling,
+                         lr, wd,
                          field)
 
-        # Register B as buffer
         self._freeze_parameter('B')
+
+
+class VandermondeStateOutputReservoir(VandermondeStateReservoir):
+    """Generate convolution kernel from diagonal SSM parameters."""
+
+    def __init__(self, d_input, d_state, kernel_size,
+                 dt, strong_stability, weak_stability,
+                 input2state_scaling,
+                 state2output_scaling,
+                 lr=0.0, wd=0.0,
+                 field='complex'):
+        """
+        Construct the convolution kernel with frozen A.
+        Assuming diagonal state matrix A of shape (d_state), the Vandermonde Kernel is:
+            kernel[i,l] = C[i,:] * diag(A)^l * B[:,i] = (C[i,:] .* B[:,i]) * A^l
+        where:
+            diag(A)[j,j] = A[j]
+            A^l[j] = A[j]^l
+        and:
+            j = 0, ..., d_state-1
+            i = 0, ..., d_input-1
+            l = 0, ..., kernel_size-1.
+        :param d_input: dimensionality of the input space
+        :param d_state: dimensionality of the latent space
+        :param dt: delta time for continuous dynamics (default: None for discrete dynamics)
+        :param field: field for the state 'real' or 'complex' (default: 'complex')
+        """
+        super().__init__(d_input, d_state, kernel_size,
+                         dt, strong_stability, weak_stability,
+                         input2state_scaling,
+                         state2output_scaling,
+                         lr, wd,
+                         field)
+
+        self._freeze_parameter('C')
+
+
+class VandermondeFullReservoir(VandermondeStateReservoir):
+    """Generate convolution kernel from diagonal SSM parameters."""
+
+    def __init__(self, d_input, d_state, kernel_size,
+                 dt, strong_stability, weak_stability,
+                 input2state_scaling,
+                 state2output_scaling,
+                 lr=0.0, wd=0.0,
+                 field='complex'):
+        """
+        Construct the convolution kernel with frozen A.
+        Assuming diagonal state matrix A of shape (d_state), the Vandermonde Kernel is:
+            kernel[i,l] = C[i,:] * diag(A)^l * B[:,i] = (C[i,:] .* B[:,i]) * A^l
+        where:
+            diag(A)[j,j] = A[j]
+            A^l[j] = A[j]^l
+        and:
+            j = 0, ..., d_state-1
+            i = 0, ..., d_input-1
+            l = 0, ..., kernel_size-1.
+        :param d_input: dimensionality of the input space
+        :param d_state: dimensionality of the latent space
+        :param dt: delta time for continuous dynamics (default: None for discrete dynamics)
+        :param field: field for the state 'real' or 'complex' (default: 'complex')
+        """
+        super().__init__(d_input, d_state, kernel_size,
+                         dt, strong_stability, weak_stability,
+                         input2state_scaling,
+                         state2output_scaling,
+                         lr, wd,
+                         field)
+
+        self._freeze_parameter('B')
+        self._freeze_parameter('C')

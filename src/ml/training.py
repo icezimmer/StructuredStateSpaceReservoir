@@ -6,10 +6,9 @@ import copy
 
 
 class TrainModel:
-    def __init__(self, model, optimizer, scheduler, criterion, develop_dataloader):
+    def __init__(self, model, optimizer, criterion, develop_dataloader):
         self.model = model.to(check_data_device(develop_dataloader))
         self.optimizer = optimizer
-        self.scheduler = scheduler
         self.criterion = criterion
         self.develop_dataloader = develop_dataloader
         self.training_loss = []
@@ -43,7 +42,6 @@ class TrainModel:
     def max_epochs(self, num_epochs, checkpoint_path, run_directory=None):
         for epoch in range(num_epochs):
             loss_epoch = self.__epoch(self.develop_dataloader)
-            self.scheduler.step()
             self.training_loss.append(loss_epoch)
             print('[%d] loss: %.3f' % (epoch + 1, loss_epoch))
 
@@ -58,14 +56,15 @@ class TrainModel:
 
     def early_stopping(self, train_dataloader, val_dataloader, patience, num_epochs=float('inf'),
                        run_directory=None):
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer=self.optimizer, patience=patience/2, factor=0.2)
         epoch = 0
         buffer = 0
         best_val_loss = float('inf')
         best_model_dict = self.model.state_dict()
         while buffer < patience and epoch < num_epochs:
             train_loss_epoch = self.__epoch(train_dataloader)
-            self.scheduler.step()
             val_loss_epoch = self.__validate(val_dataloader)
+            scheduler.step(val_loss_epoch)
             self.training_loss.append(train_loss_epoch)
             self.validation_loss.append(val_loss_epoch)
             if val_loss_epoch < best_val_loss:

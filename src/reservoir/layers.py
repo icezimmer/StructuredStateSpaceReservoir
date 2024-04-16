@@ -23,7 +23,7 @@ class LinearReservoir(nn.Module):
         return u
 
 
-class NaiveEncoder(nn.Module):
+class ZeroAugmentation(nn.Module):
     def __init__(self, d_input, d_output):
         if d_output < d_input:
             raise ValueError('d_output must be greater than d_input')
@@ -45,7 +45,7 @@ class NaiveEncoder(nn.Module):
         return u
 
 
-class NaiveDecoder(nn.Module):
+class Truncation(nn.Module):
     def __init__(self, d_input, d_output):
         if d_output > d_input:
             raise ValueError('d_output be less than d_input')

@@ -1,5 +1,5 @@
 import torch.nn as nn
-from src.reservoir.layers import LinearReservoir, NaiveEncoder, NaiveDecoder
+from src.reservoir.layers import LinearReservoir, ZeroAugmentation, Truncation
 
 
 class StackedNetwork(nn.Module):
@@ -15,14 +15,14 @@ class StackedNetwork(nn.Module):
             'conv1d': nn.Conv1d(in_channels=d_input, out_channels=d_model, kernel_size=1),
             'reservoir': LinearReservoir(d_input=d_input, d_output=d_model,
                                          field='real'),
-            'naive': NaiveEncoder(d_input=d_input, d_output=d_model)
+            'pad': ZeroAugmentation(d_input=d_input, d_output=d_model)
         }
 
         decoder_models = {
             'conv1d': nn.Conv1d(in_channels=d_model, out_channels=d_output, kernel_size=1),
             'reservoir': LinearReservoir(d_input=d_model, d_output=d_output,
                                          field='real'),
-            'naive': NaiveDecoder(d_input=d_model, d_output=d_output)
+            'truncate': Truncation(d_input=d_model, d_output=d_output)
         }
 
         if encoder not in encoder_models or decoder not in decoder_models:

@@ -2,6 +2,7 @@ import torch
 from src.reservoir.state import DiscreteStateReservoir, ContinuousStateReservoir
 from src.reservoir.matrices import Reservoir
 import torch.nn as nn
+import warnings
 
 
 class MiniVandermonde(nn.Module):
@@ -12,6 +13,7 @@ class MiniVandermonde(nn.Module):
     def __init__(self, d_input, d_state, kernel_size,
                  dt, strong_stability, weak_stability,
                  input_output_scaling,
+                 lr, wd,
                  field='complex'):
         """
         Construct the convolution kernel.
@@ -55,8 +57,13 @@ class MiniVandermonde(nn.Module):
         self.A = nn.Parameter(torch.view_as_real(Lambda_bar), requires_grad=True)  # (P, 2)
         self.W = nn.Parameter(torch.view_as_real(W), requires_grad=True)  # (P, H, 2)
 
-        self.A._optim = {'lr': 0.001, 'weight_decay': 0.0}
-        self.W._optim = {'lr': 0.001, 'weight_decay': 0.0}
+        if lr < 0.0 and wd < 0.0:
+            raise ValueError("Learning rate an weight decay for kernel parameters bust be positive.")
+        if lr > 0.001 and wd > 0.0:
+            warnings.warn("For a better optimization of the kernel parameters set lr <= 0.001 and wd = 0.0.")
+
+        self.A._optim = {'lr': lr, 'weight_decay': wd}
+        self.W._optim = {'lr': lr, 'weight_decay': wd}
 
         # Register powers for Vandermonde matrix
         powers = torch.arange(kernel_size, dtype=torch.float32)
@@ -149,6 +156,7 @@ class MiniVandermondeInputOutputReservoir(MiniVandermonde):
     def __init__(self, d_input, d_state, kernel_size,
                  dt, strong_stability, weak_stability,
                  input_output_scaling,
+                 lr, wd,
                  field='complex'):
         """
         Construct the convolution kernel with frozen W.
@@ -169,6 +177,7 @@ class MiniVandermondeInputOutputReservoir(MiniVandermonde):
         super().__init__(d_input, d_state, kernel_size,
                          dt, strong_stability, weak_stability,
                          input_output_scaling,
+                         lr, wd,
                          field)
 
         self._freeze_parameter('W')
@@ -180,6 +189,7 @@ class MiniVandermondeStateReservoir(MiniVandermonde):
     def __init__(self, d_input, d_state, kernel_size,
                  dt, strong_stability, weak_stability,
                  input_output_scaling,
+                 lr, wd,
                  field='complex'):
         """
         Construct the convolution kernel with frozen A.
@@ -200,6 +210,7 @@ class MiniVandermondeStateReservoir(MiniVandermonde):
         super().__init__(d_input, d_state, kernel_size,
                          dt, strong_stability, weak_stability,
                          input_output_scaling,
+                         lr, wd,
                          field)
 
         self._freeze_parameter('A')
@@ -219,12 +230,13 @@ class MiniVandermondeStateReservoir(MiniVandermonde):
         return kernel, None
 
 
-class MiniVandermondeReservoir(MiniVandermondeStateReservoir):
+class MiniVandermondeFullReservoir(MiniVandermondeStateReservoir):
     """Generate convolution kernel from diagonal SSM parameters."""
 
     def __init__(self, d_input, d_state, kernel_size,
                  dt, strong_stability, weak_stability,
                  input_output_scaling,
+                 lr=0.0, wd=0.0,
                  field='complex'):
         """
         Construct the convolution kernel with frozen A and W.
@@ -245,7 +257,7 @@ class MiniVandermondeReservoir(MiniVandermondeStateReservoir):
         super().__init__(d_input, d_state, kernel_size,
                          dt, strong_stability, weak_stability,
                          input_output_scaling,
+                         lr, wd,
                          field)
 
-        # Register W as buffer
         self._freeze_parameter('W')
