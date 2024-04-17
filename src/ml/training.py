@@ -56,7 +56,8 @@ class TrainModel:
 
     def early_stopping(self, train_dataloader, val_dataloader, patience, num_epochs=float('inf'),
                        run_directory=None):
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer=self.optimizer, patience=patience/2, factor=0.2)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer=self.optimizer, patience=patience//2, factor=0.2)
         epoch = 0
         buffer = 0
         best_val_loss = float('inf')
