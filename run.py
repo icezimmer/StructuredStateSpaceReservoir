@@ -18,11 +18,14 @@ from src.kernels.mini_vandermonde import (MiniVandermonde, MiniVandermondeInputO
                                           MiniVandermondeStateReservoir, MiniVandermondeFullReservoir)
 from src.deep.residual import ResidualNetwork
 from src.deep.stacked import StackedNetwork
+from src.reservoir.layers import LinearStructuredReservoir
 from src.ml.optimization import setup_optimizer
 from src.ml.training import TrainModel
 from src.ml.evaluation import EvaluateClassifier
 from src.utils.temp_data import load_temp_data
-from src.utils.prints import print_buffers, print_parameters
+from src.utils.prints import save_parameters, save_hyperparameters
+from src.utils.check_device import check_data_device
+from codecarbon import EmissionsTracker
 
 block_factories = {
     'S4': S4Block,
@@ -111,14 +114,7 @@ def parse_args():
     parser.add_argument('--epochs', type=int, default=float('inf'), help='Number of epochs.')
     parser.add_argument('--patience', type=int, default=10, help='Patience for the early stopping.')
 
-    # Now, parse args again to include any additional arguments
     return parser.parse_args()
-
-
-def save_hyperparameters(args, save_path):
-    with open(save_path, 'w') as f:
-        # Convert args namespace to dictionary and save as JSON
-        json.dump(vars(args), f, indent=4)
 
 
 def main():
@@ -145,23 +141,6 @@ def main():
     else:
         raise ValueError('Invalid task name')
 
-    current_time = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-    run_dir = os.path.join('./checkpoint', current_time)
-    os.makedirs(run_dir, exist_ok=True)
-
-    hyperparameters_path = os.path.join(run_dir, 'hyperparameters.json')
-    save_hyperparameters(args, hyperparameters_path)
-
-    develop_dataloader = load_temp_data(os.path.join('./checkpoint', args.task + '_develop_dataloader'))
-    train_dataloader = load_temp_data(os.path.join('./checkpoint', args.task + '_train_dataloader'))
-    val_dataloader = load_temp_data(os.path.join('./checkpoint', args.task + '_val_dataloader'))
-    test_dataloader = load_temp_data(os.path.join('./checkpoint', args.task + '_test_dataloader'))
-
-    block_cls = block_factories[args.block]
-
-    logging.basicConfig(level=logging.INFO)
-    logging.info('Starting Task.')
-
     if args.block in ['VanillaRNN', 'VanillaGRU']:
         block_args = {}
     elif args.block == 'ESN':
@@ -186,6 +165,7 @@ def main():
     else:
         raise ValueError('Invalid block name')
 
+    block_cls = block_factories[args.block]
     model = StackedNetwork(block_cls=block_cls, n_layers=args.layers,
                            d_input=d_input, d_model=args.neurons, d_output=d_output,
                            encoder=args.encoder, decoder=args.decoder,
@@ -193,14 +173,45 @@ def main():
                            layer_dropout=args.layerdrop,
                            **block_args)
 
-    print_parameters(model)
-    print_buffers(model)
+    develop_dataloader = load_temp_data(os.path.join('./checkpoint', args.task + '_develop_dataloader'))
+    train_dataloader = load_temp_data(os.path.join('./checkpoint', args.task + '_train_dataloader'))
+    val_dataloader = load_temp_data(os.path.join('./checkpoint', args.task + '_val_dataloader'))
+    test_dataloader = load_temp_data(os.path.join('./checkpoint', args.task + '_test_dataloader'))
 
     optimizer = setup_optimizer(model=model, lr=args.lr, weight_decay=args.wd)
     trainer = TrainModel(model=model, optimizer=optimizer, criterion=criterion, develop_dataloader=develop_dataloader)
+
+    current_time = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    if args.block == 'S4R':
+        block_name = args.block + '_' + args.conv + '_' + args.kernel + '_' + args.mix
+    else:
+        block_name = args.block
+    project_name = (args.encoder + '_[{' + block_name + '}_' + str(args.layers) + 'x' + str(args.neurons) + ']_' +
+                    args.decoder)
+    output_dir = os.path.join('./checkpoint', args.task)
+    run_dir = os.path.join('./checkpoint', args.task, block_name, str(args.layers) + 'x' + str(args.neurons),
+                           current_time)
+    os.makedirs(run_dir, exist_ok=True)
+    hyperparameters_path = os.path.join(run_dir, 'hyperparameters.json')
+    save_hyperparameters(args=args, file_path=hyperparameters_path)
+    parameters_path = os.path.join(run_dir, 'parameters.txt')
+    save_parameters(model=model, file_path=parameters_path)
+
+    logging.basicConfig(level=logging.INFO)
+    logging.info('Starting Task.')
+
+    # Initialize the tracker
+    tracker = EmissionsTracker(output_dir=output_dir, project_name=project_name,
+                               log_level="ERROR",
+                               gpu_ids=[check_data_device(develop_dataloader).index])
+    # Start tracking
+    tracker.start()
     trainer.early_stopping(train_dataloader=train_dataloader, val_dataloader=val_dataloader,
                            patience=args.patience, num_epochs=args.epochs,
                            run_directory=run_dir)
+    emissions = tracker.stop()
+    print(f"Estimated CO2 emissions for this run: {emissions} kg")
+    # End tracking
 
     if args.task in ['smnist', 'pathfinder', 'scifar10']:
         eval_bc = EvaluateClassifier(model=model, num_classes=d_output, dataloader=develop_dataloader)

@@ -73,35 +73,35 @@ class StructuredReservoir(Reservoir):
         """
         Generate the discrete state matrix.
         """
-        super().__init__(d_in, d_out)
-        if d_in > 1:
-            self.mask = self._mask(d_in, d_out)
-        elif d_in == 1:
-            warnings.warn("Input dimension is equal to 1: the structured reservoir is not effective.")
-            self.mask = torch.ones(d_out, d_in)
-        else:
+
+        if d_in < 1:
             raise ValueError("Input dimension must be an integer > 0.")
 
-    @staticmethod
-    def _mask(d_in, d_out):
+        if d_out < d_in:
+            raise ValueError("Output dimension must be an integer >= input dimension.")
+
         if d_in == 1:
-            raise ValueError("Input dimension must be an integer > 0")
-        # Generate range tensor [0, 1] for each bit
-        bits = [torch.tensor([0, 1]) for _ in range(d_in)]
+            warnings.warn("Input dimension is equal to 1: the structured reservoir is not effective.")
+        if d_out == d_in:
+            warnings.warn("Input dimension is equal to output dimension: the structured reservoir is not effective.")
 
-        # Create all combinations using cartesian product
+        super().__init__(d_in, d_out)
+
+        self.M = self._mask()
+    def _mask(self):
+        if self.d_in == 1:
+            return torch.ones(self.d_out, self.d_in)
+
+        if self.d_out == self.d_in:
+            return torch.eye(self.d_in)
+
+        bits = [torch.tensor([0, 1]) for _ in range(self.d_in)]
         all_combinations = torch.cartesian_prod(*bits)
-
-        # Find rows that are not all zeros by checking if the sum of the row is not zero
         non_zero_filter = all_combinations.sum(dim=1) != 0
-
-        # Filter to exclude all-zero combination
         mask = all_combinations[non_zero_filter]
+        num_repeats = (self.d_out + self.d_in - 1) // self.d_in
 
-        num_repeats = (d_out + d_in - 1) // d_in
-        mask = mask.repeat(num_repeats, 1)[:d_out, :]
-
-        return mask
+        return mask.repeat(num_repeats, 1)[:self.d_out, :]
 
     def uniform_disk_matrix(self, radius, field):
         """
@@ -110,17 +110,15 @@ class StructuredReservoir(Reservoir):
         :param field: str, the field of the matrix, 'real' or 'complex'
         """
         W = super().uniform_disk_matrix(radius, field)
-        print(self.mask.shape)
-        print(W.shape)
-        W = torch.einsum('ph,ph -> ph', self.mask, W)
+        W = torch.einsum('ph,ph -> ph', self.M, W)
         return W
 
     def uniform_ring_matrix(self, radius, field):
         W = super().uniform_ring_matrix(radius, field)
-        W = torch.einsum('ph,ph -> ph', self.mask, W)
+        W = torch.einsum('ph,ph -> ph', self.M, W)
         return W
 
     def single_value_matrix(self, value):
         W = super().single_value_matrix(value)
-        W = torch.einsum('ph,ph -> ph', self.mask, W)
+        W = torch.einsum('ph,ph -> ph', self.M, W)
         return W
