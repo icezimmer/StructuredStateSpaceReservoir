@@ -21,12 +21,15 @@ class S4R(torch.nn.Module):
         :param field: field for the state 'real' or 'complex' (default: 'complex')
         """
         mixing_layers = {
-            'glu': nn.Sequential(  # mix and double the num of features + gating
+            'convglu': nn.Sequential(  # mix and double the num of features + gating
                 nn.Conv1d(in_channels=d_model, out_channels=2 * d_model, kernel_size=1),
                 nn.GLU(dim=-2),
             ),
-            'reservoir': LinearReservoir(d_input=d_model, d_output=d_model,
-                                         field='real'),
+            'reservoir': LinearReservoir(d_input=d_model, d_output=d_model, field='real'),
+            'reservoirglu': nn.Sequential(
+                LinearReservoir(d_input=d_model, d_output=2*d_model, field='real'),
+                nn.GLU(dim=-2),
+            )
         }
         if mixing_layer not in mixing_layers:
             raise ValueError('Encoder and Decoder must be one of {}'.format(list(mixing_layers.keys())))
