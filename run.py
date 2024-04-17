@@ -8,6 +8,7 @@ from src.models.s4.s4 import S4Block
 from src.models.rnn.vanilla import VanillaRNN, VanillaGRU
 from src.models.esn.esn import ESN
 from src.models.ssrm.s4r import S4R
+from src.convolutions.fft import FFTConv, FFTConvInputOutputReservoir
 from src.kernels.vandermonde import (Vandermonde, VandermondeInputReservoir, VandermondeOutputReservoir,
                                      VandermondeInputOutputReservoir,
                                      VandermondeStateReservoir,
@@ -15,8 +16,6 @@ from src.kernels.vandermonde import (Vandermonde, VandermondeInputReservoir, Van
                                      VandermondeFullReservoir)
 from src.kernels.mini_vandermonde import (MiniVandermonde, MiniVandermondeInputOutputReservoir,
                                           MiniVandermondeStateReservoir, MiniVandermondeFullReservoir)
-from torch import optim
-
 from src.deep.residual import ResidualNetwork
 from src.deep.stacked import StackedNetwork
 from src.ml.optimization import setup_optimizer
@@ -31,6 +30,11 @@ block_factories = {
     'VanillaGRU': VanillaGRU,
     'ESN': ESN,
     'S4R': S4R
+}
+
+conv_classes = {
+    'fft': FFTConv,
+    'fft-freezeD': FFTConvInputOutputReservoir,
 }
 
 kernel_classes = {
@@ -68,6 +72,7 @@ def parse_args():
         parser.add_argument('--kernellr', type=float, default=0.001, help='Learning rate for kernel pars.')
         parser.add_argument('--kernelwd', type=float, default=0.0, help='Learning rate for kernel pars.')
     elif args.block == 'S4R':
+        parser.add_argument('--conv', default='fft', help='Skip connection matrix D.')
         parser.add_argument('--kerneldrop', type=float, default=0.0, help='Dropout the kernel inside the block.')
         parser.add_argument('--kernel', choices=kernel_classes.keys(), default='V-freezeA',
                             help='Kernel class to use for the model.')
@@ -94,7 +99,7 @@ def parse_args():
     # Add the rest of the arguments
     parser.add_argument('--neurons', type=int, default=64, help='Number of hidden neurons (hidden state size).')
     parser.add_argument('--encoder', default='conv1d', help='Encoder model.')
-    parser.add_argument('--mix', default='convglu', help='Inner Mixing layer.')
+    parser.add_argument('--mix', default='conv+glu', help='Inner Mixing layer.')
     parser.add_argument('--decoder', default='conv1d', help='Decoder model.')
     parser.add_argument('--dropout', type=float, default=0.0, help='Dropout the preactivation inside the block.')
 
@@ -166,6 +171,7 @@ def main():
                       'lr': args.kernellr, 'wd': args.kernelwd}
     elif args.block == 'S4R':
         block_args = {'mixing_layer': args.mix,
+                      'convolution_cls': conv_classes[args.conv],
                       'drop_kernel': args.kerneldrop, 'dropout': args.dropout,
                       'kernel_cls': kernel_classes[args.kernel], 'kernel_size': kernel_size,
                       'dt': args.dt, 'strong_stability': args.strong, 'weak_stability': args.weak,

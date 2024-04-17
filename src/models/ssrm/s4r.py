@@ -11,6 +11,7 @@ see: https://github.com/i404788/s5-pytorch/tree/74e2fdae00b915a62c914bf3615c0b8a
 class S4R(torch.nn.Module):
     def __init__(self, d_model,
                  mixing_layer,
+                 convolution_cls,
                  dropout=0.0,
                  **layer_args):
         """
@@ -21,24 +22,25 @@ class S4R(torch.nn.Module):
         :param field: field for the state 'real' or 'complex' (default: 'complex')
         """
         mixing_layers = {
-            'convglu': nn.Sequential(  # mix and double the num of features + gating
+            'conv': nn.Conv1d(in_channels=d_model, out_channels=d_model, kernel_size=1),
+            'conv+glu': nn.Sequential(  # mix and double the num of features + gating
                 nn.Conv1d(in_channels=d_model, out_channels=2 * d_model, kernel_size=1),
                 nn.GLU(dim=-2),
             ),
             'reservoir': LinearReservoir(d_input=d_model, d_output=d_model, field='real'),
-            'reservoirglu': nn.Sequential(
+            'reservoir+glu': nn.Sequential(
                 LinearReservoir(d_input=d_model, d_output=2*d_model, field='real'),
                 nn.GLU(dim=-2),
             )
         }
         if mixing_layer not in mixing_layers:
-            raise ValueError('Encoder and Decoder must be one of {}'.format(list(mixing_layers.keys())))
+            raise ValueError('Mixing Layer must be one of {}'.format(list(mixing_layers.keys())))
 
         super().__init__()
 
         self.d_model = d_model
 
-        self.layer = FFTConv(d_input=self.d_model, d_state=self.d_model, **layer_args)
+        self.layer = convolution_cls(d_input=self.d_model, d_state=self.d_model, **layer_args)
         self.mixing_layer = mixing_layers[mixing_layer]
         self.drop = nn.Dropout(dropout) if dropout > 0 else nn.Identity()
 
