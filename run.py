@@ -99,7 +99,7 @@ def parse_args():
     # Add the rest of the arguments
     parser.add_argument('--neurons', type=int, default=64, help='Number of hidden neurons (hidden state size).')
     parser.add_argument('--encoder', default='conv1d', help='Encoder model.')
-    parser.add_argument('--mix', default='conv+glu', help='Inner Mixing layer.')
+    parser.add_argument('--mix', default='conv1d+glu', help='Inner Mixing layer.')
     parser.add_argument('--decoder', default='conv1d', help='Decoder model.')
     parser.add_argument('--dropout', type=float, default=0.0, help='Dropout the preactivation inside the block.')
 

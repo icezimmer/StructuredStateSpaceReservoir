@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
-from src.convolutions.fft import FFTConv
-from src.reservoir.layers import LinearReservoir
+from src.reservoir.layers import LinearReservoir, LinearStructuredReservoir
 
 """
 see: https://github.com/i404788/s5-pytorch/tree/74e2fdae00b915a62c914bf3615c0b8a4279eb84
@@ -22,14 +21,19 @@ class S4R(torch.nn.Module):
         :param field: field for the state 'real' or 'complex' (default: 'complex')
         """
         mixing_layers = {
-            'conv': nn.Conv1d(in_channels=d_model, out_channels=d_model, kernel_size=1),
-            'conv+glu': nn.Sequential(  # mix and double the num of features + gating
+            'conv1d': nn.Conv1d(in_channels=d_model, out_channels=d_model, kernel_size=1),
+            'conv1d+glu': nn.Sequential(  # mix and double the num of features + gating
                 nn.Conv1d(in_channels=d_model, out_channels=2 * d_model, kernel_size=1),
                 nn.GLU(dim=-2),
             ),
             'reservoir': LinearReservoir(d_input=d_model, d_output=d_model, field='real'),
             'reservoir+glu': nn.Sequential(
                 LinearReservoir(d_input=d_model, d_output=2*d_model, field='real'),
+                nn.GLU(dim=-2),
+            ),
+            'structured_reservoir': LinearStructuredReservoir(d_input=d_model, d_output=d_model, field='real'),
+            'structured_reservoir+glu': nn.Sequential(
+                LinearStructuredReservoir(d_input=d_model, d_output=2*d_model, field='real'),
                 nn.GLU(dim=-2),
             )
         }
