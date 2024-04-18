@@ -1,31 +1,32 @@
+import pickle
 import json
-import csv
 import os
+import csv
 
 
-def print_parameters(model):
-    for name, param in model.named_parameters():
-        print('Parameter name:', name)
-        print(param.data.shape)
-        print('requires_grad:', param.requires_grad)
-        print('----------------------------------------------------')
+def save_data(data, file_path):
+    # Ensure the directory exists
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+
+    with open(file_path, 'wb') as file:
+        pickle.dump(data, file)
 
 
-def print_buffers(model):
-    for name, buffer in model.named_buffers():
-        print('Buffer name:', name)
-        print(buffer.data.shape)
-        print('requires_grad:', buffer.requires_grad)
-        print('----------------------------------------------------')
+def load_data(file_path):
+    with open(file_path, 'rb') as file:
+        loaded_data = pickle.load(file)
+    return loaded_data
 
 
 def save_hyperparameters(args, file_path):
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
     with open(file_path, 'w') as f:
         # Convert args namespace to dictionary and save as JSON
         json.dump(vars(args), f, indent=4)
 
 
 def save_parameters(model, file_path):
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
     with open(file_path, 'w') as file:
         for name, param in model.named_parameters():
             file.write(f'Parameter name: {name}\n')
@@ -103,3 +104,48 @@ def add_score(metrics_test_path, results_path):
         with open(results_path, mode='w', newline='') as file:
             writer = csv.writer(file)
             writer.writerows(rows)
+
+
+def update_results(emissions_path, metrics_test_path, results_path):
+    # Check if the metrics file exists
+    if not os.path.exists(emissions_path):
+        raise FileNotFoundError(f"The specified emissions file was not found: {emissions_path}")
+
+        # Check if the metrics file exists and is accessible
+    if not os.path.exists(metrics_test_path):
+        raise FileNotFoundError(f"The specified metrics file was not found: {metrics_test_path}")
+
+    # Load accuracy from the metrics file
+    with open(metrics_test_path, 'r') as json_file:
+        metrics = json.load(json_file)
+
+    if "Accuracy" not in metrics:
+        raise KeyError("The metrics file does not contain the 'Accuracy' key.")
+    accuracy = metrics["Accuracy"]
+
+    # Process the emissions file to retrieve the last row and only take the first 12 columns
+    last_row = []
+    with open(emissions_path, 'r', newline='') as in_file:
+        reader = csv.reader(in_file)
+        for row in reader:
+            last_row = row[:13]  # Take only the first 13 columns
+
+    # If there was no data in the emissions file, stop further processing
+    if not last_row:
+        raise ValueError("The emissions file does not contain any data.")
+
+    # Add the accuracy to the last row
+    last_row.append(accuracy)
+
+    # Check if results file exists to write header
+    file_exists = os.path.exists(results_path)
+
+    # Write the modified data to the results CSV file
+    with open(results_path, 'a', newline='') as out_file:
+        writer = csv.writer(out_file)
+        if not file_exists:
+            # Write header only if the file is being created
+            writer.writerow(['timestamp', 'project_name', 'run_id', 'duration', 'emissions', 'emissions_rate',
+                             'cpu_power', 'gpu_power', 'ram_power', 'cpu_energy', 'gpu_energy', 'ram_energy',
+                             'energy_consumed', 'accuracy'])
+        writer.writerow(last_row)

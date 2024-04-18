@@ -1,7 +1,7 @@
 import torch
 from src.reservoir.state import DiscreteStateReservoir, ContinuousStateReservoir
 import torch.nn as nn
-from src.utils.plot import plot_spectrum
+from src.utils.plotting import plot_spectrum
 
 
 """

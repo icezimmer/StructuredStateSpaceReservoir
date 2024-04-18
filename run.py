@@ -18,12 +18,10 @@ from src.kernels.mini_vandermonde import (MiniVandermonde, MiniVandermondeInputO
                                           MiniVandermondeStateReservoir, MiniVandermondeFullReservoir)
 from src.deep.residual import ResidualNetwork
 from src.deep.stacked import StackedNetwork
-from src.reservoir.layers import LinearStructuredReservoir
 from src.ml.optimization import setup_optimizer
 from src.ml.training import TrainModel
 from src.ml.evaluation import EvaluateClassifier
-from src.utils.temp_data import load_temp_data
-from src.utils.prints import save_parameters, save_hyperparameters, create_results, add_score
+from src.utils.saving import load_data, save_parameters, save_hyperparameters, update_results
 from src.utils.check_device import check_data_device
 from codecarbon import EmissionsTracker
 
@@ -173,10 +171,10 @@ def main():
                            layer_dropout=args.layerdrop,
                            **block_args)
 
-    develop_dataloader = load_temp_data(os.path.join('./checkpoint', args.task + '_develop_dataloader'))
-    train_dataloader = load_temp_data(os.path.join('./checkpoint', args.task + '_train_dataloader'))
-    val_dataloader = load_temp_data(os.path.join('./checkpoint', args.task + '_val_dataloader'))
-    test_dataloader = load_temp_data(os.path.join('./checkpoint', args.task + '_test_dataloader'))
+    develop_dataloader = load_data(os.path.join('./checkpoint', 'dataloaders', args.task, 'develop_dataloader'))
+    train_dataloader = load_data(os.path.join('./checkpoint', 'dataloaders', args.task, 'train_dataloader'))
+    val_dataloader = load_data(os.path.join('./checkpoint', 'dataloaders', args.task, 'val_dataloader'))
+    test_dataloader = load_data(os.path.join('./checkpoint', 'dataloaders', args.task, 'test_dataloader'))
 
     optimizer = setup_optimizer(model=model, lr=args.lr, weight_decay=args.wd)
     trainer = TrainModel(model=model, optimizer=optimizer, criterion=criterion, develop_dataloader=develop_dataloader)
@@ -188,10 +186,9 @@ def main():
         block_name = args.block
     project_name = (args.encoder + '_[{' + block_name + '}_' + str(args.layers) + 'x' + str(args.neurons) + ']_' +
                     args.decoder)
-    output_dir = os.path.join('./checkpoint', args.task)
-    run_dir = os.path.join('./checkpoint', args.task, block_name, str(args.layers) + 'x' + str(args.neurons),
+    output_dir = os.path.join('./checkpoint', 'models', args.task)
+    run_dir = os.path.join('./checkpoint', 'models', args.task, block_name, str(args.layers) + 'x' + str(args.neurons),
                            current_time)
-    os.makedirs(run_dir, exist_ok=True)
     hyperparameters_path = os.path.join(run_dir, 'hyperparameters.json')
     save_hyperparameters(args=args, file_path=hyperparameters_path)
     parameters_path = os.path.join(run_dir, 'parameters.txt')
@@ -220,9 +217,9 @@ def main():
         eval_bc = EvaluateClassifier(model=model, num_classes=d_output, dataloader=test_dataloader)
         eval_bc.evaluate(run_directory=run_dir, dataset_name='test')
 
-    create_results(emissions_path=os.path.join(output_dir, 'emissions.csv'), output_path=os.path.join(output_dir, 'results.csv'))
-    add_score(metrics_test_path=os.path.join(run_dir, 'metrics_test.json'), results_path=os.path.join(output_dir, 'results.csv'))
-
+    update_results(emissions_path=os.path.join(output_dir, 'emissions.csv'),
+                   metrics_test_path=os.path.join(run_dir, 'metrics_test.json'),
+                   results_path=os.path.join(output_dir, 'results.csv'))
 
 
 if __name__ == '__main__':

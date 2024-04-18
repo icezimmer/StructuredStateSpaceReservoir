@@ -1,5 +1,5 @@
 import torch.nn as nn
-from src.reservoir.layers import LinearReservoir, ZeroAugmentation, Truncation
+from src.reservoir.layers import LinearReservoir, LinearStructuredReservoir, ZeroAugmentation, Truncation
 
 
 class ResidualNetwork(nn.Module):
@@ -7,32 +7,39 @@ class ResidualNetwork(nn.Module):
                  encoder, to_vec, decoder,
                  layer_dropout=0.0, pre_norm=False,
                  **block_args):
-        encoder_models = {
-            'conv1d': nn.Conv1d(in_channels=d_input, out_channels=d_model, kernel_size=1),
-            'reservoir': LinearReservoir(d_input=d_input, d_output=d_model,
-                                         field='real'),
-            'pad': ZeroAugmentation(d_input=d_input, d_output=d_model)
-        }
+        encoder_models = ['conv1d', 'reservoir', 'structured_reservoir', 'pad']
+        decoder_models = ['conv1d', 'reservoir', 'truncate']
 
-        decoder_models = {
-            'conv1d': nn.Conv1d(in_channels=d_model, out_channels=d_output, kernel_size=1),
-            'reservoir': LinearReservoir(d_input=d_model, d_output=d_output,
-                                         field='real'),
-            'truncate': Truncation(d_input=d_model, d_output=d_output)
-        }
+        if encoder not in encoder_models:
+            raise ValueError('Encoder must be one of {}'.format(encoder_models))
 
-        if encoder not in encoder_models or decoder not in decoder_models:
-            raise ValueError('Encoder and Decoder must be one of {}'.format(list(encoder_models.keys())))
+        if decoder not in decoder_models:
+            raise ValueError('Decoder must be one of {}'.format(encoder_models))
 
         super().__init__()
-        self.encoder = encoder_models[encoder]
+
+        if encoder == 'conv1d':
+            self.encoder = nn.Conv1d(in_channels=d_input, out_channels=d_model, kernel_size=1)
+        elif encoder == 'reservoir':
+            self.encoder = LinearReservoir(d_input=d_input, d_output=d_model, field='real')
+        elif encoder == 'structured_reservoir':
+            self.encoder = LinearStructuredReservoir(d_input=d_input, d_output=d_model, field='real')
+        elif encoder == 'pad':
+            self.encoder = ZeroAugmentation(d_input=d_input, d_output=d_model)
+
         self.layers = nn.ModuleList([block_cls(d_model=d_model, **block_args) for _ in range(n_layers)])
         self.pre_norm = pre_norm
         self.norms = nn.ModuleList([nn.LayerNorm(d_model) for _ in range(n_layers)])
         self.dropouts = nn.ModuleList([nn.Dropout(layer_dropout) if layer_dropout > 0 else nn.Identity()
                                        for _ in range(n_layers)])
         self.to_vec = to_vec
-        self.decoder = decoder_models[decoder]
+
+        if decoder == 'conv1d':
+            self.decoder = nn.Conv1d(in_channels=d_model, out_channels=d_output, kernel_size=1)
+        elif decoder == 'reservoir':
+            self.decoder = LinearReservoir(d_input=d_model, d_output=d_output, field='real')
+        elif decoder == 'truncate':
+            self.decoder = Truncation(d_input=d_model, d_output=d_output)
 
     def forward(self, x):
         """
