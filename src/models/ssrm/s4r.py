@@ -43,7 +43,7 @@ class S4R(torch.nn.Module):
         elif mixing_layer == 'reservoir':
             self.mixing_layer = LinearReservoir(d_input=d_model, d_output=d_model, field='real')
         elif mixing_layer == 'reservoir+glu':
-            nn.Sequential(
+            self.mixing_layer = nn.Sequential(
                 LinearReservoir(d_input=d_model, d_output=2 * d_model, field='real'),
                 nn.GLU(dim=-2))
         elif mixing_layer == 'structured_reservoir':
