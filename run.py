@@ -23,7 +23,7 @@ from src.ml.optimization import setup_optimizer
 from src.ml.training import TrainModel
 from src.ml.evaluation import EvaluateClassifier
 from src.utils.temp_data import load_temp_data
-from src.utils.prints import save_parameters, save_hyperparameters
+from src.utils.prints import save_parameters, save_hyperparameters, create_results, add_score
 from src.utils.check_device import check_data_device
 from codecarbon import EmissionsTracker
 
@@ -219,6 +219,10 @@ def main():
 
         eval_bc = EvaluateClassifier(model=model, num_classes=d_output, dataloader=test_dataloader)
         eval_bc.evaluate(run_directory=run_dir, dataset_name='test')
+
+    create_results(emissions_path=os.path.join(output_dir, 'emissions.csv'), output_path=os.path.join(output_dir, 'results.csv'))
+    add_score(metrics_test_path=os.path.join(run_dir, 'metrics_test.json'), results_path=os.path.join(output_dir, 'results.csv'))
+
 
 
 if __name__ == '__main__':
