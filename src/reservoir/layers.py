@@ -18,7 +18,8 @@ class LinearReservoir(nn.Module):
         self.register_buffer('W_in', W_in)
 
     def forward(self, u):
-        u = torch.einsum('ph, bhl -> bpl', self.W_in, u)
+        with torch.no_grad():
+            u = torch.einsum('ph, bhl -> bpl', self.W_in, u)
 
         return u
 
@@ -38,7 +39,8 @@ class LinearStructuredReservoir(nn.Module):
         self.register_buffer('W_in', W_in)
 
     def forward(self, u):
-        u = torch.einsum('ph, bhl -> bpl', self.W_in, u)
+        with torch.no_grad():
+            u = torch.einsum('ph, bhl -> bpl', self.W_in, u)
 
         return u
 
@@ -54,13 +56,14 @@ class ZeroAugmentation(nn.Module):
 
     def forward(self, u):
 
-        # concatenate the input with zeros
-        u = torch.cat([u,
-                       torch.zeros(u.shape[0],
-                                   self.d_output - self.d_input,
-                                   u.shape[2],
-                                   dtype=u.dtype, device=u.device)],
-                      dim=1)
+        with torch.no_grad():
+            # concatenate the input with zeros
+            u = torch.cat([u,
+                           torch.zeros(u.shape[0],
+                                       self.d_output - self.d_input,
+                                       u.shape[2],
+                                       dtype=u.dtype, device=u.device)],
+                          dim=1)
 
         return u
 
@@ -75,10 +78,11 @@ class Truncation(nn.Module):
         self.d_output = d_output
 
     def forward(self, u):
-        # Take only the first d_output dimensions
-        u = u[:, :self.d_output, :]
+        with torch.no_grad():
+            # Take only the first d_output dimensions
+            u = u[:, :self.d_output, :]
 
-        if self.field == 'complex':
-            u = u.real
+            if self.field == 'complex':
+                u = u.real
 
         return u

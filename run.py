@@ -2,12 +2,11 @@ import argparse
 import logging
 import os
 from datetime import datetime
-import json
 import torch
 from src.models.s4.s4 import S4Block
 from src.models.rnn.vanilla import VanillaRNN, VanillaGRU
 from src.models.esn.esn import ESN
-from src.models.ssrm.s4r import S4R
+from src.models.s4d.s4d import S4R
 from src.convolutions.fft import FFTConv, FFTConvInputOutputReservoir
 from src.kernels.vandermonde import (Vandermonde, VandermondeInputReservoir, VandermondeOutputReservoir,
                                      VandermondeInputOutputReservoir,
@@ -16,7 +15,6 @@ from src.kernels.vandermonde import (Vandermonde, VandermondeInputReservoir, Van
                                      VandermondeFullReservoir)
 from src.kernels.mini_vandermonde import (MiniVandermonde, MiniVandermondeInputOutputReservoir,
                                           MiniVandermondeStateReservoir, MiniVandermondeFullReservoir)
-from src.deep.residual import ResidualNetwork
 from src.deep.stacked import StackedNetwork
 from src.ml.optimization import setup_optimizer
 from src.ml.training import TrainModel
