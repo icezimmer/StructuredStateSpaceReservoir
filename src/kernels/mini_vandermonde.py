@@ -97,7 +97,8 @@ class MiniVandermonde(nn.Module):
         :param dt: Delta time for discretization
         :return: Lambda_bar: Discrete State Diagonal Matrix
         """
-        Lambda_bar = torch.exp(Lambda * dt)
+        with torch.no_grad():
+            Lambda_bar = torch.exp(Lambda * dt)
 
         return Lambda_bar
 
@@ -126,14 +127,14 @@ class MiniVandermonde(nn.Module):
         :param x: time step state of shape (B, P)
         :return: y: time step output of shape (B, H), x: time step state of shape (B, P)
         """
-        u = torch.view_as_complex(u)
-        A = torch.view_as_complex(self.A)  # (P)
-        W = torch.view_as_complex(self.W)  # (H, P)
-        B = torch.sqrt(torch.transpose(W, 0, 1))  # (P, H)
-        C = torch.sqrt(W)  # (H, P)
+        with torch.no_grad():
+            A = torch.view_as_complex(self.A)  # (P)
+            W = torch.view_as_complex(self.W)  # (H, P)
+            B = torch.sqrt(torch.transpose(W, 0, 1))  # (P, H)
+            C = torch.sqrt(W)  # (H, P)
 
-        x = torch.einsum('p,bp->bp', A, x) + torch.einsum('ph,bh->bp', B, u)  # (B,P)
-        y = torch.einsum('hp,bp->bh', C, x).real  # (B,H)
+            x = torch.einsum('p,bp->bp', A, x) + torch.einsum('ph,bh->bp', B, u)  # (B,P)
+            y = torch.einsum('hp,bp->bh', C, x).real  # (B,H)
 
         return y, x
 
@@ -329,7 +330,8 @@ class MiniVandermondeReservoir(nn.Module):
         :param dt: Delta time for discretization
         :return: Lambda_bar: Discrete State Diagonal Matrix
         """
-        Lambda_bar = torch.exp(Lambda * dt)
+        with torch.no_grad():
+            Lambda_bar = torch.exp(Lambda * dt)
 
         return Lambda_bar
 
@@ -345,12 +347,12 @@ class MiniVandermondeReservoir(nn.Module):
         :param x: time step state of shape (B, P)
         :return: y: time step output of shape (B, H), x: time step state of shape (B, P)
         """
+        with torch.no_grad():
+            B = torch.sqrt(torch.transpose(self.W, 0, 1))  # (P, H)
+            C = torch.sqrt(self.W)  # (H, P)
 
-        B = torch.sqrt(torch.transpose(self.W, 0, 1))  # (P, H)
-        C = torch.sqrt(self.W)  # (H, P)
-
-        x = torch.einsum('p,bp->bp', self.A, x) + torch.einsum('ph,bh->bp', B, u)  # (B,P)
-        y = torch.einsum('hp,bp->bh', C, x).real  # (B,H)
+            x = torch.einsum('p,bp->bp', self.A, x) + torch.einsum('ph,bh->bp', B, u)  # (B,P)
+            y = torch.einsum('hp,bp->bh', C, x).real  # (B,H)
 
         return y, x
 

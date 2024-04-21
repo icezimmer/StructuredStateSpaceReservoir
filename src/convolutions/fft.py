@@ -87,9 +87,10 @@ class FFTConv(nn.Module):
         :param x: time step state of shape (B, P)
         :return: y: time step output of shape (B, H), x: time step state of shape (B, P)
         """
-        y, x = self.kernel.step(u, x)
-        y = y + torch.einsum('hh,bh->bh', self.D, u)  # (B,H)
-        y = self.activation(y)
+        with torch.no_grad():
+            y, x = self.kernel.step(u, x)
+            y = y + torch.einsum('hh,bh->bh', self.D, u)  # (B,H)
+            y = self.activation(y)
 
         return y, x
 
@@ -131,8 +132,7 @@ class FFTConvInputOutputReservoir(FFTConv):
         super().__init__(d_input, d_state, kernel, dropout, drop_kernel, **kernel_args)
 
         self._freeze_parameter('D')
-        
-        
+
     def forward(self, u):
         """
         Apply the convolution to the input sequence (SISO model):
@@ -204,9 +204,10 @@ class FFTConvReservoir(nn.Module):
         :param x: time step state of shape (B, P)
         :return: y: time step output of shape (B, H), x: time step state of shape (B, P)
         """
-        y, x = self.kernel.step(u, x)
-        y = y + torch.einsum('hh,bh->bh', self.D, u)  # (B,H)
-        y = self.activation(y)
+        with torch.no_grad():
+            y, x = self.kernel.step(u, x)
+            y = y + torch.einsum('hh,bh->bh', self.D, u)  # (B,H)
+            y = self.activation(y)
 
         return y, x
 

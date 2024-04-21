@@ -37,7 +37,7 @@ class S4R(torch.nn.Module):
         self.d_model = d_model
 
         self.layer = FFTConvReservoir(d_input=self.d_model, d_state=self.d_model, kernel=kernel,
-        			      **layer_args)
+                                      **layer_args)
 
         if mixing_layer == 'reservoir+tanh':
             self.mixing_layer = nn.Sequential(LinearReservoir(d_input=d_model, d_output=d_model, field='real'),
@@ -57,8 +57,9 @@ class S4R(torch.nn.Module):
         state: (B, P)
         Returns: y (B, H), state (B, P)
         """
-        y, x = self.layer.step(u, x)
-        y = self.mixing_layer(y)
+        with torch.no_grad():
+            y, x = self.layer.step(u, x)
+            y = self.mixing_layer(y)
 
         return y, x
 
