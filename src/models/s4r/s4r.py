@@ -1,6 +1,9 @@
 import torch
 import torch.nn as nn
 from src.reservoir.layers import LinearReservoir, LinearStructuredReservoir
+from src.convolutions.fft import FFTConvReservoir
+from src.kernels.vandermonde import VandermondeReservoir
+from src.kernels.mini_vandermonde import MiniVandermondeFullReservoir
 
 """
 see: https://github.com/i404788/s5-pytorch/tree/74e2fdae00b915a62c914bf3615c0b8a4279eb84
@@ -10,7 +13,7 @@ see: https://github.com/i404788/s5-pytorch/tree/74e2fdae00b915a62c914bf3615c0b8a
 class S4R(torch.nn.Module):
     def __init__(self, d_model,
                  mixing_layer,
-                 convolution_cls,
+                 kernel,
                  **layer_args):
         """
         S4R model.
@@ -20,16 +23,21 @@ class S4R(torch.nn.Module):
         :param field: field for the state 'real' or 'complex' (default: 'complex')
         """
 
-        mixing_layers = ['reservoir+tanh', 'reservoir+glu', 'structured_reservoir+glu']
+        kernel_classes = ['V-freezeABC', 'miniV-freezeAW']
 
+        if kernel not in kernel_classes:
+            raise ValueError('Kernel must be one of {}'.format(kernel_classes))
+
+        mixing_layers = ['reservoir+tanh', 'reservoir+glu', 'structured_reservoir+glu']
         if mixing_layer not in mixing_layers:
-            raise ValueError('Mixing Layer must be one of {}'.format(mixing_layers))
+            raise ValueError('Kernel must be one of {}'.format(mixing_layers))
 
         super().__init__()
 
         self.d_model = d_model
 
-        self.layer = convolution_cls(d_input=self.d_model, d_state=self.d_model, **layer_args)
+        self.layer = FFTConvReservoir(d_input=self.d_model, d_state=self.d_model, kernel=kernel,
+        			      **layer_args)
 
         if mixing_layer == 'reservoir+tanh':
             self.mixing_layer = nn.Sequential(LinearReservoir(d_input=d_model, d_output=d_model, field='real'),
@@ -49,9 +57,8 @@ class S4R(torch.nn.Module):
         state: (B, P)
         Returns: y (B, H), state (B, P)
         """
-        with torch.no_grad():
-            y, x = self.layer.step(u, x)
-            y = self.mixing_layer(y)
+        y, x = self.layer.step(u, x)
+        y = self.mixing_layer(y)
 
         return y, x
 

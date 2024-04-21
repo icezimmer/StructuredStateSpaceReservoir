@@ -16,7 +16,7 @@ class ESN(nn.Module):
         self.leakage_rate = leakage_rate
 
         input2state_reservoir = Reservoir(d_in=d_model, d_out=d_model)
-        w_in = input2state_reservoir.uniform_matrix(scaling=input_scaling, field='real')
+        w_in = input2state_reservoir.uniform_disk_matrix(radius=input_scaling, field='real')
         self.w_in = nn.Parameter(w_in, requires_grad=False)
 
         state_reservoir = DiscreteStateReservoir(self.d_state)

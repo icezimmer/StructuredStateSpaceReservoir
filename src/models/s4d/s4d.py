@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from src.reservoir.layers import LinearReservoir, LinearStructuredReservoir
+from src.convolutions.fft import FFTConv, FFTConvInputOutputReservoir
 
 """
 see: https://github.com/i404788/s5-pytorch/tree/74e2fdae00b915a62c914bf3615c0b8a4279eb84
@@ -10,7 +11,7 @@ see: https://github.com/i404788/s5-pytorch/tree/74e2fdae00b915a62c914bf3615c0b8a
 class S4D(torch.nn.Module):
     def __init__(self, d_model,
                  mixing_layer,
-                 convolution_cls,
+                 convolution,
                  dropout,
                  **layer_args):
         """
@@ -20,8 +21,11 @@ class S4D(torch.nn.Module):
         :param dt: delta time for continuous dynamics (default: None for discrete dynamics)
         :param field: field for the state 'real' or 'complex' (default: 'complex')
         """
-
+        convolution_classes = {'fft': FFTConv, 'fft-freezeD': FFTConvInputOutputReservoir}
         mixing_layers = ['conv1d+tanh', 'conv1d+glu', 'reservoir+tanh', 'reservoir+glu', 'structured_reservoir+glu']
+
+        if convolution not in convolution_classes:
+            raise ValueError('Convolution must be one of {}'.format(convolution_classes.keys()))
 
         if mixing_layer not in mixing_layers:
             raise ValueError('Mixing Layer must be one of {}'.format(mixing_layers))
@@ -30,7 +34,7 @@ class S4D(torch.nn.Module):
 
         self.d_model = d_model
 
-        self.layer = convolution_cls(d_input=self.d_model, d_state=self.d_model, **layer_args)
+        self.layer = convolution_classes[convolution](d_input=self.d_model, d_state=self.d_model, **layer_args)
 
         if mixing_layer == 'conv1d+tanh':
             self.mixing_layer = nn.Sequential(nn.Conv1d(in_channels=d_model, out_channels=d_model, kernel_size=1),

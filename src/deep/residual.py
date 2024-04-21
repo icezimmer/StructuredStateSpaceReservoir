@@ -1,5 +1,5 @@
 import torch.nn as nn
-from src.reservoir.layers import LinearReservoir, LinearStructuredReservoir, ZeroAugmentation, Truncation
+from src.reservoir.layers import LinearReservoir, LinearStructuredReservoir
 
 
 class ResidualNetwork(nn.Module):
@@ -7,8 +7,8 @@ class ResidualNetwork(nn.Module):
                  encoder, to_vec, decoder,
                  layer_dropout=0.0, pre_norm=False,
                  **block_args):
-        encoder_models = ['conv1d', 'reservoir', 'structured_reservoir', 'pad']
-        decoder_models = ['conv1d', 'reservoir', 'truncate']
+        encoder_models = ['conv1d', 'reservoir', 'structured_reservoir']
+        decoder_models = ['conv1d', 'reservoir']
 
         if encoder not in encoder_models:
             raise ValueError('Encoder must be one of {}'.format(encoder_models))
@@ -24,8 +24,6 @@ class ResidualNetwork(nn.Module):
             self.encoder = LinearReservoir(d_input=d_input, d_output=d_model, field='real')
         elif encoder == 'structured_reservoir':
             self.encoder = LinearStructuredReservoir(d_input=d_input, d_output=d_model, field='real')
-        elif encoder == 'pad':
-            self.encoder = ZeroAugmentation(d_input=d_input, d_output=d_model)
 
         self.layers = nn.ModuleList([block_cls(d_model=d_model, **block_args) for _ in range(n_layers)])
         self.pre_norm = pre_norm
@@ -38,8 +36,6 @@ class ResidualNetwork(nn.Module):
             self.decoder = nn.Conv1d(in_channels=d_model, out_channels=d_output, kernel_size=1)
         elif decoder == 'reservoir':
             self.decoder = LinearReservoir(d_input=d_model, d_output=d_output, field='real')
-        elif decoder == 'truncate':
-            self.decoder = Truncation(d_input=d_model, d_output=d_output)
 
     def forward(self, x):
         """

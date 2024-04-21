@@ -1,5 +1,5 @@
 import torch.nn as nn
-from src.reservoir.layers import LinearReservoir, ZeroAugmentation, Truncation, LinearStructuredReservoir
+from src.reservoir.layers import LinearReservoir, LinearStructuredReservoir
 
 
 class StackedNetwork(nn.Module):
@@ -10,14 +10,14 @@ class StackedNetwork(nn.Module):
         """
         Stack multiple blocks of the same type to form a deep network.
         """
-        encoder_models = ['conv1d', 'reservoir', 'structured_reservoir', 'pad']
-        decoder_models = ['conv1d', 'reservoir', 'truncate']
+        encoder_models = ['conv1d', 'reservoir', 'structured_reservoir']
+        decoder_models = ['conv1d', 'reservoir']
 
         if encoder not in encoder_models:
             raise ValueError('Encoder must be one of {}'.format(encoder_models))
 
         if decoder not in decoder_models:
-            raise ValueError('Decoder must be one of {}'.format(encoder_models))
+            raise ValueError('Decoder must be one of {}'.format(decoder_models))
 
         super().__init__()
 
@@ -27,8 +27,6 @@ class StackedNetwork(nn.Module):
             self.encoder = LinearReservoir(d_input=d_input, d_output=d_model, field='real')
         elif encoder == 'structured_reservoir':
             self.encoder = LinearStructuredReservoir(d_input=d_input, d_output=d_model, field='real')
-        elif encoder == 'pad':
-            self.encoder = ZeroAugmentation(d_input=d_input, d_output=d_model)
 
         self.layers = nn.ModuleList([block_cls(d_model=d_model, **block_args) for _ in range(n_layers)])
         self.dropouts = nn.ModuleList([nn.Dropout(layer_dropout) if layer_dropout > 0 else nn.Identity()
@@ -39,8 +37,6 @@ class StackedNetwork(nn.Module):
             self.decoder = nn.Conv1d(in_channels=d_model, out_channels=d_output, kernel_size=1)
         elif decoder == 'reservoir':
             self.decoder = LinearReservoir(d_input=d_model, d_output=d_output, field='real')
-        elif decoder == 'truncate':
-            self.decoder = Truncation(d_input=d_model, d_output=d_output)
 
     def forward(self, x):
         """
