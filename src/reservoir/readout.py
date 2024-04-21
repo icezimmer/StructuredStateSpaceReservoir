@@ -9,6 +9,7 @@ class Offline:
         self.develop_dataloader = develop_dataloader
         self.to_vec = next(iter(develop_dataloader))[1].dim() == 1
 
+    # TODO: repair the bug in the code
     def __call__(self):
         with torch.no_grad():
             state_list = []
