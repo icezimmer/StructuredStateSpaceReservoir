@@ -35,6 +35,7 @@ class StackedReservoir(nn.Module):
         Returns: y (B, H), state (B, P)
         """
         with torch.no_grad():
+            u = self.encoder.step(u)
             for layer in self.layers:
                 u, x = layer.step(u, x)
 

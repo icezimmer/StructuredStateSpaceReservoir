@@ -10,7 +10,7 @@ from src.models.s4r.s4r import S4R
 from sklearn.linear_model import Ridge, RidgeClassifier
 from src.deep.stacked import StackedNetwork
 from src.deep.reservoir import StackedReservoir
-from src.reservoir.readout import TrainReservoir, EvaluateReservoirClassifier
+from src.reservoir.forward import Reservoir2NN
 from src.ml.optimization import setup_optimizer
 from src.ml.training import TrainModel
 from src.ml.evaluation import EvaluateClassifier
@@ -18,6 +18,7 @@ from src.utils.saving import load_data, save_parameters, save_hyperparameters, u
 from src.utils.check_device import check_data_device
 from sklearn.metrics import accuracy_score, confusion_matrix
 from codecarbon import EmissionsTracker
+import numpy
 
 block_factories = {
     'S4': S4Block,
@@ -232,8 +233,8 @@ def main():
         logging.info('Starting Task.')
         # Start tracking
         tracker.start()
-        trainer = TrainReservoir(model=model, develop_dataloader=develop_dataloader, to_numpy=True)
-        output, label = trainer()
+        train = Reservoir2NN(model=model, dataloader=develop_dataloader, to_numpy=True)
+        output, label = train.to_fit()
         readout = RidgeClassifier()
         readout.fit(output, label)
         emissions = tracker.stop()
@@ -241,24 +242,23 @@ def main():
         # End tracking
 
         # Predict on the test set
-        evaluate = EvaluateReservoirClassifier(model=model, dataloader=develop_dataloader, to_numpy=True)
-        output, label = evaluate()
-        predicted = readout.predict(output)
+        output_, label_ = train.to_evaluate_classifier()
+        predicted = readout.predict(X=output_)
 
         # Evaluate the model
-        accuracy = accuracy_score(predicted, label)
-        conf_matrix = confusion_matrix(predicted, label)
+        accuracy = accuracy_score(y_true=label_, y_pred=predicted)
+        conf_matrix = confusion_matrix(y_true=label_, y_pred=predicted)
 
         print("Accuracy:", accuracy)
         print("Confusion Matrix:\n", conf_matrix)
 
-        evaluate = EvaluateReservoirClassifier(model=model, dataloader=test_dataloader, to_numpy=True)
-        output, label = evaluate()
-        predicted = readout.predict(output)
+        test = Reservoir2NN(model=model, dataloader=test_dataloader, to_numpy=True)
+        output, label = test.to_evaluate_classifier()
+        predicted = readout.predict(X=output)
 
         # Evaluate the model
-        accuracy = accuracy_score(predicted, label)
-        conf_matrix = confusion_matrix(predicted, label)
+        accuracy = accuracy_score(y_true=label, y_pred=predicted)
+        conf_matrix = confusion_matrix(y_true=label, y_pred=predicted)
 
         print("Accuracy:", accuracy)
         print("Confusion Matrix:\n", conf_matrix)

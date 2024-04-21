@@ -37,7 +37,7 @@ class Vandermonde(nn.Module):
         self.d_state = d_state
         self.d_output = self.d_input  # Necessary condition for the Vandermonde kernel (SISO)
 
-        self.register_buffer('x0', torch.zeros(self.d_state))
+        self.register_buffer('x0', torch.zeros(self.d_state, dtype=torch.complex64))
 
         input2state_reservoir = Reservoir(d_in=self.d_input, d_out=self.d_state)
         state2output_reservoir = Reservoir(d_in=self.d_state, d_out=self.d_output)
@@ -137,6 +137,7 @@ class Vandermonde(nn.Module):
         :return: y: time step output of shape (B, H), x: time step state of shape (B, P)
         """
         with torch.no_grad():
+            u = u.to(dtype=torch.complex64)
             A = torch.view_as_complex(self.A)  # (P)
             B = torch.view_as_complex(self.B)  # (P, H)
             C = torch.view_as_complex(self.C)  # (H, P)
@@ -436,7 +437,7 @@ class VandermondeReservoir(nn.Module):
         self.d_state = d_state
         self.d_output = self.d_input  # Necessary condition for the Vandermonde kernel (SISO)
 
-        self.register_buffer('x0', torch.zeros(self.d_state))
+        self.register_buffer('x0', torch.zeros(self.d_state, dtype=torch.complex64))
 
         input2state_reservoir = Reservoir(d_in=self.d_input, d_out=self.d_state)
         state2output_reservoir = Reservoir(d_in=self.d_state, d_out=self.d_output)
@@ -502,6 +503,7 @@ class VandermondeReservoir(nn.Module):
         :return: y: time step output of shape (B, H), x: time step state of shape (B, P)
         """
         with torch.no_grad():
+            u = u.to(dtype=torch.complex64)
             if x is None:
                 x = self.x0.unsqueeze(0).expand(u.shape[0], -1)
             x = torch.einsum('p,bp->bp', self.A, x) + torch.einsum('ph,bh->bp', self.B, u)  # (B,P)

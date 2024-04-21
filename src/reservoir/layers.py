@@ -17,6 +17,12 @@ class LinearReservoir(nn.Module):
         W_in = reservoir.uniform_disk_matrix(radius=radius, field=field)
         self.register_buffer('W_in', W_in)
 
+    def step(self, u):
+        with torch.no_grad():
+            u = torch.einsum('ph, bh -> bp', self.W_in, u)
+
+        return u
+
     def forward(self, u):
         with torch.no_grad():
             u = torch.einsum('ph, bhl -> bpl', self.W_in, u)
@@ -29,7 +35,7 @@ class LinearStructuredReservoir(nn.Module):
                  radius=1.0,
                  field='real'):
         super().__init__()
-        print('kernel_classes')
+
         self.d_input = d_input
         self.d_output = d_output
         self.field = field
@@ -38,11 +44,14 @@ class LinearStructuredReservoir(nn.Module):
         W_in = structured_reservoir.uniform_disk_matrix(radius=radius, field=field)
         self.register_buffer('W_in', W_in)
 
+    def step(self, u):
+        with torch.no_grad():
+            u = torch.einsum('ph, bh -> bp', self.W_in, u)
+
+        return u
+
     def forward(self, u):
         with torch.no_grad():
             u = torch.einsum('ph, bhl -> bpl', self.W_in, u)
 
         return u
-
-
-# class ReadOut(nn.Module):

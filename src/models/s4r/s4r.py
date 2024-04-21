@@ -40,15 +40,14 @@ class S4R(torch.nn.Module):
                                       **layer_args)
 
         if mixing_layer == 'reservoir+tanh':
-            self.mixing_layer = nn.Sequential(LinearReservoir(d_input=d_model, d_output=d_model, field='real'),
-                                              nn.Tanh())
+            self.mix = LinearReservoir(d_input=d_model, d_output=d_model, field='real')
+            self.nl = nn.Tanh()
         elif mixing_layer == 'reservoir+glu':
-            self.mixing_layer = nn.Sequential(LinearReservoir(d_input=d_model, d_output=2 * d_model, field='real'),
-                                              nn.GLU(dim=-2))
+            self.mix = LinearReservoir(d_input=d_model, d_output=2 * d_model, field='real')
+            self.nl = nn.GLU(dim=-2)
         elif mixing_layer == 'structured_reservoir+glu':
-            self.mixing_layer = nn.Sequential(LinearStructuredReservoir(d_input=d_model, d_output=2 * d_model,
-                                                                        field='real'),
-                                              nn.GLU(dim=-2))
+            self.mixing_layer = LinearStructuredReservoir(d_input=d_model, d_output=2 * d_model, field='real')
+            self.nl = nn.GLU(dim=-2)
 
     def step(self, u, x):
         """
@@ -59,7 +58,8 @@ class S4R(torch.nn.Module):
         """
         with torch.no_grad():
             y, x = self.layer.step(u, x)
-            y = self.mixing_layer(y)
+            y = self.mix.step(y)
+            y = self.nl(y)
 
         return y, x
 
@@ -71,7 +71,8 @@ class S4R(torch.nn.Module):
         """
         with torch.no_grad():
             y, _ = self.layer(u)
-            y = self.mixing_layer(y)
+            y = self.mix(y)
+            y = self.nl(y)
 
         # Return a dummy state to satisfy this repo's interface, but this can be modified
         return y, None
