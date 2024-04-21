@@ -37,6 +37,8 @@ class Vandermonde(nn.Module):
         self.d_state = d_state
         self.d_output = self.d_input  # Necessary condition for the Vandermonde kernel (SISO)
 
+        self.register_buffer('x0', torch.zeros(self.d_state))
+
         input2state_reservoir = Reservoir(d_in=self.d_input, d_out=self.d_state)
         state2output_reservoir = Reservoir(d_in=self.d_state, d_out=self.d_output)
 
@@ -125,7 +127,7 @@ class Vandermonde(nn.Module):
         V = A.unsqueeze(1) ** self.powers  # (P, L)
         return V
 
-    def step(self, u, x):
+    def step(self, u, x=None):
         """
         Step one time step as a recurrent model. Intended to be used during validation.
             x_new = A * x_old + B * u_new
@@ -139,6 +141,8 @@ class Vandermonde(nn.Module):
             B = torch.view_as_complex(self.B)  # (P, H)
             C = torch.view_as_complex(self.C)  # (H, P)
 
+            if x is None:
+                x = self.x0.unsqueeze(0).expand(u.shape[0], -1)
             x = torch.einsum('p,bp->bp', A, x) + torch.einsum('ph,bh->bp', B, u)  # (B,P)
             y = torch.einsum('hp,bp->bh', C, x).real  # (B,H)
 
@@ -432,6 +436,8 @@ class VandermondeReservoir(nn.Module):
         self.d_state = d_state
         self.d_output = self.d_input  # Necessary condition for the Vandermonde kernel (SISO)
 
+        self.register_buffer('x0', torch.zeros(self.d_state))
+
         input2state_reservoir = Reservoir(d_in=self.d_input, d_out=self.d_state)
         state2output_reservoir = Reservoir(d_in=self.d_state, d_out=self.d_output)
 
@@ -486,7 +492,7 @@ class VandermondeReservoir(nn.Module):
 
         return Lambda_bar, B_bar
 
-    def step(self, u, x):
+    def step(self, u, x=None):
         """
         Step one time step as a recurrent model. Intended to be used during validation.
             x_new = A * x_old + B * u_new
@@ -496,6 +502,8 @@ class VandermondeReservoir(nn.Module):
         :return: y: time step output of shape (B, H), x: time step state of shape (B, P)
         """
         with torch.no_grad():
+            if x is None:
+                x = self.x0.unsqueeze(0).expand(u.shape[0], -1)
             x = torch.einsum('p,bp->bp', self.A, x) + torch.einsum('ph,bh->bp', self.B, u)  # (B,P)
             y = torch.einsum('hp,bp->bh', self.C, x).real  # (B,H)
 

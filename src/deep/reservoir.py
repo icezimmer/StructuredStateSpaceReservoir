@@ -6,7 +6,7 @@ import torch
 
 class StackedReservoir(nn.Module):
     def __init__(self, n_layers, d_input, d_model,
-                 encoder, transient, step,
+                 encoder, transient,
                  **block_args):
         """
         Stack multiple blocks of the same type to form a deep network.
@@ -26,7 +26,19 @@ class StackedReservoir(nn.Module):
         self.layers = nn.ModuleList([S4R(d_model=d_model, **block_args) for _ in range(n_layers)])
 
         self.transient = transient
-        self.step = step
+
+    def step(self, u, x=None):
+        """
+        Step one time step as a recurrent model. Intended to be used during validation.
+        x: (B, H)
+        state: (B, P)
+        Returns: y (B, H), state (B, P)
+        """
+        with torch.no_grad():
+            for layer in self.layers:
+                u, x = layer.step(u, x)
+
+        return u, x
 
     def forward(self, x):
         """
@@ -41,6 +53,6 @@ class StackedReservoir(nn.Module):
             for layer in self.layers:
                 x, _ = layer(x)
 
-            x = x[:, :, self.transient::self.step]  # (B, d_model, L) -> (B, d_output, 1)
+            x = x[:, :, self.transient:]  # (B, d_model, L) -> (B, d_output, 1)
 
         return x

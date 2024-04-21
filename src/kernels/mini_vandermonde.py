@@ -38,6 +38,8 @@ class MiniVandermonde(nn.Module):
         self.d_state = d_state
         self.d_output = self.d_input  # Necessary condition for the Vandermonde kernel (SISO)
 
+        self.register_buffer('x0', torch.zeros(self.d_state))
+
         input_output_reservoir = Reservoir(d_in=self.d_state, d_out=self.d_output)
 
         W = input_output_reservoir.uniform_disk_matrix(radius=input_output_scaling, field=field)
@@ -115,7 +117,7 @@ class MiniVandermonde(nn.Module):
         V = A.unsqueeze(1) ** self.powers  # (P, L)
         return V
 
-    def step(self, u, x):
+    def step(self, u, x=None):
         """
         Step one time step as a recurrent model. Intended to be used during validation.
             x_new = A * x_old + u_new
@@ -133,6 +135,8 @@ class MiniVandermonde(nn.Module):
             B = torch.sqrt(torch.transpose(W, 0, 1))  # (P, H)
             C = torch.sqrt(W)  # (H, P)
 
+            if x is None:
+                x = self.x0.unsqueeze(0).expand(u.shape[0], -1)
             x = torch.einsum('p,bp->bp', A, x) + torch.einsum('ph,bh->bp', B, u)  # (B,P)
             y = torch.einsum('hp,bp->bh', C, x).real  # (B,H)
 
@@ -295,6 +299,8 @@ class MiniVandermondeReservoir(nn.Module):
         self.d_state = d_state
         self.d_output = self.d_input  # Necessary condition for the Vandermonde kernel (SISO)
 
+        self.register_buffer('x0', torch.zeros(self.d_state))
+
         input_output_reservoir = Reservoir(d_in=self.d_state, d_out=self.d_output)
 
         W = input_output_reservoir.uniform_disk_matrix(radius=input_output_scaling, field=field)
@@ -313,6 +319,8 @@ class MiniVandermondeReservoir(nn.Module):
 
         self.register_buffer('A', Lambda_bar)  # (P)
         self.register_buffer('W', W)  # (H, P)
+        self.register_buffer('B', torch.sqrt(torch.transpose(self.W, 0, 1)))  # (P, H)
+        self.register_buffer('C', torch.sqrt(self.W))  # (H, P)
 
         powers = torch.arange(kernel_size, dtype=torch.float32)
         V = self.A.unsqueeze(1) ** powers  # (P, L)
@@ -335,7 +343,7 @@ class MiniVandermondeReservoir(nn.Module):
 
         return Lambda_bar
 
-    def step(self, u, x):
+    def step(self, u, x=None):
         """
         Step one time step as a recurrent model. Intended to be used during validation.
             x_new = A * x_old + u_new
@@ -348,11 +356,10 @@ class MiniVandermondeReservoir(nn.Module):
         :return: y: time step output of shape (B, H), x: time step state of shape (B, P)
         """
         with torch.no_grad():
-            B = torch.sqrt(torch.transpose(self.W, 0, 1))  # (P, H)
-            C = torch.sqrt(self.W)  # (H, P)
-
-            x = torch.einsum('p,bp->bp', self.A, x) + torch.einsum('ph,bh->bp', B, u)  # (B,P)
-            y = torch.einsum('hp,bp->bh', C, x).real  # (B,H)
+            if x is None:
+                x = self.x0.unsqueeze(0).expand(u.shape[0], -1)
+            x = torch.einsum('p,bp->bp', self.A, x) + torch.einsum('ph,bh->bp', self.B, u)  # (B,P)
+            y = torch.einsum('hp,bp->bh', self.C, x).real  # (B,H)
 
         return y, x
 

@@ -10,7 +10,7 @@ from src.models.s4r.s4r import S4R
 from sklearn.linear_model import Ridge, RidgeClassifier
 from src.deep.stacked import StackedNetwork
 from src.deep.reservoir import StackedReservoir
-from src.reservoir.readout import Offline
+from src.reservoir.readout import TrainReservoir, EvaluateReservoirClassifier
 from src.ml.optimization import setup_optimizer
 from src.ml.training import TrainModel
 from src.ml.evaluation import EvaluateClassifier
@@ -83,7 +83,6 @@ def parse_args():
         parser.add_argument('--strong', type=float, default=0.98, help='Strong Stability for internal dynamics.')
         parser.add_argument('--weak', type=float, default=1.0, help='Weak Stability for internal dynamics.')
         parser.add_argument('--transient', type=int, default=0, help='Number of fist time steps to discard.')
-        parser.add_argument('--step', type=int, default=1, help='Jump steps.')
 
     # Update args with the new conditional arguments
     args, unknown = parser.parse_known_args()
@@ -227,42 +226,42 @@ def main():
         model = StackedReservoir(n_layers=args.layers,
                                  d_input=d_input, d_model=args.neurons,
                                  encoder=args.encoder,
-                                 transient=args.transient, step=args.step,
+                                 transient=args.transient,
                                  **block_args)
 
         logging.info('Starting Task.')
         # Start tracking
         tracker.start()
-        gather_develop = Offline(model, develop_dataloader)
-        pooled_develop, label_develop, output_develop, target_develop = gather_develop()
+        trainer = TrainReservoir(model=model, develop_dataloader=develop_dataloader, to_numpy=True)
+        output, label = trainer()
         readout = RidgeClassifier()
-        readout.fit(output_develop, target_develop)
+        readout.fit(output, label)
         emissions = tracker.stop()
         print(f"Estimated CO2 emissions for this run: {emissions} kg")
         # End tracking
 
         # Predict on the test set
-        predict_develop = readout.predict(pooled_develop)
+        evaluate = EvaluateReservoirClassifier(model=model, dataloader=develop_dataloader, to_numpy=True)
+        output, label = evaluate()
+        predicted = readout.predict(output)
 
         # Evaluate the model
-        accuracy_develop = accuracy_score(predict_develop, label_develop)
-        conf_matrix_develop = confusion_matrix(predict_develop, label_develop)
+        accuracy = accuracy_score(predicted, label)
+        conf_matrix = confusion_matrix(predicted, label)
 
-        print("Accuracy:", accuracy_develop)
-        print("Confusion Matrix:\n", conf_matrix_develop)
-        
-        gather_test = Offline(model, test_dataloader)
-        pooled_test, label_test, _, _ = gather_test()
+        print("Accuracy:", accuracy)
+        print("Confusion Matrix:\n", conf_matrix)
 
-        # Predict on the test set
-        predict_test = readout.predict(pooled_test)
+        evaluate = EvaluateReservoirClassifier(model=model, dataloader=test_dataloader, to_numpy=True)
+        output, label = evaluate()
+        predicted = readout.predict(output)
 
         # Evaluate the model
-        accuracy_test = accuracy_score(predict_test, label_test)
-        conf_matrix_test = confusion_matrix(predict_test, label_test)
+        accuracy = accuracy_score(predicted, label)
+        conf_matrix = confusion_matrix(predicted, label)
 
-        print("Accuracy:", accuracy_test)
-        print("Confusion Matrix:\n", conf_matrix_test)
+        print("Accuracy:", accuracy)
+        print("Confusion Matrix:\n", conf_matrix)
 
 
 if __name__ == '__main__':

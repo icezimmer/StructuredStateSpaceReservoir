@@ -50,7 +50,7 @@ class FFTConv(nn.Module):
         self.d_state = d_state
         self.d_output = self.d_input  # SISO model
 
-        self.kernel = kernel_classes[kernel](d_input=self.d_input, d_state=self.d_state, **kernel_args)
+        self.kernel_cls = kernel_classes[kernel](d_input=self.d_input, d_state=self.d_state, **kernel_args)
 
         input2output_reservoir = Reservoir(d_in=self.d_input, d_out=self.d_output)
         D = input2output_reservoir.uniform_disk_matrix(radius=1.0, field='real')
@@ -78,7 +78,7 @@ class FFTConv(nn.Module):
         else:
             raise ValueError(f"{param_name} is not a parameter in this module.")
 
-    def step(self, u, x):
+    def step(self, u, x=None):
         """
         Step one time step as a recurrent model. Intended to be used during validation:
             x_new, y_new = kernel.step(u_new, x_old)
@@ -88,7 +88,7 @@ class FFTConv(nn.Module):
         :return: y: time step output of shape (B, H), x: time step state of shape (B, P)
         """
         with torch.no_grad():
-            y, x = self.kernel.step(u, x)
+            y, x = self.kernel_cls.step(u, x)
             y = y + torch.einsum('hh,bh->bh', self.D, u)  # (B,H)
             y = self.activation(y)
 
@@ -100,7 +100,7 @@ class FFTConv(nn.Module):
         :param u: batched input sequence of shape (B,H,L) = (batch_size, d_input, input_length)
         :return: y: batched output sequence of shape (B,H,L) = (batch_size, d_input, input_length)
         """
-        k, _ = self.kernel()
+        k, _ = self.kernel_cls()
         k = self.drop_kernel(k)
 
         u_s = torch.fft.fft(u, dim=-1)  # (B, H, L)
@@ -139,7 +139,7 @@ class FFTConvInputOutputReservoir(FFTConv):
         :param u: batched input sequence of shape (B,H,L) = (batch_size, d_input, input_length)
         :return: y: batched output sequence of shape (B,H,L) = (batch_size, d_input, input_length)
         """
-        k, _ = self.kernel()
+        k, _ = self.kernel_cls()
         k = self.drop_kernel(k)
 
         u_s = torch.fft.fft(u, dim=-1)  # (B, H, L)
@@ -185,8 +185,8 @@ class FFTConvReservoir(nn.Module):
         self.d_state = d_state
         self.d_output = self.d_input  # SISO model
 
-        kernel_cls = kernel_classes[kernel](d_input=self.d_input, d_state=self.d_state, **kernel_args)
-        K, _ = kernel_cls()
+        self.kernel_cls = kernel_classes[kernel](d_input=self.d_input, d_state=self.d_state, **kernel_args)
+        K, _ = self.kernel_cls()
         self.register_buffer('K', K)  # (H, L)
 
         input2output_reservoir = Reservoir(d_in=self.d_input, d_out=self.d_output)
@@ -195,7 +195,7 @@ class FFTConvReservoir(nn.Module):
 
         self.activation = nn.Tanh()
 
-    def step(self, u, x):
+    def step(self, u, x=None):
         """
         Step one time step as a recurrent model. Intended to be used during validation:
             x_new, y_new = kernel.step(u_new, x_old)
@@ -205,7 +205,7 @@ class FFTConvReservoir(nn.Module):
         :return: y: time step output of shape (B, H), x: time step state of shape (B, P)
         """
         with torch.no_grad():
-            y, x = self.kernel.step(u, x)
+            y, x = self.kernel_cls.step(u, x)
             y = y + torch.einsum('hh,bh->bh', self.D, u)  # (B,H)
             y = self.activation(y)
 
