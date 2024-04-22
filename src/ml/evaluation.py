@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import json
 import torch
 from torchmetrics import Accuracy, Precision, Recall, F1Score, ConfusionMatrix, AUROC
-from src.utils.check_device import check_data_device, check_model_device
+from src.utils.check_device import check_model_device
 
 
 class EvaluateClassifier:
@@ -24,7 +24,7 @@ class EvaluateClassifier:
         self.roc_auc_value = None
         self.confusion_matrix_value = None
 
-    def __predict(self):
+    def _predict(self):
         for input_, label in self.dataloader:
             input_ = input_.to(device=self.device)
             output = self.model(input_)  # outputs of model are logits (raw values)
@@ -41,7 +41,7 @@ class EvaluateClassifier:
         self.model.eval()  # Set the model to evaluation mode
 
         with torch.no_grad():  # Inference mode, no gradients needed
-            self.__predict()
+            self._predict()
 
         # Compute final metric values
         final_accuracy = self.accuracy.compute()
@@ -66,7 +66,7 @@ class EvaluateClassifier:
         print("Confusion Matrix:\n", self.confusion_matrix_value)
 
         if run_directory is not None:
-            self.__plot(run_directory, dataset_name)
+            self._plot(run_directory, dataset_name)
 
         self.accuracy.reset()
         self.precision.reset()
@@ -82,7 +82,7 @@ class EvaluateClassifier:
         self.roc_auc_value = None
         self.confusion_matrix_value = None
 
-    def __plot(self, run_directory, dataset_name):
+    def _plot(self, run_directory, dataset_name):
         metrics_filename = f'metrics_{dataset_name}.json'
         confusion_matrix_filename = f'confusion_matrix_{dataset_name}.png'
 
