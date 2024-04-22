@@ -28,35 +28,46 @@ class ReadOutClassifier:
                 output_list.append(output_batch)
                 label_list.append(label_batch)
 
-            output = torch.cat(output_list, dim=0)  # (N, P, L)
-            label = torch.cat(label_list, dim=0)  # (N,)
+            output = torch.cat(tensors=output_list, dim=0)  # (N, P, L) timeseries
+            label = torch.cat(tensors=label_list, dim=0)  # (N,)
 
             return output, label
 
+    # TODO: check why the accuracy is ~0.1 like a random guess
     def fit_(self):
         with torch.no_grad():
             output, label = self._gather(self.develop_dataloader)  # (N, P, L), (N,)
 
-            label = torch.repeat_interleave(label, output.shape[-1])  # (N * L)
+            label = torch.repeat_interleave(input=label, repeats=output.shape[-1], dim=0)  # (N * L)
             output = output.permute(0, 2, 1)  # (N, L, P)
             output = output.reshape(-1, output.shape[-1])  # (N * L, P), N * L is the number of samples
+
+            # output = output.reshape(output.shape[0], -1)  # (N, L * P) this works why?????
 
             output = output.numpy()
             label = label.numpy()
 
-            self.readout.fit(output, label)
+            self.readout.fit(X=output, y=label)
 
-    # TODO: repair the bug in the code
+            prediction = self.readout.predict(X=output)
+
+            accuracy = accuracy_score(y_true=label, y_pred=prediction)
+            conf_matrix = confusion_matrix(y_true=label, y_pred=prediction)
+
+            print("Accuracy:", accuracy)
+            print("Confusion Matrix:\n", conf_matrix)
+
+    # TODO: check why the accuracy is ~0.1 like a random guess
     def evaluate_(self, dataloader):
         with torch.no_grad():
-            output, label = self._gather(dataloader)  # (N, P, L), (N, ?)
+            output, label = self._gather(dataloader)  # (N, P, L), (N,)
 
             output = output[:, :, -1]  # (N, P)
 
             label = label.numpy()
             output = output.numpy()
 
-            prediction = self.readout.predict(output)
+            prediction = self.readout.predict(X=output)
 
             accuracy = accuracy_score(y_true=label, y_pred=prediction)
             conf_matrix = confusion_matrix(y_true=label, y_pred=prediction)
