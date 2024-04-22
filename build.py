@@ -1,7 +1,7 @@
 from torchvision import datasets, transforms
 from src.torch_dataset.sequantial_image import SequentialImage2Classify
 from torch.utils.data import DataLoader
-from src.utils.split_data import split_dataset
+from src.utils.split_data import random_split_dataset
 from src.utils.saving import save_data
 import os
 import argparse
@@ -64,7 +64,7 @@ elif args.task == 'pathfinder':
 else:
     raise ValueError('Task not found')
 
-train_dataset, val_dataset = split_dataset(develop_dataset)
+train_dataset, val_dataset = random_split_dataset(develop_dataset)
 
 develop_dataloader = DataLoader(develop_dataset, batch_size=args.batch, shuffle=False)
 train_dataloader = DataLoader(train_dataset, batch_size=args.batch, shuffle=True)

@@ -27,6 +27,8 @@ class EvaluateClassifier:
     def _predict(self):
         for input_, label in self.dataloader:
             input_ = input_.to(device=self.device)
+            label = label.to(device=self.device)
+
             output = self.model(input_)  # outputs of model are logits (raw values)
 
             # Update metrics
@@ -100,7 +102,7 @@ class EvaluateClassifier:
 
         # Plotting the confusion matrix
         fig, ax = plt.subplots()
-        cax = ax.matshow(self.confusion_matrix_value.cpu().numpy(), cmap=plt.cm.Blues)
+        cax = ax.matshow(self.confusion_matrix_value.cpu().numpy(), cmap=plt.cm.Purples)
         plt.title('Confusion Matrix')
         fig.colorbar(cax)
         plt.xlabel('Predicted')
