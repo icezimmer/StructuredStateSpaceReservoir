@@ -4,16 +4,13 @@ from torch.utils.data import Dataset
 
 class SequentialImage2Classify(Dataset):
 
-    def __init__(self, dataset, device_name=None):
+    def __init__(self, dataset):
         self.data = []
         for image, label in dataset:
             image = image.to(dtype=torch.float32)
             image = image.view(image.shape[0], -1)  # (C, H, W) -> (C, H * W)
             label = torch.tensor(label, dtype=torch.long)
 
-            if device_name is not None:
-                image = image.to(torch.device(device_name))
-                label = label.to(torch.device(device_name))
             self.data.append((image, label))
 
     def __len__(self):

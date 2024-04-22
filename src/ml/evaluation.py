@@ -3,13 +3,13 @@ import matplotlib.pyplot as plt
 import json
 import torch
 from torchmetrics import Accuracy, Precision, Recall, F1Score, ConfusionMatrix, AUROC
-from src.utils.check_device import check_data_device
+from src.utils.check_device import check_data_device, check_model_device
 
 
 class EvaluateClassifier:
     def __init__(self, model, num_classes, dataloader, average='macro'):
-        self.device = check_data_device(dataloader)
-        self.model = model.to(self.device)
+        self.model = model
+        self.device = check_model_device(model=self.model)
         self.dataloader = dataloader
         self.accuracy = Accuracy(num_classes=num_classes, average=average).to(device=self.device)
         self.precision = Precision(num_classes=num_classes, average=average).to(device=self.device)
@@ -26,6 +26,7 @@ class EvaluateClassifier:
 
     def __predict(self):
         for input_, label in self.dataloader:
+            input_ = input_.to(device=self.device)
             output = self.model(input_)  # outputs of model are logits (raw values)
 
             # Update metrics

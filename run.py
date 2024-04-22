@@ -15,7 +15,7 @@ from src.ml.optimization import setup_optimizer
 from src.ml.training import TrainModel
 from src.ml.evaluation import EvaluateClassifier
 from src.utils.saving import load_data, save_parameters, save_hyperparameters, update_results
-from src.utils.check_device import check_data_device
+from src.utils.check_device import check_data_device, check_model_device
 from sklearn.metrics import accuracy_score, confusion_matrix
 from codecarbon import EmissionsTracker
 import numpy
@@ -194,6 +194,9 @@ def main():
                                to_vec=to_vec,
                                layer_dropout=args.layerdrop,
                                **block_args)
+        model.to(device=torch.device('cuda:1'))
+        print(check_model_device(model))
+
         save_parameters(model=model, file_path=parameters_path)
 
         train_dataloader = load_data(os.path.join('./checkpoint', 'dataloaders', args.task, 'train_dataloader'))
@@ -229,6 +232,8 @@ def main():
                                  encoder=args.encoder,
                                  transient=args.transient,
                                  **block_args)
+        model.to(device=torch.device('cuda:1'))
+        print(check_model_device(model))
 
         logging.info('Starting Task.')
         # Start tracking
