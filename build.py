@@ -18,7 +18,6 @@ if args.task == 'pathfinder':
     parser.add_argument('--resolution', default='32', help='Image resolution')
 
 parser.add_argument('--batch', type=int, default=128, help='Batch size')
-parser.add_argument('--device', default='cuda:1', help='Device for training')
 
 args = parser.parse_args()
 
@@ -30,7 +29,7 @@ if args.task == 'smnist':
     develop_dataset = SequentialImage2Classify(datasets.MNIST(root='./checkpoint/',
                                                               train=True,
                                                               transform=transform,
-                                                              download=True), device_name=args.device)
+                                                              download=True))
     test_dataset = SequentialImage2Classify(datasets.MNIST(root='./checkpoint/',
                                                            train=False,
                                                            transform=transform,
@@ -43,7 +42,7 @@ elif args.task == 'scifar10':
     develop_dataset = SequentialImage2Classify(datasets.CIFAR10(root='./checkpoint/',
                                                                 train=True,
                                                                 transform=transform,
-                                                                download=True), device_name=args.device)
+                                                                download=True))
     test_dataset = SequentialImage2Classify(datasets.CIFAR10(root='./checkpoint/',
                                                              train=False,
                                                              transform=transform,
@@ -60,7 +59,7 @@ elif args.task == 'pathfinder':
     builder_dataset.download_and_prepare()
     develop_dataset, test_dataset = builder_dataset.as_dataset(split=[args.level + '[80%:]', args.level + '[:20%]'],
                                                                as_supervised=True)
-    develop_dataset = PathfinderDataset(develop_dataset, device_name=args.device)
+    develop_dataset = PathfinderDataset(develop_dataset)
     test_dataset = PathfinderDataset(test_dataset)
 else:
     raise ValueError('Task not found')

@@ -3,7 +3,7 @@ from torch.utils.data import Dataset
 
 
 class PathfinderDataset(Dataset):
-    def __init__(self, tf_dataset, device_name=None):
+    def __init__(self, tf_dataset):
         self.data = []
         for image, label in tf_dataset:
             # Take only the first channel (grayscale)
@@ -23,10 +23,6 @@ class PathfinderDataset(Dataset):
 
             # Transform to [0,1]
             image = image / 255.0
-
-            if device_name is not None:
-                image = image.to(torch.device(device_name))
-                label = label.to(torch.device(device_name))
 
             # Store the preprocessed image and label
             self.data.append((image, label))
