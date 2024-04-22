@@ -1,5 +1,9 @@
 def check_model_device(model):
-    return next(iter(model.parameters())).device
+    # If model has no parameters, returns the buffer device
+    if len(list(model.parameters())) == 0:
+        return next(iter(model.buffers())).device
+    else:
+        return next(iter(model.parameters())).device
 
 
 def check_data_device(dataloader):

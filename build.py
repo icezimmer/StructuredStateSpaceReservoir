@@ -66,10 +66,10 @@ else:
 
 train_dataset, val_dataset = split_dataset(develop_dataset)
 
-develop_dataloader = DataLoader(develop_dataset, batch_size=args.batch, shuffle=True)
+develop_dataloader = DataLoader(develop_dataset, batch_size=args.batch, shuffle=False)
 train_dataloader = DataLoader(train_dataset, batch_size=args.batch, shuffle=True)
 val_dataloader = DataLoader(val_dataset, batch_size=args.batch, shuffle=False)
-test_dataloader = DataLoader(test_dataset, batch_size=args.batch, shuffle=False, pin_memory=True, num_workers=128)
+test_dataloader = DataLoader(test_dataset, batch_size=args.batch, shuffle=False)
 
 save_data(develop_dataloader, os.path.join('./checkpoint', 'dataloaders', args.task, 'develop_dataloader'))
 save_data(train_dataloader, os.path.join('./checkpoint', 'dataloaders', args.task, 'train_dataloader'))
