@@ -193,7 +193,7 @@ def main():
                                layer_dropout=args.layerdrop,
                                **block_args)
 
-        torch.backends.cudnn.benchmark = True
+        torch.backends.cudnn.benchmark = False
         model.to(device=torch.device(args.device))
 
         # Initialize the tracker
@@ -237,7 +237,7 @@ def main():
                                  transient=args.transient,
                                  **block_args)
 
-        torch.backends.cudnn.benchmark = True
+        torch.backends.cudnn.benchmark = False
         model.to(device=torch.device(args.device))
 
         # Initialize the tracker
