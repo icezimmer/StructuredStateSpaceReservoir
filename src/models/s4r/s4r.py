@@ -28,7 +28,7 @@ class S4R(torch.nn.Module):
         if kernel not in kernel_classes:
             raise ValueError('Kernel must be one of {}'.format(kernel_classes))
 
-        mixing_layers = ['reservoir+tanh', 'reservoir+glu', 'structured_reservoir+glu']
+        mixing_layers = ['identity', 'reservoir', 'reservoir+tanh', 'reservoir+glu', 'structured_reservoir+glu']
         if mixing_layer not in mixing_layers:
             raise ValueError('Kernel must be one of {}'.format(mixing_layers))
 
@@ -39,7 +39,13 @@ class S4R(torch.nn.Module):
         self.layer = FFTConvReservoir(d_input=self.d_model, d_state=self.d_model, kernel=kernel,
                                       **layer_args)
 
-        if mixing_layer == 'reservoir+tanh':
+        if mixing_layer == 'identity':
+            self.mix = nn.Identity()
+            self.nl = nn.Identity()
+        elif mixing_layer == 'reservoir':
+            self.mix = LinearReservoir(d_input=d_model, d_output=d_model, field='real')
+            self.nl = nn.Identity()
+        elif mixing_layer == 'reservoir+tanh':
             self.mix = LinearReservoir(d_input=d_model, d_output=d_model, field='real')
             self.nl = nn.Tanh()
         elif mixing_layer == 'reservoir+glu':

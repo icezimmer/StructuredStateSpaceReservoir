@@ -8,14 +8,16 @@ from src.models.rnn.vanilla import VanillaRNN, VanillaGRU
 from src.models.s4d.s4d import S4D
 from src.models.s4r.s4r import S4R
 from sklearn.linear_model import Ridge, RidgeClassifier
-from src.deep.stacked import StackedNetwork
-from src.deep.reservoir import StackedReservoir
-from src.reservoir.forward import Reservoir2NN
+from src.deep.stacked import StackedNetwork, StackedReservoir
+from src.reservoir.readout import ReadOutClassifier
+from src.torch_dataset.reservoir_to_nn import Reservoir2NN
 from src.ml.optimization import setup_optimizer
 from src.ml.training import TrainModel
 from src.ml.evaluation import EvaluateClassifier
 from src.utils.saving import load_data, save_parameters, save_hyperparameters, update_results
-from src.utils.check_device import check_data_device, check_model_device
+from src.utils.check_device import check_model_device
+from torch.utils.data import DataLoader
+from src.utils.split_data import random_split_dataset
 from sklearn.metrics import accuracy_score, confusion_matrix
 from codecarbon import EmissionsTracker
 import numpy
@@ -39,6 +41,7 @@ kernel_classes_reservoir = ['V-freezeABC', 'miniV-freezeAW']
 def parse_args():
     parser = argparse.ArgumentParser(description='Run classification task.')
     parser.add_argument('--task', default='smnist', help='Name of task.')
+    parser.add_argument('--device', default='cuda:1', help='Cuda device.')
     parser.add_argument('--block', choices=block_factories.keys(), default='S4D',
                         help='Block class to use for the model.')
 
@@ -182,11 +185,6 @@ def main():
 
     logging.basicConfig(level=logging.INFO)
 
-    # Initialize the tracker
-    tracker = EmissionsTracker(output_dir=output_dir, project_name=project_name,
-                               log_level="ERROR",
-                               gpu_ids=[check_data_device(develop_dataloader).index])
-
     if args.block != 'S4R':
         model = StackedNetwork(block_cls=block_factories[args.block], n_layers=args.layers,
                                d_input=d_input, d_model=args.neurons, d_output=d_output,
@@ -194,8 +192,14 @@ def main():
                                to_vec=to_vec,
                                layer_dropout=args.layerdrop,
                                **block_args)
-        model.to(device=torch.device('cuda:1'))
-        print(check_model_device(model))
+
+        torch.backends.cudnn.benchmark = True
+        model.to(device=torch.device(args.device))
+
+        # Initialize the tracker
+        tracker = EmissionsTracker(output_dir=output_dir, project_name=project_name,
+                                   log_level="ERROR",
+                                   gpu_ids=[check_model_device(model).index])
 
         save_parameters(model=model, file_path=parameters_path)
 
@@ -232,41 +236,71 @@ def main():
                                  encoder=args.encoder,
                                  transient=args.transient,
                                  **block_args)
-        model.to(device=torch.device('cuda:1'))
-        print(check_model_device(model))
+
+        torch.backends.cudnn.benchmark = True
+        model.to(device=torch.device(args.device))
+
+        # Initialize the tracker
+        tracker = EmissionsTracker(output_dir=output_dir, project_name=project_name,
+                                   log_level="ERROR",
+                                   gpu_ids=[check_model_device(model).index])
 
         logging.info('Starting Task.')
+        # develop_dataset = Reservoir2NN(reservoir_model=model, dataloader=develop_dataloader)
+        # train_dataset, val_dataset = split_dataset(develop_dataset)
+        #
+        # develop_dataloader = DataLoader(develop_dataset, batch_size=1024, shuffle=True)
+        # train_dataloader = DataLoader(train_dataset, batch_size=1024, shuffle=True)
+        # val_dataloader = DataLoader(val_dataset, batch_size=1024, shuffle=False)
+        #
+        # mlp = torch.nn.Linear(in_features=args.neurons, out_features=d_output)
+        # model.to(device=torch.device(args.device))
+        #
+        # trainer = TrainModel(model=mlp, optimizer=torch.optim.AdamW(params=mlp.parameters(), lr=0.1),
+        #                      criterion=criterion,
+        #                      develop_dataloader=develop_dataloader)
+        #
         # Start tracking
+        # trainer.early_stopping(train_dataloader=train_dataloader, val_dataloader=val_dataloader,
+        #                        patience=10, num_epochs=100,
+        #                        run_directory=run_dir)
+        # emissions = tracker.stop()
+        # print(f"Estimated CO2 emissions for this run: {emissions} kg")
         tracker.start()
-        train = Reservoir2NN(model=model, dataloader=develop_dataloader, to_numpy=True)
-        output, label = train.to_fit()
-        readout = RidgeClassifier()
-        readout.fit(output, label)
+        readout = ReadOutClassifier(reservoir_model=model, develop_dataloader=develop_dataloader, d_state=args.neurons,
+                                    d_output=d_output, lambda_=1.0, bias=True, to_vec=to_vec)
+        readout.fit_()
+        readout.evaluate_(develop_dataloader)
+        readout.evaluate_(test_dataloader)
+
+        # output, label = train.to_fit()
+        # readout = RidgeClassifier()
+        # readout.fit(output, label)
         emissions = tracker.stop()
         print(f"Estimated CO2 emissions for this run: {emissions} kg")
         # End tracking
 
         # Predict on the test set
-        output_, label_ = train.to_evaluate_classifier()
-        predicted = readout.predict(X=output_)
-
-        # Evaluate the model
-        accuracy = accuracy_score(y_true=label_, y_pred=predicted)
-        conf_matrix = confusion_matrix(y_true=label_, y_pred=predicted)
-
-        print("Accuracy:", accuracy)
-        print("Confusion Matrix:\n", conf_matrix)
-
-        test = Reservoir2NN(model=model, dataloader=test_dataloader, to_numpy=True)
-        output, label = test.to_evaluate_classifier()
-        predicted = readout.predict(X=output)
-
-        # Evaluate the model
-        accuracy = accuracy_score(y_true=label, y_pred=predicted)
-        conf_matrix = confusion_matrix(y_true=label, y_pred=predicted)
-
-        print("Accuracy:", accuracy)
-        print("Confusion Matrix:\n", conf_matrix)
+        # output_, label_ = train.to_evaluate_classifier()
+        # predicted = readout.predict(X=output_)
+        #
+        # # Evaluate the model
+        # accuracy = accuracy_score(y_true=label_, y_pred=predicted)
+        # conf_matrix = confusion_matrix(y_true=label_, y_pred=predicted)
+        #
+        # print("Accuracy:", accuracy)
+        # print("Confusion Matrix:\n", conf_matrix)
+        #
+        # test = Reservoir2NN(model=model, dataloader=test_dataloader, to_numpy=True)
+        # output, label = test.to_evaluate_classifier()
+        # predicted = readout.predict(X=output)
+        #
+        # # Evaluate the model
+        # accuracy = accuracy_score(y_true=label, y_pred=predicted)
+        # conf_matrix = confusion_matrix(y_true=label, y_pred=predicted)
+        #
+        # print("Accuracy:", accuracy)
+        # print("Confusion Matrix:\n", conf_matrix)
 
 
 if __name__ == '__main__':

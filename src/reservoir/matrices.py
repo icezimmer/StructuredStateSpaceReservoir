@@ -88,6 +88,8 @@ class StructuredReservoir(Reservoir):
         super().__init__(d_in, d_out)
 
         self.M = self._mask()
+
+    # TODO: repair mask dimension
     def _mask(self):
         if self.d_in == 1:
             return torch.ones(self.d_out, self.d_in)
