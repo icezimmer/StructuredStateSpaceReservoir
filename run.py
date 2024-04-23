@@ -71,12 +71,12 @@ def parse_args():
         elif args.block == 'S4D':
             parser.add_argument('--conv', choices=conv_classes, default='fft', help='Skip connection matrix D.')
             parser.add_argument('--kerneldrop', type=float, default=0.0, help='Dropout the kernel inside the block.')
-            parser.add_argument('--kernel', choices=kernel_classes, default='V-freezeA',
+            parser.add_argument('--kernel', choices=kernel_classes, default='V',
                                 help='Kernel name.')
             parser.add_argument('--mix', default='conv1d+glu', help='Inner Mixing layer.')
             parser.add_argument('--dt', type=int, default=None, help='Sampling rate (only for continuous dynamics).')
-            parser.add_argument('--strong', type=float, default=0.98, help='Strong Stability for internal dynamics.')
-            parser.add_argument('--weak', type=float, default=1.0, help='Weak Stability for internal dynamics.')
+            parser.add_argument('--strong', type=float, default=0.7, help='Strong Stability for internal dynamics.')
+            parser.add_argument('--weak', type=float, default=0.95, help='Weak Stability for internal dynamics.')
             parser.add_argument('--kernellr', type=float, default=0.001, help='Learning rate for kernel pars.')
             parser.add_argument('--kernelwd', type=float, default=0.0, help='Learning rate for kernel pars.')
     else:
@@ -86,7 +86,7 @@ def parse_args():
         parser.add_argument('--dt', type=int, default=None, help='Sampling rate (only for continuous dynamics).')
         parser.add_argument('--strong', type=float, default=0.98, help='Strong Stability for internal dynamics.')
         parser.add_argument('--weak', type=float, default=1.0, help='Weak Stability for internal dynamics.')
-        parser.add_argument('--transient', type=int, default=0, help='Number of fist time steps to discard.')
+        parser.add_argument('--transient', type=int, default=-1, help='Number of fist time steps to discard.')
 
     # Update args with the new conditional arguments
     args, unknown = parser.parse_known_args()
