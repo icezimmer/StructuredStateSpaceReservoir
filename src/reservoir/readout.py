@@ -1,15 +1,17 @@
 import torch
 from sklearn.linear_model import RidgeClassifier
+from src.reservoir.layers import RidgeRegression
 from sklearn.metrics import accuracy_score, confusion_matrix
 from src.utils.check_device import check_model_device
 
 
 class ReadOutClassifier:
-    def __init__(self, reservoir_model, develop_dataloader, **ridge_args):
+    def __init__(self, reservoir_model, develop_dataloader, d_state, d_output, lambda_, **ridge_args):
         self.reservoir_model = reservoir_model
         self.device = check_model_device(model=self.reservoir_model)
         self.develop_dataloader = develop_dataloader
-        self.readout = RidgeClassifier(**ridge_args)
+        #self.readout = RidgeClassifier(**ridge_args)
+        self.readout = RidgeRegression(d_input=d_state, d_output=d_output, lambda_=lambda_, to_vec=True)
 
     def _gather(self, dataloader):
         self.reservoir_model.eval()
@@ -44,18 +46,20 @@ class ReadOutClassifier:
 
             # output = output.reshape(output.shape[0], -1)  # (N, L * P) this works why?????
 
-            output = output.numpy()
-            label = label.numpy()
+            self.readout.fit(output, label)
 
-            self.readout.fit(X=output, y=label)
+            # output = output.numpy()
+            # label = label.numpy()
 
-            prediction = self.readout.predict(X=output)
+            # self.readout.fit(X=output, y=label)
 
-            accuracy = accuracy_score(y_true=label, y_pred=prediction)
-            conf_matrix = confusion_matrix(y_true=label, y_pred=prediction)
+            # prediction = self.readout.predict(X=output)
 
-            print("Accuracy:", accuracy)
-            print("Confusion Matrix:\n", conf_matrix)
+            # accuracy = accuracy_score(y_true=label, y_pred=prediction)
+            # conf_matrix = confusion_matrix(y_true=label, y_pred=prediction)
+
+            # print("Accuracy:", accuracy)
+            # print("Confusion Matrix:\n", conf_matrix)
 
     # TODO: check why the accuracy is ~0.1 like a random guess
     def evaluate_(self, dataloader):
@@ -64,10 +68,10 @@ class ReadOutClassifier:
 
             output = output[:, :, -1]  # (N, P)
 
-            label = label.numpy()
-            output = output.numpy()
+            prediction = self.readout(X=output)
 
-            prediction = self.readout.predict(X=output)
+            prediction = prediction.numpy()
+            label = label.numpy()
 
             accuracy = accuracy_score(y_true=label, y_pred=prediction)
             conf_matrix = confusion_matrix(y_true=label, y_pred=prediction)
@@ -76,3 +80,12 @@ class ReadOutClassifier:
             print("Confusion Matrix:\n", conf_matrix)
 
         return output, label
+
+    # TODO: check why the accuracy is ~0.1 like a random guess
+    def predict_(self, dataloader):
+        with torch.no_grad():
+            output, _ = self._gather(dataloader)  # (N, P, L), (N,)
+
+            output = output[:, :, -1]  # (N, P)
+
+        return self.readout(output)
