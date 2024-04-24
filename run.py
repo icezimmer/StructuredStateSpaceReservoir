@@ -9,7 +9,7 @@ from src.models.s4d.s4d import S4D
 from src.models.s4r.s4r import S4R
 from sklearn.linear_model import Ridge, RidgeClassifier
 from src.deep.stacked import StackedNetwork, StackedReservoir
-from src.reservoir.readout import ReadOutClassifier
+from src.reservoir.readout import ReadOut
 from src.torch_dataset.reservoir_to_nn import Reservoir2NN
 from src.ml.optimization import setup_optimizer
 from src.ml.training import TrainModel
@@ -267,8 +267,8 @@ def main():
         # emissions = tracker.stop()
         # print(f"Estimated CO2 emissions for this run: {emissions} kg")
         tracker.start()
-        readout = ReadOutClassifier(reservoir_model=model, develop_dataloader=develop_dataloader, d_state=args.neurons,
-                                    d_output=d_output, lambda_=1.0, bias=True, to_vec=to_vec)
+        readout = ReadOut(reservoir_model=model, develop_dataloader=develop_dataloader, d_state=args.neurons,
+                          d_output=d_output, lambda_=1.0, bias=True, to_vec=to_vec)
         readout.fit_()
         readout.evaluate_(develop_dataloader)
         readout.evaluate_(test_dataloader)

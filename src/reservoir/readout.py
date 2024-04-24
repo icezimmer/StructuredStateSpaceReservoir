@@ -1,20 +1,24 @@
 import torch
 from sklearn.linear_model import RidgeClassifier
+from src.reservoir.matrices import Reservoir, StructuredReservoir
 from src.reservoir.layers import RidgeRegression
 from sklearn.metrics import accuracy_score, confusion_matrix
 from src.utils.check_device import check_model_device
 
 
-class ReadOutClassifier:
+class ReadOut:
     def __init__(self, reservoir_model, develop_dataloader, d_state, d_output, lambda_, bias, to_vec):
         self.reservoir_model = reservoir_model
         self.device = check_model_device(model=self.reservoir_model)
         self.develop_dataloader = develop_dataloader
-        #self.readout = RidgeClassifer(**ridge_args)
         self.bias = bias
+        self.to_vec = to_vec
         if self.bias:
             d_state = d_state + 1
-        self.readout = RidgeRegression(d_state, d_output, lambda_, to_vec)
+        self.ridge_cls = RidgeRegression(d_state, d_output, lambda_, self.to_vec)
+
+        structured_reservoir = Reservoir(d_in=d_output, d_out=d_state)
+        self.W_out_t = structured_reservoir.uniform_disk_matrix(radius=1.0, field='real')
 
     def _gather(self, dataloader):
         self.reservoir_model.eval()
@@ -51,7 +55,7 @@ class ReadOutClassifier:
 
             # output = output.reshape(output.shape[0], -1)  # (N, L * P) this works why?????
 
-            self.readout.fit(X=output, y=label)
+            self.W_out_t = self.ridge_cls(X=output, y=label)
 
             # output = output.numpy()
             # label = label.numpy()
@@ -70,7 +74,9 @@ class ReadOutClassifier:
             # label = label.numpy()
             # prediction = self.readout.predict(X=output)
 
-            prediction = self.readout(X=output)
+            prediction = torch.einsum('np,pk -> nk', output, self.W_out_t)
+            prediction = torch.argmax(prediction, dim=1) if self.to_vec else prediction
+
             prediction = prediction.numpy()
             label = label.numpy()
 
@@ -91,8 +97,11 @@ class ReadOutClassifier:
             if self.bias:
                 output = torch.cat(tensors=(output, torch.ones(size=(output.size(0), 1), dtype=torch.float32)), dim=1)  # (N, P + 1)
 
+            prediction = torch.einsum('np,pk -> nk', output, self.W_out_t)
+            prediction = torch.argmax(prediction, dim=1) if self.to_vec else prediction
+
             # output = output.numpy()
         # return self.readout.predict(X=output)
 
-        return self.readout(output)
+        return prediction
         
