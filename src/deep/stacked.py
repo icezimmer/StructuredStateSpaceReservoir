@@ -91,10 +91,9 @@ class StackedReservoir(nn.Module):
         state: (B, P)
         Returns: y (B, H), state (B, P)
         """
-        with torch.no_grad():
-            u = self.encoder.step(u)
-            for layer in self.layers:
-                u, x = layer.step(u, x)
+        u = self.encoder.step(u)
+        for layer in self.layers:
+            u, x = layer.step(u, x)
 
         return u, x
 
@@ -105,12 +104,11 @@ class StackedReservoir(nn.Module):
         return:
             x: torch tensor of shape (B, d_output) or (B, d_output, L))
         """
-        with torch.no_grad():
-            x = self.encoder(x)  # (B, d_input, L) -> (B, d_model, L)
+        x = self.encoder(x)  # (B, d_input, L) -> (B, d_model, L)
 
-            for layer in self.layers:
-                x, _ = layer(x)  # (B, d_model, L) -> (B, d_model, L)
+        for layer in self.layers:
+            x, _ = layer(x)  # (B, d_model, L) -> (B, d_model, L)
 
-            x = x[:, :, self.transient:]  # (B, d_model, L) -> (B, d_model, L - transient)
+        x = x[:, :, self.transient:]  # (B, d_model, L) -> (B, d_model, L - transient)
 
         return x

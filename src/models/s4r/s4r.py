@@ -62,10 +62,9 @@ class S4R(torch.nn.Module):
         state: (B, P)
         Returns: y (B, H), state (B, P)
         """
-        with torch.no_grad():
-            y, x = self.layer.step(u, x)
-            y = self.mix.step(y)
-            y = self.nl(y)
+        y, x = self.layer.step(u, x)
+        y = self.mix.step(y)
+        y = self.nl(y)
 
         return y, x
 
@@ -75,10 +74,9 @@ class S4R(torch.nn.Module):
         :param u: batched input sequence of shape (B,H,L) = (batch_size, d_input, input_length)
         :return: y: batched output sequence of shape (B,H,L) = (batch_size, d_output, input_length)
         """
-        with torch.no_grad():
-            y, _ = self.layer(u)
-            y = self.mix(y)
-            y = self.nl(y)
+        y, _ = self.layer(u)
+        y = self.mix(y)
+        y = self.nl(y)
 
         # Return a dummy state to satisfy this repo's interface, but this can be modified
         return y, None

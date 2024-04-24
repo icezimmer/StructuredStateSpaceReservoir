@@ -87,10 +87,9 @@ class FFTConv(nn.Module):
         :param x: time step state of shape (B, P)
         :return: y: time step output of shape (B, H), x: time step state of shape (B, P)
         """
-        with torch.no_grad():
-            y, x = self.kernel_cls.step(u, x)
-            y = y + torch.einsum('hh,bh->bh', self.D, u)  # (B,H)
-            y = self.activation(y)
+        y, x = self.kernel_cls.step(u, x)
+        y = y + torch.einsum('hh,bh->bh', self.D, u)  # (B,H)
+        y = self.activation(y)
 
         return y, x
 
@@ -204,10 +203,9 @@ class FFTConvReservoir(nn.Module):
         :param x: time step state of shape (B, P)
         :return: y: time step output of shape (B, H), x: time step state of shape (B, P)
         """
-        with torch.no_grad():
-            y, x = self.kernel_cls.step(u, x)
-            y = y + torch.einsum('hh,bh->bh', self.D, u)  # (B,H)
-            y = self.activation(y)
+        y, x = self.kernel_cls.step(u, x)
+        y = y + torch.einsum('hh,bh->bh', self.D, u)  # (B,H)
+        y = self.activation(y)
 
         return y, x
 
@@ -217,14 +215,13 @@ class FFTConvReservoir(nn.Module):
         :param u: batched input sequence of shape (B,H,L) = (batch_size, d_input, input_length)
         :return: y: batched output sequence of shape (B,H,L) = (batch_size, d_input, input_length)
         """
-        with torch.no_grad():
-            u_s = torch.fft.fft(u, dim=-1)  # (B, H, L)
-            k_s = torch.fft.fft(self.K, dim=-1)  # (H, L)
+        u_s = torch.fft.fft(u, dim=-1)  # (B, H, L)
+        k_s = torch.fft.fft(self.K, dim=-1)  # (H, L)
 
-            y = torch.fft.ifft(torch.einsum('bhl,hl->bhl', u_s, k_s), dim=-1)  # (B, H, L)
-            y = y.real + torch.einsum('hh,bhl->bhl', self.D, u)  # (B, H, L)
+        y = torch.fft.ifft(torch.einsum('bhl,hl->bhl', u_s, k_s), dim=-1)  # (B, H, L)
+        y = y.real + torch.einsum('hh,bhl->bhl', self.D, u)  # (B, H, L)
 
-            y = self.activation(y)
+        y = self.activation(y)
 
         return y, None
         

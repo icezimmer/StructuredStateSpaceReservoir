@@ -18,14 +18,12 @@ class LinearReservoir(nn.Module):
         self.register_buffer('W_in', W_in)
 
     def step(self, u):
-        with torch.no_grad():
-            u = torch.einsum('ph, bh -> bp', self.W_in, u)
+        u = torch.einsum('ph, bh -> bp', self.W_in, u)
 
         return u
 
     def forward(self, u):
-        with torch.no_grad():
-            u = torch.einsum('ph, bhl -> bpl', self.W_in, u)
+        u = torch.einsum('ph, bhl -> bpl', self.W_in, u)
 
         return u
 
@@ -45,14 +43,12 @@ class LinearStructuredReservoir(nn.Module):
         self.register_buffer('W_in', W_in)
 
     def step(self, u):
-        with torch.no_grad():
-            u = torch.einsum('ph, bh -> bp', self.W_in, u)
+        u = torch.einsum('ph, bh -> bp', self.W_in, u)
 
         return u
 
     def forward(self, u):
-        with torch.no_grad():
-            u = torch.einsum('ph, bhl -> bpl', self.W_in, u)
+        u = torch.einsum('ph, bhl -> bpl', self.W_in, u)
 
         return u
 

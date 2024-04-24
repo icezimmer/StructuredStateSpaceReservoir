@@ -99,8 +99,7 @@ class MiniVandermonde(nn.Module):
         :param dt: Delta time for discretization
         :return: Lambda_bar: Discrete State Diagonal Matrix
         """
-        with torch.no_grad():
-            Lambda_bar = torch.exp(Lambda * dt)
+        Lambda_bar = torch.exp(Lambda * dt)
 
         return Lambda_bar
 
@@ -129,17 +128,16 @@ class MiniVandermonde(nn.Module):
         :param x: time step state of shape (B, P)
         :return: y: time step output of shape (B, H), x: time step state of shape (B, P)
         """
-        with torch.no_grad():
-            u = u.to(dtype=torch.complex64)
-            A = torch.view_as_complex(self.A)  # (P)
-            W = torch.view_as_complex(self.W)  # (H, P)
-            B = torch.sqrt(torch.transpose(W, 0, 1))  # (P, H)
-            C = torch.sqrt(W)  # (H, P)
+        u = u.to(dtype=torch.complex64)
+        A = torch.view_as_complex(self.A)  # (P)
+        W = torch.view_as_complex(self.W)  # (H, P)
+        B = torch.sqrt(torch.transpose(W, 0, 1))  # (P, H)
+        C = torch.sqrt(W)  # (H, P)
 
-            if x is None:
-                x = self.x0.unsqueeze(0).expand(u.shape[0], -1)
-            x = torch.einsum('p,bp->bp', A, x) + torch.einsum('ph,bh->bp', B, u)  # (B,P)
-            y = torch.einsum('hp,bp->bh', C, x).real  # (B,H)
+        if x is None:
+            x = self.x0.unsqueeze(0).expand(u.shape[0], -1)
+        x = torch.einsum('p,bp->bp', A, x) + torch.einsum('ph,bh->bp', B, u)  # (B,P)
+        y = torch.einsum('hp,bp->bh', C, x).real  # (B,H)
 
         return y, x
 
@@ -339,8 +337,7 @@ class MiniVandermondeReservoir(nn.Module):
         :param dt: Delta time for discretization
         :return: Lambda_bar: Discrete State Diagonal Matrix
         """
-        with torch.no_grad():
-            Lambda_bar = torch.exp(Lambda * dt)
+        Lambda_bar = torch.exp(Lambda * dt)
 
         return Lambda_bar
 
@@ -356,12 +353,11 @@ class MiniVandermondeReservoir(nn.Module):
         :param x: time step state of shape (B, P)
         :return: y: time step output of shape (B, H), x: time step state of shape (B, P)
         """
-        with torch.no_grad():
-            u = u.to(dtype=torch.complex64)
-            if x is None:
-                x = self.x0.unsqueeze(0).expand(u.shape[0], -1)
-            x = torch.einsum('p,bp->bp', self.A, x) + torch.einsum('ph,bh->bp', self.B, u)  # (B,P)
-            y = torch.einsum('hp,bp->bh', self.C, x).real  # (B,H)
+        u = u.to(dtype=torch.complex64)
+        if x is None:
+            x = self.x0.unsqueeze(0).expand(u.shape[0], -1)
+        x = torch.einsum('p,bp->bp', self.A, x) + torch.einsum('ph,bh->bp', self.B, u)  # (B,P)
+        y = torch.einsum('hp,bp->bh', self.C, x).real  # (B,H)
 
         return y, x
 
@@ -370,7 +366,6 @@ class MiniVandermondeReservoir(nn.Module):
         Generate the convolution kernel from the diagonal SSM parameters
         :return: kernel: 1d convolution kernel of shape (H, L)
         """
-        with torch.no_grad():
-            kernel = self.K  # (H, L)
+        kernel = self.K  # (H, L)
 
         return kernel, None
