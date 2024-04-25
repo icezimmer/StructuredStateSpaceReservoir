@@ -11,9 +11,9 @@ class Vandermonde(nn.Module):
     """
     def __init__(self, d_input, d_state, kernel_size,
                  dt, strong_stability, weak_stability,
-                 input2state_scaling,
-                 state2output_scaling,
-                 lr, wd,
+                 input2state_scaling=1.0,
+                 state2output_scaling=1.0,
+                 lr=0.001, wd=0.0,
                  field='complex'):
         """
         Construct the convolution kernel.
@@ -167,9 +167,9 @@ class VandermondeInputReservoir(Vandermonde):
 
     def __init__(self, d_input, d_state, kernel_size,
                  dt, strong_stability, weak_stability,
-                 input2state_scaling,
-                 state2output_scaling,
-                 lr, wd,
+                 input2state_scaling=1.0,
+                 state2output_scaling=1.0,
+                 lr=0.001, wd=0.0,
                  field='complex'):
         """
         Construct the convolution kernel with frozen A.
@@ -202,9 +202,9 @@ class VandermondeOutputReservoir(Vandermonde):
 
     def __init__(self, d_input, d_state, kernel_size,
                  dt, strong_stability, weak_stability,
-                 input2state_scaling,
-                 state2output_scaling,
-                 lr, wd,
+                 input2state_scaling=1.0,
+                 state2output_scaling=1.0,
+                 lr=0.001, wd=0.0,
                  field='complex'):
         """
         Construct the convolution kernel with frozen A.
@@ -237,9 +237,9 @@ class VandermondeInputOutputReservoir(Vandermonde):
 
     def __init__(self, d_input, d_state, kernel_size,
                  dt, strong_stability, weak_stability,
-                 input2state_scaling,
-                 state2output_scaling,
-                 lr, wd,
+                 input2state_scaling=1.0,
+                 state2output_scaling=1.0,
+                 lr=0.001, wd=0.0,
                  field='complex'):
         """
         Construct the convolution kernel with frozen A.
@@ -286,9 +286,9 @@ class VandermondeStateReservoir(Vandermonde):
 
     def __init__(self, d_input, d_state, kernel_size,
                  dt, strong_stability, weak_stability,
-                 input2state_scaling,
-                 state2output_scaling,
-                 lr, wd,
+                 input2state_scaling=1.0,
+                 state2output_scaling=1.0,
+                 lr=0.001, wd=0.0,
                  field='complex'):
         """
         Construct the convolution kernel with frozen A.
@@ -338,9 +338,9 @@ class VandermondeInputStateReservoir(VandermondeStateReservoir):
 
     def __init__(self, d_input, d_state, kernel_size,
                  dt, strong_stability, weak_stability,
-                 input2state_scaling,
-                 state2output_scaling,
-                 lr, wd,
+                 input2state_scaling=1.0,
+                 state2output_scaling=1.0,
+                 lr=0.001, wd=0.0,
                  field='complex'):
         """
         Construct the convolution kernel with frozen A.
@@ -373,9 +373,9 @@ class VandermondeStateOutputReservoir(VandermondeStateReservoir):
 
     def __init__(self, d_input, d_state, kernel_size,
                  dt, strong_stability, weak_stability,
-                 input2state_scaling,
-                 state2output_scaling,
-                 lr, wd,
+                 input2state_scaling=1.0,
+                 state2output_scaling=1.0,
+                 lr=0.001, wd=0.0,
                  field='complex'):
         """
         Construct the convolution kernel with frozen A.
@@ -410,8 +410,8 @@ class VandermondeReservoir(nn.Module):
 
     def __init__(self, d_input, d_state, kernel_size,
                  dt, strong_stability, weak_stability,
-                 input2state_scaling,
-                 state2output_scaling,
+                 input2state_scaling=1.0,
+                 state2output_scaling=1.0,
                  field='complex'):
         """
         Construct the convolution kernel.
