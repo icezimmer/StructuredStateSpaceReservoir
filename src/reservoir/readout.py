@@ -20,6 +20,7 @@ class ReadOut:
         structured_reservoir = Reservoir(d_in=d_output, d_out=d_state)
         self.W_out_t = structured_reservoir.uniform_disk_matrix(radius=1.0, field='real')
 
+    # TODO: try to move to cpu the hidden_state of each layer before to stacked them in deep module
     def _gather(self, dataloader):
         self.reservoir_model.eval()
         with torch.no_grad():
@@ -42,7 +43,7 @@ class ReadOut:
 
             return output, label
 
-    # TODO: check why the accuracy is ~0.1 like a random guess
+    # TODO: check why setting transient < -1 the accuracy degrades
     def fit_(self):
         with torch.no_grad():
             output, label = self._gather(self.develop_dataloader)  # (N, P, L), (N,)
@@ -56,7 +57,6 @@ class ReadOut:
 
             self.W_out_t = self.ridge_cls(X=output, y=label)
 
-    # TODO: check why the accuracy is ~0.1 like a random guess
     def evaluate_(self, dataloader):
         with torch.no_grad():
             output, label = self._gather(dataloader)  # (N, P, L), (N,)
