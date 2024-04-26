@@ -8,7 +8,7 @@ from src.models.rnn.vanilla import VanillaRNN, VanillaGRU
 from src.models.s4d.s4d import S4D
 from src.models.s4r.s4r import S4R
 from sklearn.linear_model import Ridge, RidgeClassifier
-from src.deep.stacked import StackedNetwork, StackedReservoir
+from src.deep.stacked import StackedNetwork, StackedReservoir, Hybrid
 from src.reservoir.readout import ReadOut
 from src.torch_dataset.reservoir_to_nn import Reservoir2NN
 from src.ml.optimization import setup_optimizer
@@ -231,14 +231,29 @@ def main():
                        metrics_test_path=os.path.join(run_dir, 'metrics_test.json'),
                        results_path=os.path.join(output_dir, 'results.csv'))
     elif args.block == 'S4R':
-        model = StackedReservoir(n_layers=args.layers,
-                                 d_input=d_input, d_model=args.neurons,
-                                 encoder=args.encoder,
-                                 transient=args.transient,
-                                 **block_args)
+        # model = StackedReservoir(n_layers=args.layers,
+        #                          d_input=d_input, d_model=args.neurons,
+        #                          encoder=args.encoder,
+        #                          transient=args.transient,
+        #                          **block_args)
 
+        # torch.backends.cudnn.benchmark = False
+        # model.to(device=torch.device(args.device))
+
+        model = Hybrid(r_layers=args.layers, t_layers=1,
+                       d_input=d_input, d_model=args.neurons, d_output=d_output,
+                       transient=args.transient,
+                       to_vec=to_vec, **block_args)
         torch.backends.cudnn.benchmark = False
         model.to(device=torch.device(args.device))
+        save_parameters(model=model, file_path=parameters_path)
+
+        train_dataloader = load_data(os.path.join('./checkpoint', 'dataloaders', args.task, 'train_dataloader'))
+        val_dataloader = load_data(os.path.join('./checkpoint', 'dataloaders', args.task, 'val_dataloader'))
+
+        optimizer = setup_optimizer(model=model, lr=0.004, weight_decay=0.1)
+        trainer = TrainModel(model=model, optimizer=optimizer, criterion=criterion,
+                             develop_dataloader=develop_dataloader)
 
         # Initialize the tracker
         tracker = EmissionsTracker(output_dir=output_dir, project_name=project_name,
@@ -246,38 +261,29 @@ def main():
                                    gpu_ids=[check_model_device(model).index])
 
         logging.info('Starting Task.')
-        # develop_dataset = Reservoir2NN(reservoir_model=model, dataloader=develop_dataloader)
-        # train_dataset, val_dataset = split_dataset(develop_dataset)
-        #
-        # develop_dataloader = DataLoader(develop_dataset, batch_size=1024, shuffle=True)
-        # train_dataloader = DataLoader(train_dataset, batch_size=1024, shuffle=True)
-        # val_dataloader = DataLoader(val_dataset, batch_size=1024, shuffle=False)
-        #
-        # mlp = torch.nn.Linear(in_features=args.neurons, out_features=d_output)
-        # model.to(device=torch.device(args.device))
-        #
-        # trainer = TrainModel(model=mlp, optimizer=torch.optim.AdamW(params=mlp.parameters(), lr=0.1),
-        #                      criterion=criterion,
-        #                      develop_dataloader=develop_dataloader)
-        #
-        # Start tracking
-        # trainer.early_stopping(train_dataloader=train_dataloader, val_dataloader=val_dataloader,
-        #                        patience=10, num_epochs=100,
-        #                        run_directory=run_dir)
-        # emissions = tracker.stop()
-        # print(f"Estimated CO2 emissions for this run: {emissions} kg")
         tracker.start()
-        readout = ReadOut(reservoir_model=model, develop_dataloader=develop_dataloader, d_state=args.neurons,
-                          d_output=d_output, lambda_=1.0, bias=True, to_vec=to_vec)
-        readout.fit_()
-        readout.evaluate_(develop_dataloader)
-        readout.evaluate_(test_dataloader)
+        # readout = ReadOut(reservoir_model=model, develop_dataloader=develop_dataloader, d_state=args.neurons,
+        #                   d_output=d_output, lambda_=1.0, bias=True, to_vec=to_vec)
+        # readout.fit_()
+        # readout.evaluate_(develop_dataloader)
+        # readout.evaluate_(test_dataloader)
 
         # output, label = train.to_fit()
         # readout = RidgeClassifier()
         # readout.fit(output, label)
+        trainer.early_stopping(train_dataloader=train_dataloader, val_dataloader=val_dataloader,
+                               patience=10, num_epochs=50,
+                               run_directory=run_dir)
         emissions = tracker.stop()
         print(f"Estimated CO2 emissions for this run: {emissions} kg")
+
+        if args.task in ['smnist', 'pathfinder', 'scifar10']:
+            eval_bc = EvaluateClassifier(model=model, num_classes=d_output, dataloader=develop_dataloader)
+            eval_bc.evaluate(run_directory=run_dir, dataset_name='develop')
+
+            eval_bc = EvaluateClassifier(model=model, num_classes=d_output, dataloader=test_dataloader)
+            eval_bc.evaluate(run_directory=run_dir, dataset_name='test')
+
         # End tracking
 
         # Predict on the test set

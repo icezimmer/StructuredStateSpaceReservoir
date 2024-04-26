@@ -11,9 +11,9 @@ class MiniVandermonde(nn.Module):
     """
 
     def __init__(self, d_input, d_state, kernel_size,
-                 dt, strong_stability, weak_stability,
-                 input_output_scaling,
-                 lr, wd,
+                 strong_stability, weak_stability, dt=None,
+                 input_output_scaling=1.0,
+                 lr=0.001, wd=0.0,
                  field='complex'):
         """
         Construct the convolution kernel.
@@ -158,9 +158,9 @@ class MiniVandermondeInputOutputReservoir(MiniVandermonde):
     """Generate convolution kernel from diagonal SSM parameters."""
 
     def __init__(self, d_input, d_state, kernel_size,
-                 dt, strong_stability, weak_stability,
-                 input_output_scaling,
-                 lr, wd,
+                 strong_stability, weak_stability, dt=None,
+                 input_output_scaling=1.0,
+                 lr=0.001, wd=0.0,
                  field='complex'):
         """
         Construct the convolution kernel with frozen W.
@@ -179,7 +179,7 @@ class MiniVandermondeInputOutputReservoir(MiniVandermonde):
         :param field: field for the state 'real' or 'complex' (default: 'complex')
         """
         super().__init__(d_input, d_state, kernel_size,
-                         dt, strong_stability, weak_stability,
+                         strong_stability, weak_stability, dt,
                          input_output_scaling,
                          lr, wd,
                          field)
@@ -191,9 +191,9 @@ class MiniVandermondeStateReservoir(MiniVandermonde):
     """Generate convolution kernel from diagonal SSM parameters."""
 
     def __init__(self, d_input, d_state, kernel_size,
-                 dt, strong_stability, weak_stability,
-                 input_output_scaling,
-                 lr, wd,
+                 strong_stability, weak_stability, dt=None,
+                 input_output_scaling=1.0,
+                 lr=0.001, wd=0.0,
                  field='complex'):
         """
         Construct the convolution kernel with frozen A.
@@ -212,7 +212,7 @@ class MiniVandermondeStateReservoir(MiniVandermonde):
         :param field: field for the state 'real' or 'complex' (default: 'complex')
         """
         super().__init__(d_input, d_state, kernel_size,
-                         dt, strong_stability, weak_stability,
+                         strong_stability, weak_stability, dt,
                          input_output_scaling,
                          lr, wd,
                          field)
@@ -234,47 +234,14 @@ class MiniVandermondeStateReservoir(MiniVandermonde):
         return kernel, None
 
 
-class MiniVandermondeFullReservoir(MiniVandermondeStateReservoir):
-    """Generate convolution kernel from diagonal SSM parameters."""
-
-    def __init__(self, d_input, d_state, kernel_size,
-                 dt, strong_stability, weak_stability,
-                 input_output_scaling,
-                 lr=0.0, wd=0.0,
-                 field='complex'):
-        """
-        Construct the convolution kernel with frozen A and W.
-        Assuming diagonal state matrix A of shape (d_state), the Mini-Vandermonde Kernel is:
-            kernel[i,l] = W[i,:] * diag(A)^l = (sqrt(W[i,:]) .* sqrt(W^t[:,i])) * A^l
-        where:
-            diag(A)[j,j] = A[j]
-            A^l[j] = A[j]^l
-        and:
-            j = 0, ..., d_state-1
-            i = 0, ..., d_input-1
-            l = 0, ..., kernel_size-1.
-        :param d_input: dimensionality of the input space
-        :param d_state: dimensionality of the latent space
-        :param dt: delta time for continuous dynamics (default: None for discrete dynamics)
-        :param field: field for the state 'real' or 'complex' (default: 'complex')
-        """
-        super().__init__(d_input, d_state, kernel_size,
-                         dt, strong_stability, weak_stability,
-                         input_output_scaling,
-                         lr, wd,
-                         field)
-
-        self._freeze_parameter('W')
-
-
 class MiniVandermondeReservoir(nn.Module):
     """
     Generate convolution kernel from diagonal SSM parameters
     """
 
     def __init__(self, d_input, d_state, kernel_size,
-                 dt, strong_stability, weak_stability,
-                 input_output_scaling,
+                 strong_stability, weak_stability, dt=None,
+                 input_output_scaling=1.0,
                  field='complex'):
         """
         Construct the convolution kernel.
