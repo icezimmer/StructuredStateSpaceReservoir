@@ -2,8 +2,6 @@ import torch
 import torch.nn as nn
 from src.reservoir.layers import LinearReservoir, LinearStructuredReservoir
 from src.convolutions.fft import FFTConvReservoir
-from src.kernels.vandermonde import VandermondeReservoir
-from src.kernels.mini_vandermonde import MiniVandermondeFullReservoir
 
 """
 see: https://github.com/i404788/s5-pytorch/tree/74e2fdae00b915a62c914bf3615c0b8a4279eb84

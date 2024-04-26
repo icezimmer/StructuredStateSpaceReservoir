@@ -7,7 +7,7 @@ from src.kernels.vandermonde import (Vandermonde, VandermondeInputReservoir, Van
                                      VandermondeInputStateReservoir, VandermondeStateOutputReservoir,
                                      VandermondeReservoir)
 from src.kernels.mini_vandermonde import (MiniVandermonde, MiniVandermondeInputOutputReservoir,
-                                          MiniVandermondeStateReservoir, MiniVandermondeFullReservoir)
+                                          MiniVandermondeStateReservoir, MiniVandermondeReservoir)
 
 
 class FFTConv(nn.Module):
@@ -38,7 +38,7 @@ class FFTConv(nn.Module):
             'miniV': MiniVandermonde,
             'miniV-freezeW': MiniVandermondeInputOutputReservoir,
             'miniV-freezeA': MiniVandermondeStateReservoir,
-            'miniV-freezeAW': MiniVandermondeFullReservoir,
+            'miniV-freezeAW': MiniVandermondeReservoir,
         }
 
         if kernel not in kernel_classes.keys():
@@ -172,7 +172,7 @@ class FFTConvReservoir(nn.Module):
         """
         kernel_classes = {
             'V-freezeABC': VandermondeReservoir,
-            'miniV-freezeAW': MiniVandermondeFullReservoir,
+            'miniV-freezeAW': MiniVandermondeReservoir,
         }
 
         if kernel not in kernel_classes.keys():
