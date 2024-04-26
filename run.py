@@ -190,6 +190,7 @@ def main():
     logging.basicConfig(level=logging.INFO)
 
     if args.block in ['VanillaRNN', 'VanillaGRU', 'S4', 'S4D']:
+        logging.info('Initializing Model.')
         model = StackedNetwork(block_cls=block_factories[args.block], n_layers=args.layers,
                                d_input=d_input, d_model=args.neurons, d_output=d_output,
                                encoder=args.encoder, decoder=args.decoder,
@@ -214,14 +215,14 @@ def main():
         trainer = TrainModel(model=model, optimizer=optimizer, criterion=criterion,
                              develop_dataloader=develop_dataloader)
 
-        logging.info('Starting Task.')
+        logging.info('Starting Fit.')
         # Start tracking
         tracker.start()
         trainer.early_stopping(train_dataloader=train_dataloader, val_dataloader=val_dataloader,
                                patience=args.patience, num_epochs=args.epochs,
                                run_directory=run_dir)
         emissions = tracker.stop()
-        print(f"Estimated CO2 emissions for this run: {emissions} kg")
+        print(f"Estimated CO2 emissions for this fit: {emissions} kg")
         # End tracking
 
         if args.task in ['smnist', 'pathfinder', 'scifar10']:
@@ -235,6 +236,7 @@ def main():
                        metrics_test_path=os.path.join(run_dir, 'metrics_test.json'),
                        results_path=os.path.join(output_dir, 'results.csv'))
     elif args.block in ['ESN', 'S4R']:
+        logging.info('Initializing Model.')
         if args.block == 'S4R':
             model = StackedReservoir(n_layers=args.layers,
                                      d_input=d_input, d_model=args.neurons,
@@ -255,13 +257,13 @@ def main():
                                    log_level="ERROR",
                                    gpu_ids=[check_model_device(model).index])
 
-        logging.info('Starting Task.')
-        tracker.start()
         readout = ReadOut(reservoir_model=model, develop_dataloader=develop_dataloader, d_state=args.neurons,
                           d_output=d_output, lambda_=1.0, bias=True, to_vec=to_vec)
+        logging.info('Starting Fit.')
+        tracker.start()
         readout.fit_()
         emissions = tracker.stop()
-        print(f"Estimated CO2 emissions for this run: {emissions} kg")
+        print(f"Estimated CO2 emissions for this fit: {emissions} kg")
         readout.evaluate_(develop_dataloader)
         readout.evaluate_(test_dataloader)
 
