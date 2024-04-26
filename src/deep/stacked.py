@@ -1,6 +1,7 @@
 import torch.nn as nn
 from src.reservoir.layers import LinearReservoir, LinearStructuredReservoir
 from src.models.s4r.s4r import S4R
+from src.models.esn.esn import ESN
 from src.models.s4d.s4d import S4D
 import torch
 
@@ -76,12 +77,14 @@ class StackedReservoir(nn.Module):
 
         super().__init__()
 
+        self.n_layers = n_layers
+
         if encoder == 'reservoir':
             self.encoder = LinearReservoir(d_input=d_input, d_output=d_model, field='real')
         elif encoder == 'structured_reservoir':
             self.encoder = LinearStructuredReservoir(d_input=d_input, d_output=d_model, field='real')
 
-        self.layers = nn.ModuleList([S4R(d_model=d_model, **block_args) for _ in range(n_layers)])
+        self.layers = nn.ModuleList([S4R(d_model=d_model, **block_args) for _ in range(self.n_layers)])
 
         self.transient = transient
 
@@ -93,8 +96,11 @@ class StackedReservoir(nn.Module):
         Returns: y (B, H), state (B, P)
         """
         u = self.encoder.step(u)
+        x_list = []
         for layer in self.layers:
             u, x = layer.step(u, x)
+            x_list.append(x)
+        x = torch.cat(tensors=x_list, dim=1)
 
         return u, x
 
@@ -107,42 +113,47 @@ class StackedReservoir(nn.Module):
         """
         x = self.encoder(x)  # (B, d_input, L) -> (B, d_model, L)
 
+        x_list = []
         for layer in self.layers:
             x, _ = layer(x)  # (B, d_model, L) -> (B, d_model, L)
+            x_list.append(x)
 
+        x = torch.cat(tensors=x_list, dim=1)
         x = x[:, :, self.transient:]  # (B, d_model, L) -> (B, d_model, L - transient)
 
         return x
 
 
-class Hybrid(nn.Module):
-    def __init__(self, r_layers, t_layers, d_input, d_model, d_output, transient,
-                 to_vec,
+class StackedEchoState(nn.Module):
+    def __init__(self, n_layers, d_input, d_model,
+                 transient,
                  **block_args):
         """
         Stack multiple blocks of the same type to form a deep network.
         """
 
         super().__init__()
-        self.encoder = StackedReservoir(n_layers=r_layers,
-                                        d_input=d_input, d_model=d_model,
-                                        encoder='reservoir',
-                                        transient=transient,
-                                        mixing_layer='identity',
-                                        kernel='V-freezeABC',
-                                        kernel_size=784,
-                                        dt=None, strong_stability=1.0, weak_stability=1.0,
-                                        )
 
-        self.layers = nn.ModuleList([S4D(d_model=d_model, mixing_layer='conv1d+glu',
-                                         convolution='fft',
-                                         drop_kernel=0.0, dropout=0.0,
-                                         kernel='V', kernel_size=784-transient,
-                                         dt=None, strong_stability=0.75, weak_stability=0.9)
-                                     for _ in range(t_layers)])
-        self.to_vec = to_vec
+        self.n_layers = n_layers
 
-        self.decoder = nn.Conv1d(in_channels=d_model, out_channels=d_output, kernel_size=1)
+        self.layers = nn.ModuleList([ESN(d_input=d_input, d_state=d_model, **block_args) for _ in range(self.n_layers)])
+
+        self.transient = transient
+
+    def step(self, u, x=None):
+        """
+        Step one time step as a recurrent model. Intended to be used during validation.
+        x: (B, H)
+        state: (B, P)
+        Returns: y (B, H), state (B, P)
+        """
+        x_list = []
+        for layer in self.layers:
+            x = layer.step(u, x)
+            x_list.append(x)
+        x = torch.cat(tensors=x_list, dim=1)
+
+        return u, x
 
     def forward(self, x):
         """
@@ -151,15 +162,12 @@ class Hybrid(nn.Module):
         return:
             x: torch tensor of shape (B, d_output) or (B, d_output, L))
         """
-        with torch.no_grad():
-            x = self.encoder(x)  # (B, d_input, L) -> (B, d_model, L - transient)
-
+        x_list = []
         for layer in self.layers:
-            x, _ = layer(x)
+            x, _ = layer(x)  # (B, d_model, L) -> (B, d_model, L)
+            x_list.append(x)
 
-        if self.to_vec:
-            x = self.decoder(x[:, :, -1:]).squeeze(-1)  # (B, d_model, L - transient) -> (B, d_output)
-        else:
-            x = self.decoder(x)  # (*, d_model) -> (*, d_output)
+        x = torch.cat(tensors=x_list, dim=1)
+        x = x[:, :, self.transient:]  # (B, d_model, L) -> (B, d_model, L - transient)
 
         return x

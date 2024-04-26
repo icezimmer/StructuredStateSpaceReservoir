@@ -55,22 +55,29 @@ class LinearStructuredReservoir(nn.Module):
 
 class RidgeRegression(nn.Module):
     def __init__(self, d_state, d_output, lambda_, to_vec):
+        if lambda_ <= 0:
+            raise ValueError("Regularization lambda must be positive for Ridge Regression.")
+
         super().__init__()
-        self.d_state = d_state  # assuming that states ha bias
+        self.d_state = d_state
         self.d_output = d_output
 
         self.lambda_ = lambda_
 
+        self.register_buffer('eye_matrix', torch.eye(n=self.d_state, dtype=torch.float32))
+
         self.to_vec = to_vec
 
     def _one_hot_encoding(self, labels):
-        return torch.nn.functional.one_hot(labels, num_classes=self.d_output).float()
+        y = torch.nn.functional.one_hot(input=labels, num_classes=self.d_output)
+        y = y.to(dtype=torch.float32)
+        return y
 
+    # TODO: resolve bug for StackedEchoState
     def forward(self, X, y):
         if self.to_vec:
             y = self._one_hot_encoding(y)
-            y = y.to(dtype=torch.float32)
 
-        W_out_t = torch.linalg.pinv(X.t().mm(X) + self.lambda_ * torch.eye(self.d_state)).mm(X.t()).mm(y)  # (P, K)
+        W_out_t = torch.linalg.inv(X.t().mm(X) + self.lambda_ * self.eye_matrix).mm(X.t()).mm(y)  # (P, K)
 
         return W_out_t

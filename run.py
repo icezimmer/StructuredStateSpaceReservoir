@@ -5,20 +5,16 @@ from datetime import datetime
 import torch
 from src.models.s4.s4 import S4Block
 from src.models.rnn.vanilla import VanillaRNN, VanillaGRU
+from src.models.esn.esn import ESN
 from src.models.s4d.s4d import S4D
 from src.models.s4r.s4r import S4R
-from sklearn.linear_model import Ridge, RidgeClassifier
-from src.deep.stacked import StackedNetwork, StackedReservoir, Hybrid
+from src.deep.stacked import StackedNetwork, StackedReservoir, StackedEchoState
 from src.reservoir.readout import ReadOut
-from src.torch_dataset.reservoir_to_nn import Reservoir2NN
 from src.ml.optimization import setup_optimizer
 from src.ml.training import TrainModel
 from src.ml.evaluation import EvaluateClassifier
 from src.utils.saving import load_data, save_parameters, save_hyperparameters, update_results
 from src.utils.check_device import check_model_device
-from torch.utils.data import DataLoader
-from src.utils.split_data import random_split_dataset
-from sklearn.metrics import accuracy_score, confusion_matrix
 from codecarbon import EmissionsTracker
 import numpy
 
@@ -27,6 +23,7 @@ block_factories = {
     'VanillaRNN': VanillaRNN,
     'VanillaGRU': VanillaGRU,
     'S4D': S4D,
+    'ESN': ESN,
     'S4R': S4R
 }
 
@@ -47,13 +44,13 @@ def parse_args():
 
     parser.add_argument('--layers', type=int, default=2, help='Number of layers.')
     parser.add_argument('--neurons', type=int, default=64, help='Number of hidden neurons (hidden state size).')
-    parser.add_argument('--encoder', default='conv1d', help='Encoder model.')
 
     # First parse known arguments to decide on adding additional arguments based on the block type
     args, unknown = parser.parse_known_args()
 
     # Conditional argument additions based on block type
-    if args.block != 'S4R':
+    if args.block in ['VanillaRNN', 'VanillaGRU', 'S4', 'S4D']:
+        parser.add_argument('--encoder', default='conv1d', help='Encoder model.')
         parser.add_argument('--decoder', default='conv1d', help='Decoder model.')
         parser.add_argument('--dropout', type=float, default=0.0, help='Dropout the preactivation inside the block.')
         parser.add_argument('--layerdrop', type=float, default=0.0, help='Dropout the output of each layer.')
@@ -79,14 +76,18 @@ def parse_args():
             parser.add_argument('--weak', type=float, default=0.95, help='Weak Stability for internal dynamics.')
             parser.add_argument('--kernellr', type=float, default=0.001, help='Learning rate for kernel pars.')
             parser.add_argument('--kernelwd', type=float, default=0.0, help='Learning rate for kernel pars.')
-    else:
-        parser.add_argument('--kernel', choices=kernel_classes_reservoir, default='V-freezeABC',
-                            help='Kernel name.')
-        parser.add_argument('--mix', default='reservoir+tanh', help='Inner Mixing layer.')
-        parser.add_argument('--dt', type=int, default=None, help='Sampling rate (only for continuous dynamics).')
-        parser.add_argument('--strong', type=float, default=0.98, help='Strong Stability for internal dynamics.')
-        parser.add_argument('--weak', type=float, default=1.0, help='Weak Stability for internal dynamics.')
+    elif args.block in ['ESN', 'S4R']:
         parser.add_argument('--transient', type=int, default=-1, help='Number of fist time steps to discard.')
+        if args.block == 'ESN':
+            pass
+        elif args.block == 'S4R':
+            parser.add_argument('--encoder', default='reservoir', help='Encoder model.')
+            parser.add_argument('--kernel', choices=kernel_classes_reservoir, default='V-freezeABC',
+                                help='Kernel name.')
+            parser.add_argument('--mix', default='reservoir+tanh', help='Inner Mixing layer.')
+            parser.add_argument('--dt', type=int, default=None, help='Sampling rate (only for continuous dynamics).')
+            parser.add_argument('--strong', type=float, default=0.98, help='Strong Stability for internal dynamics.')
+            parser.add_argument('--weak', type=float, default=1.0, help='Weak Stability for internal dynamics.')
 
     # Update args with the new conditional arguments
     args, unknown = parser.parse_known_args()
@@ -129,8 +130,6 @@ def main():
 
     if args.block in ['VanillaRNN', 'VanillaGRU']:
         block_args = {}
-    elif args.block == 'ESN':
-        block_args = {'drop_kernel': args.kerneldrop, 'dropout': args.dropout}
     elif args.block == 'S4':
         block_args = {'drop_kernel': args.kerneldrop, 'dropout': args.dropout,
                       'lr': args.kernellr, 'wd': args.kernelwd}
@@ -150,6 +149,8 @@ def main():
             block_args['state2output_scaling'] = args.scaleC
         elif args.kernel.startswith('miniV'):
             block_args['input_output_scaling'] = args.scaleW
+    elif args.block == 'ESN':
+        block_args = {}
     elif args.block == 'S4R':
         block_args = {'mixing_layer': args.mix,
                       'kernel': args.kernel, 'kernel_size': kernel_size,
@@ -170,11 +171,14 @@ def main():
         block_name = args.block + '_' + args.conv + '_' + args.kernel + '_' + args.mix
     else:
         block_name = args.block
-    if args.block != 'S4R':
+    if args.block not in ['ESN', 'S4R']:
         project_name = (args.encoder + '_[{' + block_name + '}_' + str(args.layers) + 'x' + str(args.neurons) + ']_' +
                         args.decoder)
-    else:
+    elif args.block == 'S4R':
         project_name = (args.encoder + '_[{' + block_name + '}_' + str(args.layers) + 'x' + str(args.neurons) + ']_' +
+                        'ridge')
+    elif args.block == 'ESN':
+        project_name = ('[{' + block_name + '}_' + str(args.layers) + 'x' + str(args.neurons) + ']_' +
                         'ridge')
     output_dir = os.path.join('./checkpoint', 'task', args.task)
     run_dir = os.path.join('./checkpoint', 'task', args.task, block_name, str(args.layers) + 'x' + str(args.neurons),
@@ -185,7 +189,7 @@ def main():
 
     logging.basicConfig(level=logging.INFO)
 
-    if args.block != 'S4R':
+    if args.block in ['VanillaRNN', 'VanillaGRU', 'S4', 'S4D']:
         model = StackedNetwork(block_cls=block_factories[args.block], n_layers=args.layers,
                                d_input=d_input, d_model=args.neurons, d_output=d_output,
                                encoder=args.encoder, decoder=args.decoder,
@@ -230,30 +234,21 @@ def main():
         update_results(emissions_path=os.path.join(output_dir, 'emissions.csv'),
                        metrics_test_path=os.path.join(run_dir, 'metrics_test.json'),
                        results_path=os.path.join(output_dir, 'results.csv'))
-    elif args.block == 'S4R':
-        # model = StackedReservoir(n_layers=args.layers,
-        #                          d_input=d_input, d_model=args.neurons,
-        #                          encoder=args.encoder,
-        #                          transient=args.transient,
-        #                          **block_args)
+    elif args.block in ['ESN', 'S4R']:
+        if args.block == 'S4R':
+            model = StackedReservoir(n_layers=args.layers,
+                                     d_input=d_input, d_model=args.neurons,
+                                     encoder=args.encoder,
+                                     transient=args.transient,
+                                     **block_args)
+        elif args.block == 'ESN':
+            model = StackedEchoState(n_layers=args.layers,
+                                     d_input=d_input, d_model=args.neurons,
+                                     transient=args.transient,
+                                     **block_args)
 
-        # torch.backends.cudnn.benchmark = False
-        # model.to(device=torch.device(args.device))
-
-        model = Hybrid(r_layers=args.layers, t_layers=1,
-                       d_input=d_input, d_model=args.neurons, d_output=d_output,
-                       transient=args.transient,
-                       to_vec=to_vec, **block_args)
         torch.backends.cudnn.benchmark = False
         model.to(device=torch.device(args.device))
-        save_parameters(model=model, file_path=parameters_path)
-
-        train_dataloader = load_data(os.path.join('./checkpoint', 'dataloaders', args.task, 'train_dataloader'))
-        val_dataloader = load_data(os.path.join('./checkpoint', 'dataloaders', args.task, 'val_dataloader'))
-
-        optimizer = setup_optimizer(model=model, lr=0.004, weight_decay=0.1)
-        trainer = TrainModel(model=model, optimizer=optimizer, criterion=criterion,
-                             develop_dataloader=develop_dataloader)
 
         # Initialize the tracker
         tracker = EmissionsTracker(output_dir=output_dir, project_name=project_name,
@@ -262,51 +257,13 @@ def main():
 
         logging.info('Starting Task.')
         tracker.start()
-        # readout = ReadOut(reservoir_model=model, develop_dataloader=develop_dataloader, d_state=args.neurons,
-        #                   d_output=d_output, lambda_=1.0, bias=True, to_vec=to_vec)
-        # readout.fit_()
-        # readout.evaluate_(develop_dataloader)
-        # readout.evaluate_(test_dataloader)
-
-        # output, label = train.to_fit()
-        # readout = RidgeClassifier()
-        # readout.fit(output, label)
-        trainer.early_stopping(train_dataloader=train_dataloader, val_dataloader=val_dataloader,
-                               patience=10, num_epochs=50,
-                               run_directory=run_dir)
+        readout = ReadOut(reservoir_model=model, develop_dataloader=develop_dataloader, d_state=args.neurons,
+                          d_output=d_output, lambda_=1.0, bias=True, to_vec=to_vec)
+        readout.fit_()
         emissions = tracker.stop()
         print(f"Estimated CO2 emissions for this run: {emissions} kg")
-
-        if args.task in ['smnist', 'pathfinder', 'scifar10']:
-            eval_bc = EvaluateClassifier(model=model, num_classes=d_output, dataloader=develop_dataloader)
-            eval_bc.evaluate(run_directory=run_dir, dataset_name='develop')
-
-            eval_bc = EvaluateClassifier(model=model, num_classes=d_output, dataloader=test_dataloader)
-            eval_bc.evaluate(run_directory=run_dir, dataset_name='test')
-
-        # End tracking
-
-        # Predict on the test set
-        # output_, label_ = train.to_evaluate_classifier()
-        # predicted = readout.predict(X=output_)
-        #
-        # # Evaluate the model
-        # accuracy = accuracy_score(y_true=label_, y_pred=predicted)
-        # conf_matrix = confusion_matrix(y_true=label_, y_pred=predicted)
-        #
-        # print("Accuracy:", accuracy)
-        # print("Confusion Matrix:\n", conf_matrix)
-        #
-        # test = Reservoir2NN(model=model, dataloader=test_dataloader, to_numpy=True)
-        # output, label = test.to_evaluate_classifier()
-        # predicted = readout.predict(X=output)
-        #
-        # # Evaluate the model
-        # accuracy = accuracy_score(y_true=label, y_pred=predicted)
-        # conf_matrix = confusion_matrix(y_true=label, y_pred=predicted)
-        #
-        # print("Accuracy:", accuracy)
-        # print("Confusion Matrix:\n", conf_matrix)
+        readout.evaluate_(develop_dataloader)
+        readout.evaluate_(test_dataloader)
 
 
 if __name__ == '__main__':

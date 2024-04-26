@@ -1,6 +1,5 @@
 import torch
-from sklearn.linear_model import RidgeClassifier
-from src.reservoir.matrices import Reservoir, StructuredReservoir
+from src.reservoir.matrices import Reservoir
 from src.reservoir.layers import RidgeRegression
 from sklearn.metrics import accuracy_score, confusion_matrix
 from src.utils.check_device import check_model_device
@@ -13,6 +12,7 @@ class ReadOut:
         self.develop_dataloader = develop_dataloader
         self.bias = bias
         self.to_vec = to_vec
+        d_state = self.reservoir_model.n_layers * d_state
         if self.bias:
             d_state = d_state + 1
         self.ridge_cls = RidgeRegression(d_state, d_output, lambda_, self.to_vec)
@@ -51,15 +51,10 @@ class ReadOut:
             output = output.permute(0, 2, 1)  # (N, L, P)
             output = output.reshape(-1, output.shape[-1])  # (N * L, P), N * L is the number of samples
             if self.bias:
-                output = torch.cat(tensors=(output, torch.ones(size=(output.size(0), 1), dtype=torch.float32)), dim=1)  # (N * L, P + 1)
-
-            # output = output.reshape(output.shape[0], -1)  # (N, L * P) this works why?????
+                output = torch.cat(tensors=(output, torch.ones(size=(output.size(0), 1), dtype=torch.float32)),
+                                   dim=1)  # (N * L, P + 1)
 
             self.W_out_t = self.ridge_cls(X=output, y=label)
-
-            # output = output.numpy()
-            # label = label.numpy()
-            # self.readout.fit(X=output,  =label)
 
     # TODO: check why the accuracy is ~0.1 like a random guess
     def evaluate_(self, dataloader):
@@ -68,11 +63,8 @@ class ReadOut:
 
             output = output[:, :, -1]  # (N, P)
             if self.bias:
-                output = torch.cat(tensors=(output, torch.ones(size=(output.size(0), 1), dtype=torch.float32)), dim=1)  # (N, P + 1)
-            
-            # output = output.numpy()
-            # label = label.numpy()
-            # prediction = self.readout.predict(X=output)
+                output = torch.cat(tensors=(output, torch.ones(size=(output.size(0), 1), dtype=torch.float32)),
+                                   dim=1)  # (N, P + 1)
 
             prediction = torch.einsum('np,pk -> nk', output, self.W_out_t)
             prediction = torch.argmax(prediction, dim=1) if self.to_vec else prediction
@@ -87,7 +79,7 @@ class ReadOut:
             print("Confusion Matrix:\n", conf_matrix)
 
         return output, label
-        
+
     # TODO: check why the accuracy is ~0.1 like a random guess
     def predict_(self, dataloader):
         with torch.no_grad():
@@ -95,13 +87,11 @@ class ReadOut:
 
             output = output[:, :, -1]  # (N, P)
             if self.bias:
-                output = torch.cat(tensors=(output, torch.ones(size=(output.size(0), 1), dtype=torch.float32)), dim=1)  # (N, P + 1)
+                output = torch.cat(tensors=(output, torch.ones(size=(output.size(0), 1), dtype=torch.float32)),
+                                   dim=1)  # (N, P + 1)
 
             prediction = torch.einsum('np,pk -> nk', output, self.W_out_t)
             prediction = torch.argmax(prediction, dim=1) if self.to_vec else prediction
 
-            # output = output.numpy()
-        # return self.readout.predict(X=output)
-
         return prediction
-        
+
