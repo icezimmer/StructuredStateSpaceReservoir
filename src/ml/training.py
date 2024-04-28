@@ -44,16 +44,16 @@ class TrainModel:
 
             return running_loss / len(dataloader)
 
-    def max_epochs(self, num_epochs, checkpoint_path, run_directory=None):
+    def max_epochs(self, num_epochs, run_directory=None):
         for epoch in range(num_epochs):
             loss_epoch = self._epoch(self.develop_dataloader)
             self.training_loss.append(loss_epoch)
             print('[%d] loss: %.3f' % (epoch + 1, loss_epoch))
 
-        torch.save(self.model.state_dict(), checkpoint_path)
         print('Finished Training')
 
         if run_directory is not None:
+            torch.save(self.model.state_dict(), os.path.join(run_directory, 'model.pt'))
             self._plot(run_directory)
 
         self.training_loss = []
