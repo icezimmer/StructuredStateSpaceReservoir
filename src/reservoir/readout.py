@@ -46,18 +46,17 @@ class ReadOut:
             label_list = []
             for input_batch, label_batch in dataloader:
                 input_batch = input_batch.to(self.device)  # (B, H, L)
-                label_batch = label_batch.to(self.device)  # (B,)
 
                 hidden_state_batch = self.reservoir_model(input_batch)  # (B, P, L)
 
-                hidden_state_batch = hidden_state_batch.to('cpu')
-                label_batch = label_batch.to('cpu')
+                hidden_state_batch = hidden_state_batch.to('cpu')  # (B, P, L)
+                label_batch = label_batch.to('cpu')  # (B, *)
 
                 hidden_state_list.append(hidden_state_batch)
                 label_list.append(label_batch)
 
             self.hidden_state = torch.cat(tensors=hidden_state_list, dim=0)  # (N, P, L) timeseries
-            self.label = torch.cat(tensors=label_list, dim=0)  # (N,)
+            self.label = torch.cat(tensors=label_list, dim=0)  # (B, *) -> (N, *)
 
     # TODO: check why the accuracy degrades setting transient < -1
     def fit_(self):
