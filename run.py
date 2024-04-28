@@ -108,6 +108,7 @@ def main():
     logging.basicConfig(level=logging.INFO)
     args = parse_args()
 
+    classification_task = ['smnist', 'pathfinder', 'scifar10', 'scifar10gs']
     if args.task == 'smnist':
         criterion = torch.nn.CrossEntropyLoss()  # classification task
         to_vec = True  # classification task (take last time as output)
@@ -124,6 +125,12 @@ def main():
         criterion = torch.nn.CrossEntropyLoss()
         to_vec = True
         d_input = 3
+        kernel_size = 32 * 32
+        d_output = 10
+    elif args.task == 'scifar10gs':
+        criterion = torch.nn.CrossEntropyLoss()
+        to_vec = True
+        d_input = 1
         kernel_size = 32 * 32
         d_output = 10
     else:
@@ -215,11 +222,6 @@ def main():
         logging.info('Saving model parameters properties.')
         save_parameters(model=model, file_path=parameters_path)
 
-        # Initialize the tracker
-        tracker = EmissionsTracker(output_dir=output_dir, project_name=project_name,
-                                   log_level="ERROR",
-                                   gpu_ids=[check_model_device(model).index])
-
         logging.info('Loading training and validation dataloaders.')
         train_dataloader = load_data(os.path.join('./checkpoint', 'dataloaders', args.task, 'train_dataloader'))
         val_dataloader = load_data(os.path.join('./checkpoint', 'dataloaders', args.task, 'val_dataloader'))
@@ -230,6 +232,10 @@ def main():
                              develop_dataloader=develop_dataloader)
 
         logging.info('Tracking energy consumption.')
+        tracker = EmissionsTracker(output_dir=output_dir, project_name=project_name,
+                                   log_level="ERROR",
+                                   gpu_ids=[check_model_device(model).index])
+
         logging.info('Fitting model.')
         tracker.start()
         trainer.early_stopping(train_dataloader=train_dataloader, val_dataloader=val_dataloader,
@@ -241,7 +247,7 @@ def main():
         logging.info('Saving model.')
         torch.save(model.state_dict(), os.path.join(run_dir, 'model.pt'))
 
-        if args.task in ['smnist', 'pathfinder', 'scifar10']:
+        if args.task in classification_task:
             logging.info('Evaluating model on develop set.')
             eval_bc = EvaluateClassifier(model=model, num_classes=d_output, dataloader=develop_dataloader)
             eval_bc.evaluate(saving_path=os.path.join(run_dir, 'develop'))
@@ -268,18 +274,16 @@ def main():
         torch.backends.cudnn.benchmark = False
         model.to(device=torch.device(args.device))
 
-        logging.info('Saving model parameters properties.')
-        save_parameters(model=model, file_path=parameters_path)
-
-        # Initialize the tracker
-        tracker = EmissionsTracker(output_dir=output_dir, project_name=project_name,
-                                   log_level="ERROR",
-                                   gpu_ids=[check_model_device(model).index])
-
         readout = ReadOut(reservoir_model=model, develop_dataloader=develop_dataloader, d_state=args.neurons,
                           d_output=d_output, to_vec=to_vec, bias=True, lambda_=args.ridge)
 
+        logging.info('Saving model parameters properties.')
+        save_parameters(model=model, file_path=parameters_path)
+
         logging.info('Tracking energy consumption.')
+        tracker = EmissionsTracker(output_dir=output_dir, project_name=project_name,
+                                   log_level="ERROR",
+                                   gpu_ids=[check_model_device(model).index])
         logging.info('Fitting model.')
         tracker.start()
         readout.fit_()
@@ -289,7 +293,7 @@ def main():
         logging.info('Saving model.')
         torch.save(model.state_dict(), os.path.join(run_dir, 'model.pt'))
 
-        if args.task in ['smnist', 'pathfinder', 'scifar10']:
+        if args.task in classification_task:
             logging.info('Evaluating model on develop set.')
             readout.evaluate_(saving_path=os.path.join(run_dir, 'develop'))
 

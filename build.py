@@ -47,6 +47,20 @@ elif args.task == 'scifar10':
                                                              train=False,
                                                              transform=transform,
                                                              download=True))
+elif args.task == 'scifar10gs':
+    transform = transforms.Compose([
+        transforms.Grayscale(),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=122.6 / 255.0, std=61.0 / 255.0),
+    ])
+    develop_dataset = SequentialImage2Classify(datasets.CIFAR10(root='./checkpoint/',
+                                                                train=True,
+                                                                transform=transform,
+                                                                download=True))
+    test_dataset = SequentialImage2Classify(datasets.CIFAR10(root='./checkpoint/',
+                                                             train=False,
+                                                             transform=transform,
+                                                             download=True))
 elif args.task == 'pathfinder':
     pathfinders = {
         '32': Pathfinder32,
