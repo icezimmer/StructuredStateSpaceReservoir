@@ -39,7 +39,7 @@ class EvaluateClassifier:
             self.roc_auc.update(output, label)
             self.confusion_matrix.update(output, label)
 
-    def evaluate(self, save_directory=None):
+    def evaluate(self, saving_path=None):
         self.model.eval()  # Set the model to evaluation mode
 
         with torch.no_grad():  # Inference mode, no gradients needed
@@ -67,8 +67,8 @@ class EvaluateClassifier:
         print(f"ROC-AUC Score: {self.roc_auc_value}")
         print("Confusion Matrix:\n", self.confusion_matrix_value)
 
-        if save_directory is not None:
-            self._plot(save_directory)
+        if saving_path is not None:
+            self._plot(saving_path)
 
         self.accuracy.reset()
         self.precision.reset()
@@ -84,9 +84,9 @@ class EvaluateClassifier:
         self.roc_auc_value = None
         self.confusion_matrix_value = None
 
-    def _plot(self, save_directory):
-        metrics_path = os.path.join(save_directory, 'metrics.json')
-        confusion_matrix_path = os.path.join(save_directory, 'confusion_matrix.png')
+    def _plot(self, saving_path):
+        metrics_path = os.path.join(saving_path, 'metrics.json')
+        confusion_matrix_path = os.path.join(saving_path, 'confusion_matrix.png')
 
         metrics = {
             "Accuracy": self.accuracy_value,

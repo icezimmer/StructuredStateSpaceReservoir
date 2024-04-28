@@ -237,10 +237,10 @@ def main():
         logging.info('Evaluating model.')
         if args.task in ['smnist', 'pathfinder', 'scifar10']:
             eval_bc = EvaluateClassifier(model=model, num_classes=d_output, dataloader=develop_dataloader)
-            eval_bc.evaluate(save_directory=os.path.join(run_dir, 'develop'))
+            eval_bc.evaluate(saving_path=os.path.join(run_dir, 'develop'))
 
             eval_bc = EvaluateClassifier(model=model, num_classes=d_output, dataloader=test_dataloader)
-            eval_bc.evaluate(save_directory=os.path.join(run_dir, 'test'))
+            eval_bc.evaluate(saving_path=os.path.join(run_dir, 'test'))
 
         logging.info('Updating results.')
         update_results(emissions_path=os.path.join(output_dir, 'emissions.csv'),
