@@ -44,7 +44,7 @@ class TrainModel:
 
             return running_loss / len(dataloader)
 
-    def max_epochs(self, num_epochs, run_directory=None):
+    def max_epochs(self, num_epochs, plot_path=None):
         for epoch in range(num_epochs):
             loss_epoch = self._epoch(self.develop_dataloader)
             self.training_loss.append(loss_epoch)
@@ -52,15 +52,14 @@ class TrainModel:
 
         print('Finished Training')
 
-        if run_directory is not None:
-            torch.save(self.model.state_dict(), os.path.join(run_directory, 'model.pt'))
-            self._plot(run_directory)
+        if plot_path is not None:
+            self._plot(plot_path)
 
         self.training_loss = []
         self.validation_loss = []
 
     def early_stopping(self, train_dataloader, val_dataloader, patience, num_epochs=float('inf'),
-                       run_directory=None):
+                       plot_path=None):
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optimizer=self.optimizer, patience=patience//2, factor=0.2)
         epoch = 0
@@ -88,14 +87,13 @@ class TrainModel:
         print('[END] develop_loss: %.3f' % develop_loss)
         print('Finished Training')
 
-        if run_directory is not None:
-            torch.save(self.model.state_dict(), os.path.join(run_directory, 'model.pt'))
-            self._plot(run_directory)
+        if plot_path is not None:
+            self._plot(plot_path)
 
         self.training_loss = []
         self.validation_loss = []
 
-    def _plot(self, run_directory):
+    def _plot(self, plot_path):
         plt.figure(figsize=(10, 5))
         plt.plot(self.training_loss, label='Training loss')
         plt.plot(self.validation_loss, label='Validation loss')
@@ -104,5 +102,5 @@ class TrainModel:
         plt.ylabel('Loss')
         plt.grid(True)
         plt.legend()
-        plt.savefig(os.path.join(run_directory, 'loss.png'))  # Save the plot as a PNG file
+        plt.savefig(plot_path)  # Save the plot as a PNG file
         plt.close()  # Close the plot to free up memory

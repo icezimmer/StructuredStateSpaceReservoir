@@ -39,7 +39,7 @@ class EvaluateClassifier:
             self.roc_auc.update(output, label)
             self.confusion_matrix.update(output, label)
 
-    def evaluate(self, run_directory=None, dataset_name=''):
+    def evaluate(self, save_directory=None):
         self.model.eval()  # Set the model to evaluation mode
 
         with torch.no_grad():  # Inference mode, no gradients needed
@@ -67,8 +67,8 @@ class EvaluateClassifier:
         print(f"ROC-AUC Score: {self.roc_auc_value}")
         print("Confusion Matrix:\n", self.confusion_matrix_value)
 
-        if run_directory is not None:
-            self._plot(run_directory, dataset_name)
+        if save_directory is not None:
+            self._plot(save_directory)
 
         self.accuracy.reset()
         self.precision.reset()
@@ -84,9 +84,9 @@ class EvaluateClassifier:
         self.roc_auc_value = None
         self.confusion_matrix_value = None
 
-    def _plot(self, run_directory, dataset_name):
-        metrics_filename = f'metrics_{dataset_name}.json'
-        confusion_matrix_filename = f'confusion_matrix_{dataset_name}.png'
+    def _plot(self, save_directory):
+        metrics_path = os.path.join(save_directory, 'metrics.json')
+        confusion_matrix_path = os.path.join(save_directory, 'confusion_matrix.png')
 
         metrics = {
             "Accuracy": self.accuracy_value,
@@ -96,7 +96,8 @@ class EvaluateClassifier:
             "ROC-AUC": self.roc_auc_value
         }
 
-        with open(os.path.join(run_directory, metrics_filename), 'w') as f:
+        os.makedirs(os.path.dirname(metrics_path), exist_ok=True)
+        with open(metrics_path, 'w') as f:
             # Convert args namespace to dictionary and save as JSON
             json.dump(metrics, f, indent=4)
 
@@ -107,5 +108,5 @@ class EvaluateClassifier:
         fig.colorbar(cax)
         plt.xlabel('Predicted')
         plt.ylabel('True')
-        plt.savefig(os.path.join(run_directory, confusion_matrix_filename))
+        plt.savefig(confusion_matrix_path)
         plt.close()
