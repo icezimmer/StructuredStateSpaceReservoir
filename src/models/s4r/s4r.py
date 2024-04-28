@@ -8,6 +8,7 @@ see: https://github.com/i404788/s5-pytorch/tree/74e2fdae00b915a62c914bf3615c0b8a
 """
 
 
+# TODO: replace mixing layer with only a non-linearity (identity is the best choice for mixing layer)
 class S4R(torch.nn.Module):
     def __init__(self, d_model,
                  mixing_layer,
@@ -26,7 +27,7 @@ class S4R(torch.nn.Module):
         if kernel not in kernel_classes:
             raise ValueError('Kernel must be one of {}'.format(kernel_classes))
 
-        mixing_layers = ['identity', 'reservoir', 'reservoir+tanh', 'reservoir+glu', 'structured_reservoir+glu']
+        mixing_layers = ['identity', 'identity+tanh', 'reservoir+tanh']
         if mixing_layer not in mixing_layers:
             raise ValueError('Kernel must be one of {}'.format(mixing_layers))
 
@@ -40,18 +41,12 @@ class S4R(torch.nn.Module):
         if mixing_layer == 'identity':
             self.mix = nn.Identity()
             self.nl = nn.Identity()
-        elif mixing_layer == 'reservoir':
-            self.mix = LinearReservoir(d_input=d_model, d_output=d_model, field='real')
-            self.nl = nn.Identity()
+        elif mixing_layer == 'identity+tanh':
+            self.mix = nn.Identity()
+            self.nl = nn.Tanh()
         elif mixing_layer == 'reservoir+tanh':
             self.mix = LinearReservoir(d_input=d_model, d_output=d_model, field='real')
             self.nl = nn.Tanh()
-        elif mixing_layer == 'reservoir+glu':
-            self.mix = LinearReservoir(d_input=d_model, d_output=2 * d_model, field='real')
-            self.nl = nn.GLU(dim=-2)
-        elif mixing_layer == 'structured_reservoir+glu':
-            self.mixing_layer = LinearStructuredReservoir(d_input=d_model, d_output=2 * d_model, field='real')
-            self.nl = nn.GLU(dim=-2)
 
     def step(self, u, x):
         """
