@@ -2,7 +2,6 @@ import torch.nn as nn
 from src.reservoir.layers import LinearReservoir, LinearStructuredReservoir
 from src.models.s4r.s4r import S4R
 from src.models.esn.esn import ESN
-from src.models.s4d.s4d import S4D
 import torch
 
 
@@ -56,7 +55,7 @@ class StackedNetwork(nn.Module):
         if self.to_vec:
             x = self.decoder(x[:, :, -1:]).squeeze(-1)  # (B, d_model, L) -> (B, d_output)
         else:
-            x = self.decoder(x)  # (*, d_model) -> (*, d_output)
+            x = self.decoder(x)  # (B, d_model, L) -> (B, d_output, L)
 
         return x
 
@@ -114,7 +113,7 @@ class StackedReservoir(nn.Module):
             x, _ = layer(x)  # (B, d_model, L) -> (B, d_model, L)
             x_list.append(x)
 
-        x = torch.cat(tensors=x_list, dim=1)
+        x = torch.cat(tensors=x_list, dim=1)  # (B, d_model, L) -> (B, num_layers * d_model, L)
         x = x[:, :, self.transient:]  # (B, d_model, L) -> (B, d_model, L - transient)
 
         return x
@@ -163,7 +162,7 @@ class StackedEchoState(nn.Module):
             x, _ = layer(x)  # (B, d_model, L) -> (B, d_model, L)
             x_list.append(x)
 
-        x = torch.cat(tensors=x_list, dim=1)
+        x = torch.cat(tensors=x_list, dim=1)  # (B, d_model, L) -> (B, num_layers * d_model, L)
         x = x[:, :, self.transient:]  # (B, d_model, L) -> (B, d_model, L - transient)
 
         return x
