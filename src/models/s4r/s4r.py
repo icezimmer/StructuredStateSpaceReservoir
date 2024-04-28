@@ -22,7 +22,7 @@ class S4R(torch.nn.Module):
         :param field: field for the state 'real' or 'complex' (default: 'complex')
         """
 
-        kernel_classes = ['V-freezeABC', 'miniV-freezeAW']
+        kernel_classes = ['Vr', 'miniVr']
 
         if kernel not in kernel_classes:
             raise ValueError('Kernel must be one of {}'.format(kernel_classes))

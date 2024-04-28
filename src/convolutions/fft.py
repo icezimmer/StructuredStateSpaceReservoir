@@ -171,12 +171,12 @@ class FFTConvReservoir(nn.Module):
         :param field: field for the state 'real' or 'complex' (default: 'complex')
         """
         kernel_classes = {
-            'V-freezeABC': VandermondeReservoir,
-            'miniV-freezeAW': MiniVandermondeReservoir,
+            'Vr': VandermondeReservoir,
+            'miniVr': MiniVandermondeReservoir,
         }
 
         if kernel not in kernel_classes.keys():
-            raise ValueError('Kernel must be one of {}'.format(kernel_classes))
+            raise ValueError('Kernel must be one of {}'.format(kernel_classes.keys()))
 
         super().__init__()
 

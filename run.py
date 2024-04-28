@@ -31,7 +31,7 @@ conv_classes = ['fft', 'fft-freezeD']
 kernel_classes = ['V', 'V-freezeB', 'V-freezeC', 'V-freezeBC', 'V-freezeA', 'V-freezeAB', 'V-freezeAC', 'V-freezeABC',
                   'miniV', 'miniV-freezeW', 'miniV-freezeA', 'miniV-freezeAW']
 
-kernel_classes_reservoir = ['V-freezeABC', 'miniV-freezeAW']
+kernel_classes_reservoir = ['Vr', 'miniVr']
 
 
 def parse_args():
@@ -82,7 +82,7 @@ def parse_args():
             pass
         elif args.block == 'S4R':
             parser.add_argument('--encoder', default='reservoir', help='Encoder model.')
-            parser.add_argument('--kernel', choices=kernel_classes_reservoir, default='V-freezeABC',
+            parser.add_argument('--kernel', choices=kernel_classes_reservoir, default='Vr',
                                 help='Kernel name.')
             parser.add_argument('--mix', default='identity+tanh', help='Inner Mixing layer.')
             parser.add_argument('--dt', type=int, default=None, help='Sampling rate (only for continuous dynamics).')
@@ -169,10 +169,14 @@ def main():
     test_dataloader = load_data(os.path.join('./checkpoint', 'dataloaders', args.task, 'test_dataloader'))
 
     current_time = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+
     if args.block == 'S4D':
         block_name = args.block + '_' + args.conv + '_' + args.kernel + '_' + args.mix
+    elif args.block == 'S4R':
+        block_name = args.block + '_' + args.kernel + '_' + args.mix
     else:
         block_name = args.block
+
     if args.block not in ['ESN', 'S4R']:
         project_name = (args.encoder + '_[{' + block_name + '}_' + str(args.layers) + 'x' + str(args.neurons) + ']_' +
                         args.decoder)
@@ -182,6 +186,9 @@ def main():
     elif args.block == 'ESN':
         project_name = ('[{' + block_name + '}_' + str(args.layers) + 'x' + str(args.neurons) + ']_' +
                         'ridge')
+    else:
+        raise ValueError('Invalid block name')
+
     output_dir = os.path.join('./checkpoint', 'results', args.task)
     run_dir = os.path.join('./checkpoint', 'results', args.task, block_name, str(args.layers) + 'x' + str(args.neurons),
                            current_time)
@@ -213,7 +220,7 @@ def main():
                                    log_level="ERROR",
                                    gpu_ids=[check_model_device(model).index])
 
-        logging.info('Splitting training and validation set.')
+        logging.info('Loading training and validation dataloaders.')
         train_dataloader = load_data(os.path.join('./checkpoint', 'dataloaders', args.task, 'train_dataloader'))
         val_dataloader = load_data(os.path.join('./checkpoint', 'dataloaders', args.task, 'val_dataloader'))
 
@@ -234,18 +241,15 @@ def main():
         logging.info('Saving model.')
         torch.save(model.state_dict(), os.path.join(run_dir, 'model.pt'))
 
-        logging.info('Evaluating model.')
         if args.task in ['smnist', 'pathfinder', 'scifar10']:
+            logging.info('Evaluating model on develop set.')
             eval_bc = EvaluateClassifier(model=model, num_classes=d_output, dataloader=develop_dataloader)
             eval_bc.evaluate(saving_path=os.path.join(run_dir, 'develop'))
 
+            logging.info('Evaluating model on test set.')
             eval_bc = EvaluateClassifier(model=model, num_classes=d_output, dataloader=test_dataloader)
             eval_bc.evaluate(saving_path=os.path.join(run_dir, 'test'))
 
-        logging.info('Updating results.')
-        update_results(emissions_path=os.path.join(output_dir, 'emissions.csv'),
-                       metrics_test_path=os.path.join(run_dir, 'test', 'metrics.json'),
-                       results_path=os.path.join(output_dir, 'results.csv'))
     elif args.block in ['ESN', 'S4R']:
         logging.info('Initializing model.')
         if args.block == 'S4R':
@@ -285,9 +289,19 @@ def main():
         logging.info('Saving model.')
         torch.save(model.state_dict(), os.path.join(run_dir, 'model.pt'))
 
-        logging.info('Evaluating model.')
-        readout.evaluate_()
-        readout.evaluate_(test_dataloader)
+        if args.task in ['smnist', 'pathfinder', 'scifar10']:
+            logging.info('Evaluating model on develop set.')
+            readout.evaluate_(saving_path=os.path.join(run_dir, 'develop'))
+
+            logging.info('Evaluating model on test set.')
+            readout.evaluate_(dataloader=test_dataloader, saving_path=os.path.join(run_dir, 'test'))
+    else:
+        raise ValueError('Invalid block name')
+
+    logging.info('Updating results.')
+    update_results(emissions_path=os.path.join(output_dir, 'emissions.csv'),
+                   metrics_test_path=os.path.join(run_dir, 'test', 'metrics.json'),
+                   results_path=os.path.join(output_dir, 'results.csv'))
 
 
 if __name__ == '__main__':
