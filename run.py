@@ -16,7 +16,6 @@ from src.ml.evaluation import EvaluateClassifier
 from src.utils.saving import load_data, save_parameters, save_hyperparameters, update_results
 from src.utils.check_device import check_model_device
 from codecarbon import EmissionsTracker
-import numpy
 
 block_factories = {
     'S4': S4Block,
