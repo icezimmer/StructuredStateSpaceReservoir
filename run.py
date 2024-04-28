@@ -179,8 +179,8 @@ def main():
     elif args.block == 'ESN':
         project_name = ('[{' + block_name + '}_' + str(args.layers) + 'x' + str(args.neurons) + ']_' +
                         'ridge')
-    output_dir = os.path.join('./checkpoint', 'task', args.task)
-    run_dir = os.path.join('./checkpoint', 'task', args.task, block_name, str(args.layers) + 'x' + str(args.neurons),
+    output_dir = os.path.join('./checkpoint', 'results', args.task)
+    run_dir = os.path.join('./checkpoint', 'results', args.task, block_name, str(args.layers) + 'x' + str(args.neurons),
                            current_time)
     hyperparameters_path = os.path.join(run_dir, 'hyperparameters.json')
     save_hyperparameters(args=args, file_path=hyperparameters_path)
