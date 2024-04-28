@@ -22,7 +22,7 @@ class S4D(torch.nn.Module):
         :param field: field for the state 'real' or 'complex' (default: 'complex')
         """
         convolution_classes = {'fft': FFTConv, 'fft-freezeD': FFTConvInputOutputReservoir}
-        mixing_layers = ['conv1d+tanh', 'conv1d+glu', 'reservoir+tanh', 'reservoir+glu', 'identity+tanh']
+        mixing_layers = ['conv1d+tanh', 'conv1d+glu', 'reservoir+tanh', 'reservoir+glu', 'identity']
 
         if convolution not in convolution_classes:
             raise ValueError('Convolution must be one of {}'.format(convolution_classes.keys()))
@@ -39,7 +39,6 @@ class S4D(torch.nn.Module):
         if mixing_layer == 'conv1d+tanh':
             self.mixing_layer = nn.Sequential(nn.Conv1d(in_channels=d_model, out_channels=d_model, kernel_size=1),
                                               nn.Tanh())
-
         elif mixing_layer == 'conv1d+glu':
             self.mixing_layer = nn.Sequential(nn.Conv1d(in_channels=d_model, out_channels=2 * d_model, kernel_size=1),
                                               nn.GLU(dim=-2))
@@ -49,8 +48,8 @@ class S4D(torch.nn.Module):
         elif mixing_layer == 'reservoir+glu':
             self.mixing_layer = nn.Sequential(LinearReservoir(d_input=d_model, d_output=2 * d_model, field='real'),
                                               nn.GLU(dim=-2))
-        elif mixing_layer == 'identity+tanh':
-            self.mixing_layer = nn.Sequential(nn.Identity(), nn.Tanh())
+        elif mixing_layer == 'identity':
+            self.mixing_layer = nn.Identity()
 
         self.drop = nn.Dropout(dropout) if dropout > 0 else nn.Identity()
 

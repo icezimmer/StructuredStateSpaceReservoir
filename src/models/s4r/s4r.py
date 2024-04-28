@@ -27,7 +27,7 @@ class S4R(torch.nn.Module):
         if kernel not in kernel_classes:
             raise ValueError('Kernel must be one of {}'.format(kernel_classes))
 
-        mixing_layers = ['identity+tanh', 'reservoir+tanh', 'reservoir+glu']
+        mixing_layers = ['reservoir+tanh', 'reservoir+glu', 'identity']
         if mixing_layer not in mixing_layers:
             raise ValueError('Kernel must be one of {}'.format(mixing_layers))
 
@@ -38,16 +38,16 @@ class S4R(torch.nn.Module):
         self.layer = FFTConvReservoir(d_input=self.d_model, d_state=self.d_model, kernel=kernel,
                                       **layer_args)
 
-        if mixing_layer == 'identity+tanh':
-            self.mix = nn.Identity()
-            self.nl = nn.Tanh()
-        elif mixing_layer == 'reservoir+tanh':
-            self.mix = LinearReservoir(d_input=d_model, d_output=d_model, field='real')
-            self.nl = nn.Tanh()
+        if mixing_layer == 'reservoir+tanh':
+            self.mixing_layer = nn.Sequential(LinearReservoir(d_input=d_model, d_output=d_model, field='real'),
+                                              nn.Tanh())
         elif mixing_layer == 'reservoir+glu':
-            self.mix = LinearReservoir(d_input=d_model, d_output=2 * d_model, field='real')
-            self.nl = nn.GLU(dim=-2)
+            self.mixing_layer = nn.Sequential(LinearReservoir(d_input=d_model, d_output=2 * d_model, field='real'),
+                                              nn.GLU(dim=-2))
+        elif mixing_layer == 'identity':
+            self.mixing_layer = nn.Identity()
 
+    # TODO: implement step method for mixing layer
     def step(self, u, x):
         """
         Step one time step as a recurrent model. Intended to be used during validation.
@@ -56,8 +56,7 @@ class S4R(torch.nn.Module):
         Returns: y (B, H), state (B, P)
         """
         y, x = self.layer.step(u, x)
-        y = self.mix.step(y)
-        y = self.nl(y)
+        y = self.mixing_layer.step(y)
 
         return y, x
 
@@ -68,8 +67,7 @@ class S4R(torch.nn.Module):
         :return: y: batched output sequence of shape (B,H,L) = (batch_size, d_output, input_length)
         """
         y, _ = self.layer(u)
-        y = self.mix(y)
-        y = self.nl(y)
+        y = self.mixing_layer(y)
 
         # Return a dummy state to satisfy this repo's interface, but this can be modified
         return y, None
