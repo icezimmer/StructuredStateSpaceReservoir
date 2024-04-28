@@ -14,7 +14,7 @@ class StackedNetwork(nn.Module):
         """
         Stack multiple blocks of the same type to form a deep network.
         """
-        encoder_models = ['conv1d', 'reservoir', 'structured_reservoir']
+        encoder_models = ['conv1d', 'reservoir']
         decoder_models = ['conv1d', 'reservoir']
 
         if encoder not in encoder_models:
@@ -29,8 +29,6 @@ class StackedNetwork(nn.Module):
             self.encoder = nn.Conv1d(in_channels=d_input, out_channels=d_model, kernel_size=1)
         elif encoder == 'reservoir':
             self.encoder = LinearReservoir(d_input=d_input, d_output=d_model, field='real')
-        elif encoder == 'structured_reservoir':
-            self.encoder = LinearStructuredReservoir(d_input=d_input, d_output=d_model, field='real')
 
         self.layers = nn.ModuleList([block_cls(d_model=d_model, **block_args) for _ in range(n_layers)])
         self.dropouts = nn.ModuleList([nn.Dropout(layer_dropout) if layer_dropout > 0 else nn.Identity()
@@ -70,7 +68,7 @@ class StackedReservoir(nn.Module):
         """
         Stack multiple blocks of the same type to form a deep network.
         """
-        encoder_models = ['reservoir', 'structured_reservoir']
+        encoder_models = ['reservoir']
 
         if encoder not in encoder_models:
             raise ValueError('Encoder must be one of {}'.format(encoder_models))
@@ -81,8 +79,6 @@ class StackedReservoir(nn.Module):
 
         if encoder == 'reservoir':
             self.encoder = LinearReservoir(d_input=d_input, d_output=d_model, field='real')
-        elif encoder == 'structured_reservoir':
-            self.encoder = LinearStructuredReservoir(d_input=d_input, d_output=d_model, field='real')
 
         self.layers = nn.ModuleList([S4R(d_model=d_model, **block_args) for _ in range(self.n_layers)])
 
