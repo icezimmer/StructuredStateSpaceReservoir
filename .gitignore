@@ -136,3 +136,6 @@ checkpoint/*
 
 # Backup files
 backup/
+
+# Benchmark
+benchmark.py
