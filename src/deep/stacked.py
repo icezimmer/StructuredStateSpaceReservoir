@@ -1,5 +1,5 @@
 import torch.nn as nn
-from src.reservoir.layers import LinearReservoir, LinearStructuredReservoir
+from src.reservoir.layers import LinearReservoir
 from src.models.s4r.s4r import S4R
 from src.models.esn.esn import ESN
 import torch

@@ -28,6 +28,7 @@ class LinearReservoir(nn.Module):
         return u
 
 
+# TODO: repair the mask
 class LinearStructuredReservoir(nn.Module):
     def __init__(self, d_input, d_output,
                  radius=1.0,
