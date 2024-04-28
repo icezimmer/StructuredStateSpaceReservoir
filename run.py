@@ -77,13 +77,14 @@ def parse_args():
             parser.add_argument('--kernelwd', type=float, default=0.0, help='Learning rate for kernel pars.')
     elif args.block in ['ESN', 'S4R']:
         parser.add_argument('--transient', type=int, default=-1, help='Number of fist time steps to discard.')
+        parser.add_argument('--ridge', type=float, default=1.0, help='Regularization for Ridge Regression.')
         if args.block == 'ESN':
             pass
         elif args.block == 'S4R':
             parser.add_argument('--encoder', default='reservoir', help='Encoder model.')
             parser.add_argument('--kernel', choices=kernel_classes_reservoir, default='V-freezeABC',
                                 help='Kernel name.')
-            parser.add_argument('--mix', default='reservoir+tanh', help='Inner Mixing layer.')
+            parser.add_argument('--mix', default='identity+tanh', help='Inner Mixing layer.')
             parser.add_argument('--dt', type=int, default=None, help='Sampling rate (only for continuous dynamics).')
             parser.add_argument('--strong', type=float, default=0.98, help='Strong Stability for internal dynamics.')
             parser.add_argument('--weak', type=float, default=1.0, help='Weak Stability for internal dynamics.')
@@ -91,7 +92,7 @@ def parse_args():
     # Update args with the new conditional arguments
     args, unknown = parser.parse_known_args()
 
-    # Conditionally add --scaleB and --scaleC if kernel starts with 'miniV'
+    # Conditionally add --scaleB and --scaleC if kernel starts with 'V'
     if hasattr(args, 'kernel') and args.kernel.startswith('V'):
         parser.add_argument('--scaleB', type=float, default=1.0, help='Scaling for the input2state matrix B.')
         parser.add_argument('--scaleC', type=float, default=1.0, help='Scaling for the state2output matrix C.')
@@ -104,6 +105,7 @@ def parse_args():
 
 
 def main():
+    logging.basicConfig(level=logging.INFO)
     args = parse_args()
 
     if args.task == 'smnist':
@@ -162,6 +164,7 @@ def main():
     else:
         raise ValueError('Invalid block name')
 
+    logging.info('Loading develop and test dataloaders.')
     develop_dataloader = load_data(os.path.join('./checkpoint', 'dataloaders', args.task, 'develop_dataloader'))
     test_dataloader = load_data(os.path.join('./checkpoint', 'dataloaders', args.task, 'test_dataloader'))
 
@@ -182,14 +185,15 @@ def main():
     output_dir = os.path.join('./checkpoint', 'results', args.task)
     run_dir = os.path.join('./checkpoint', 'results', args.task, block_name, str(args.layers) + 'x' + str(args.neurons),
                            current_time)
+
+    logging.info('Saving model hyper-parameters.')
     hyperparameters_path = os.path.join(run_dir, 'hyperparameters.json')
     save_hyperparameters(args=args, file_path=hyperparameters_path)
+
     parameters_path = os.path.join(run_dir, 'parameters.txt')
 
-    logging.basicConfig(level=logging.INFO)
-
     if args.block in ['VanillaRNN', 'VanillaGRU', 'S4', 'S4D']:
-        logging.info('Initializing Model.')
+        logging.info('Initializing model.')
         model = StackedNetwork(block_cls=block_factories[args.block], n_layers=args.layers,
                                d_input=d_input, d_model=args.neurons, d_output=d_output,
                                encoder=args.encoder, decoder=args.decoder,
@@ -197,45 +201,53 @@ def main():
                                layer_dropout=args.layerdrop,
                                **block_args)
 
+        logging.info(f'Moving model to {args.device}.')
         torch.backends.cudnn.benchmark = False
         model.to(device=torch.device(args.device))
+
+        logging.info('Saving model parameters properties.')
+        save_parameters(model=model, file_path=parameters_path)
 
         # Initialize the tracker
         tracker = EmissionsTracker(output_dir=output_dir, project_name=project_name,
                                    log_level="ERROR",
                                    gpu_ids=[check_model_device(model).index])
 
-        save_parameters(model=model, file_path=parameters_path)
-
+        logging.info('Splitting training and validation set.')
         train_dataloader = load_data(os.path.join('./checkpoint', 'dataloaders', args.task, 'train_dataloader'))
         val_dataloader = load_data(os.path.join('./checkpoint', 'dataloaders', args.task, 'val_dataloader'))
 
+        logging.info('Setting optimizer and trainer.')
         optimizer = setup_optimizer(model=model, lr=args.lr, weight_decay=args.wd)
         trainer = TrainModel(model=model, optimizer=optimizer, criterion=criterion,
                              develop_dataloader=develop_dataloader)
 
-        logging.info('Starting Fit.')
-        # Start tracking
+        logging.info('Tracking energy consumption.')
+        logging.info('Fitting model.')
         tracker.start()
         trainer.early_stopping(train_dataloader=train_dataloader, val_dataloader=val_dataloader,
                                patience=args.patience, num_epochs=args.epochs,
-                               run_directory=run_dir)
+                               plot_path=os.path.join(run_dir, 'loss.png'))
         emissions = tracker.stop()
-        print(f"Estimated CO2 emissions for this fit: {emissions} kg")
-        # End tracking
+        logging.info(f"Estimated CO2 emissions for this fit: {emissions} kg")
 
+        logging.info('Saving model.')
+        torch.save(model.state_dict(), os.path.join(run_dir, 'model.pt'))
+
+        logging.info('Evaluating model.')
         if args.task in ['smnist', 'pathfinder', 'scifar10']:
             eval_bc = EvaluateClassifier(model=model, num_classes=d_output, dataloader=develop_dataloader)
-            eval_bc.evaluate(run_directory=run_dir, dataset_name='develop')
+            eval_bc.evaluate(save_directory=os.path.join(run_dir, 'develop'))
 
             eval_bc = EvaluateClassifier(model=model, num_classes=d_output, dataloader=test_dataloader)
-            eval_bc.evaluate(run_directory=run_dir, dataset_name='test')
+            eval_bc.evaluate(save_directory=os.path.join(run_dir, 'test'))
 
+        logging.info('Updating results.')
         update_results(emissions_path=os.path.join(output_dir, 'emissions.csv'),
-                       metrics_test_path=os.path.join(run_dir, 'metrics_test.json'),
+                       metrics_test_path=os.path.join(run_dir, 'test', 'metrics.json'),
                        results_path=os.path.join(output_dir, 'results.csv'))
     elif args.block in ['ESN', 'S4R']:
-        logging.info('Initializing Model.')
+        logging.info('Initializing model.')
         if args.block == 'S4R':
             model = StackedReservoir(n_layers=args.layers,
                                      d_input=d_input, d_model=args.neurons,
@@ -248,8 +260,12 @@ def main():
                                      transient=args.transient,
                                      **block_args)
 
+        logging.info(f'Moving model to {args.device}.')
         torch.backends.cudnn.benchmark = False
         model.to(device=torch.device(args.device))
+
+        logging.info('Saving model parameters properties.')
+        save_parameters(model=model, file_path=parameters_path)
 
         # Initialize the tracker
         tracker = EmissionsTracker(output_dir=output_dir, project_name=project_name,
@@ -257,13 +273,20 @@ def main():
                                    gpu_ids=[check_model_device(model).index])
 
         readout = ReadOut(reservoir_model=model, develop_dataloader=develop_dataloader, d_state=args.neurons,
-                          d_output=d_output, lambda_=1.0, bias=True, to_vec=to_vec)
-        logging.info('Starting Fit.')
+                          d_output=d_output, to_vec=to_vec, bias=True, lambda_=args.ridge)
+
+        logging.info('Tracking energy consumption.')
+        logging.info('Fitting model.')
         tracker.start()
         readout.fit_()
         emissions = tracker.stop()
-        print(f"Estimated CO2 emissions for this fit: {emissions} kg")
-        readout.evaluate_(develop_dataloader)
+        logging.info(f"Estimated CO2 emissions for this fit: {emissions} kg")
+
+        logging.info('Saving model.')
+        torch.save(model.state_dict(), os.path.join(run_dir, 'model.pt'))
+
+        logging.info('Evaluating model.')
+        readout.evaluate_()
         readout.evaluate_(test_dataloader)
 
 
