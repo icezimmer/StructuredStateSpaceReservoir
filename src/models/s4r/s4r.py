@@ -29,7 +29,7 @@ class S4R(torch.nn.Module):
 
         mixing_layers = ['reservoir+tanh', 'reservoir+glu', 'identity']
         if mixing_layer not in mixing_layers:
-            raise ValueError('Kernel must be one of {}'.format(mixing_layers))
+            raise ValueError('Mixing Layer must be one of {}'.format(mixing_layers))
 
         super().__init__()
 
