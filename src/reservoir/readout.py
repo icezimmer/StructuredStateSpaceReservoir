@@ -47,36 +47,36 @@ class ReadOut:
             for input_batch, label_batch in dataloader:
                 input_batch = input_batch.to(self.device)  # (B, H, L)
 
-                hidden_state_batch = self.reservoir_model(input_batch)  # (B, P, L)
+                hidden_state_batch = self.reservoir_model(input_batch)  # (B, P, L-w)
 
-                hidden_state_batch = hidden_state_batch.to('cpu')  # (B, P, L)
+                hidden_state_batch = hidden_state_batch.to('cpu')  # (B, P, L-w)
                 label_batch = label_batch.to('cpu')  # (B, *)
 
                 hidden_state_list.append(hidden_state_batch)
                 label_list.append(label_batch)
 
-            self.hidden_state = torch.cat(tensors=hidden_state_list, dim=0)  # (N, P, L) timeseries
+            self.hidden_state = torch.cat(tensors=hidden_state_list, dim=0)  # (N, P, L-w) timeseries
             self.label = torch.cat(tensors=label_list, dim=0)  # (B, *) -> (N, *)
 
     # TODO: check why the accuracy degrades setting transient < -1
     def fit_(self):
         with torch.no_grad():
-            self._gather(self.develop_dataloader)  # (N, P, L), (N,)
+            self._gather(self.develop_dataloader)  # (N, P, L-w), (N,)
 
-            label = torch.repeat_interleave(input=self.label, repeats=self.hidden_state.shape[-1], dim=0)  # (N * L)
-            hidden_state = self.hidden_state.permute(0, 2, 1)  # (N, L, P)
-            hidden_state = hidden_state.reshape(-1, hidden_state.shape[-1])  # (N * L, P) = (num. of samples, features)
+            label = torch.repeat_interleave(input=self.label, repeats=self.hidden_state.shape[-1], dim=0)  # (N*(L-w),)
+            hidden_state = self.hidden_state.permute(0, 2, 1)  # (N, L-w, P)
+            hidden_state = hidden_state.reshape(-1, hidden_state.shape[-1])  # (N*(L-w), P) = (num_samples, features)
             if self.bias:
                 hidden_state = torch.cat(tensors=(hidden_state, torch.ones(size=(hidden_state.size(0), 1),
                                                                            dtype=torch.float32)),
-                                         dim=1)  # (N * L, P + 1)
+                                         dim=1)  # (N*(L-w), P+1)
 
-            self.W_out_t = self.readout_cls(X=hidden_state, y=label)
+            self.W_out_t = self.readout_cls(X=hidden_state, y=label)  # (P+1, K)
 
     # TODO: compute the rest of metrics
     def evaluate_(self, dataloader=None, saving_path=None):
         with torch.no_grad():
-            prediction = self.predict_(dataloader)  # (N, P, L), (N,)
+            prediction = self.predict_(dataloader)  # (N, K)
 
             prediction = prediction.numpy()
             label = self.label.numpy()
@@ -100,7 +100,7 @@ class ReadOut:
     def predict_(self, dataloader=None):
         with torch.no_grad():
             if dataloader is not None:
-                self._gather(dataloader)  # (N, P, L), (N,)
+                self._gather(dataloader)  # (N, P, L-w), (N,)
             else:
                 if self.hidden_state is None or self.label is None:
                     raise ValueError("Hidden state and label are not set, please provide a dataloader.")
@@ -108,7 +108,7 @@ class ReadOut:
             hidden_state = self.hidden_state[:, :, -1]  # (N, P)
             if self.bias:
                 hidden_state = torch.cat(tensors=(hidden_state, torch.ones(size=(hidden_state.size(0), 1),
-                                                                           dtype=torch.float32)), dim=1)  # (N, P + 1)
+                                                                           dtype=torch.float32)), dim=1)  # (N, P+1)
 
             prediction = torch.einsum('np,pk -> nk', hidden_state, self.W_out_t)
             prediction = torch.argmax(prediction, dim=1) if self.to_vec else prediction
