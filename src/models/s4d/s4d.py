@@ -12,7 +12,7 @@ class S4D(torch.nn.Module):
     def __init__(self, d_model,
                  mixing_layer,
                  convolution,
-                 dropout,
+                 dropout=0.0,
                  **layer_args):
         """
         S4R model.
