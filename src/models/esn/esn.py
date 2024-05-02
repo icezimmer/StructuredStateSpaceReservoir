@@ -7,7 +7,7 @@ from src.reservoir.matrices import Reservoir
 class ESN(nn.Module):
     """Class of Echo State Network model using PyTorch."""
 
-    def __init__(self, d_input, d_state, input_scaling=1.0, spectral_radius=0.9, leakage_rate=1):
+    def __init__(self, d_input, d_state, input_scaling=1.0, spectral_radius=1.0, leakage_rate=0.5):
         """
         Constructor of ESN model.
         """
@@ -20,7 +20,7 @@ class ESN(nn.Module):
         w_in = input2state_reservoir.uniform_disk_matrix(radius=input_scaling, field='real')
         self.w_in = nn.Parameter(w_in, requires_grad=False)
 
-        self.register_buffer('x0', torch.zeros(self.d_state, dtype=torch.complex64))
+        self.register_buffer('x0', torch.zeros(self.d_state, dtype=torch.float32))
 
         state_reservoir = DiscreteStateReservoir(self.d_state)
         w_hh = state_reservoir.echo_state_matrix(max_radius=spectral_radius)
