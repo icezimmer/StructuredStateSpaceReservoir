@@ -26,7 +26,7 @@ class ReadOut:
         self.roc_auc_value = None
         self.confusion_matrix_value = None
 
-        d_state = self.reservoir_model.n_layers * self.reservoir_model.d_state
+        d_state = self.reservoir_model.d_output
         if self.bias:
             d_state = d_state + 1
 
