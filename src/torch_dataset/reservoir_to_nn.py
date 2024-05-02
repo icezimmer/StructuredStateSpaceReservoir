@@ -3,7 +3,7 @@ from src.utils.check_device import check_model_device
 from torch.utils.data import Dataset
 
 
-class Reservoir2MLP(Dataset):
+class Reservoir2NN(Dataset):
     def __init__(self, reservoir_model, dataloader):
         self.reservoir_model = reservoir_model
         self.device = check_model_device(model=self.reservoir_model)
