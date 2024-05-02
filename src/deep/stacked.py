@@ -61,8 +61,7 @@ class StackedNetwork(nn.Module):
 
 
 class StackedReservoir(nn.Module):
-    def __init__(self, n_layers, d_input, d_model,
-                 encoder, transient,
+    def __init__(self, n_layers, d_input, d_model, transient, encoder='reservoir',
                  **block_args):
         """
         Stack multiple blocks of the same type to form a deep network.
@@ -74,12 +73,14 @@ class StackedReservoir(nn.Module):
 
         super().__init__()
 
+        self.d_state = d_model
+
         self.n_layers = n_layers
 
         if encoder == 'reservoir':
-            self.encoder = LinearReservoir(d_input=d_input, d_output=d_model, field='real')
+            self.encoder = LinearReservoir(d_input=d_input, d_output=self.d_state, field='real')
 
-        self.layers = nn.ModuleList([S4R(d_model=d_model, **block_args) for _ in range(self.n_layers)])
+        self.layers = nn.ModuleList([S4R(d_model=self.d_state, **block_args) for _ in range(self.n_layers)])
 
         self.transient = transient
 
@@ -129,9 +130,12 @@ class StackedEchoState(nn.Module):
 
         super().__init__()
 
+        self.d_state = d_model
+
         self.n_layers = n_layers
 
-        self.layers = nn.ModuleList([ESN(d_input=d_input, d_state=d_model, **block_args) for _ in range(self.n_layers)])
+        self.layers = nn.ModuleList([ESN(d_input=d_input, d_state=self.d_state, **block_args)
+                                     for _ in range(self.n_layers)])
 
         self.transient = transient
 

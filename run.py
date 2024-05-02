@@ -261,8 +261,8 @@ def main():
         if args.block == 'S4R':
             model = StackedReservoir(n_layers=args.layers,
                                      d_input=d_input, d_model=args.neurons,
-                                     encoder=args.encoder,
                                      transient=args.transient,
+                                     encoder=args.encoder,
                                      **block_args)
         elif args.block == 'ESN':
             model = StackedEchoState(n_layers=args.layers,
@@ -274,7 +274,7 @@ def main():
         torch.backends.cudnn.benchmark = False
         model.to(device=torch.device(args.device))
 
-        readout = ReadOut(reservoir_model=model, develop_dataloader=develop_dataloader, d_state=args.neurons,
+        readout = ReadOut(reservoir_model=model, develop_dataloader=develop_dataloader,
                           d_output=d_output, to_vec=to_vec, bias=True, lambda_=args.ridge)
 
         logging.info('Saving model parameters properties.')

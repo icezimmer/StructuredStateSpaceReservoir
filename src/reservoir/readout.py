@@ -9,7 +9,7 @@ import os
 
 
 class ReadOut:
-    def __init__(self, reservoir_model, develop_dataloader, d_state, d_output, to_vec, lambda_, bias=True):
+    def __init__(self, reservoir_model, develop_dataloader, d_output, to_vec, lambda_, bias=True):
         self.reservoir_model = reservoir_model
         self.device = check_model_device(model=self.reservoir_model)
         self.develop_dataloader = develop_dataloader
@@ -26,7 +26,7 @@ class ReadOut:
         self.roc_auc_value = None
         self.confusion_matrix_value = None
 
-        d_state = self.reservoir_model.n_layers * d_state
+        d_state = self.reservoir_model.n_layers * self.reservoir_model.d_state
         if self.bias:
             d_state = d_state + 1
 
