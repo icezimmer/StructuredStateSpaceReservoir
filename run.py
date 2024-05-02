@@ -12,7 +12,7 @@ from src.models.s4d.s4d import S4D
 from src.models.s4r.s4r import S4R
 from src.deep.stacked import StackedNetwork, StackedReservoir, StackedEchoState
 from src.deep.hybrid import MLP
-from src.torch_dataset.reservoir_to_mlp import Reservoir2MLP
+from src.torch_dataset.reservoir_to_nn import Reservoir2NN
 from src.reservoir.readout import ReadOut
 from src.ml.optimization import setup_optimizer
 from src.ml.training import TrainModel
@@ -37,7 +37,7 @@ kernel_classes = ['V', 'V-freezeB', 'V-freezeC', 'V-freezeBC', 'V-freezeA', 'V-f
 
 kernel_classes_reservoir = ['Vr', 'miniVr']
 
-readout_classes = ['offline', 'mlp']
+readout_classes = ['offline', 'mlp', 'ssm']
 
 
 def parse_args():
@@ -123,6 +123,7 @@ def parse_args():
     return parser.parse_args()
 
 
+# TODO: Add args for ssm readout
 def main():
     logging.basicConfig(level=logging.INFO)
     args = parse_args()
@@ -334,7 +335,7 @@ def main():
             model.to(device=torch.device(args.device))
 
             logging.info(f'Computing reservoir develop dataset.')
-            develop_dataset = Reservoir2MLP(reservoir_model=reservoir_model, dataloader=develop_dataloader)
+            develop_dataset = Reservoir2NN(reservoir_model=reservoir_model, dataloader=develop_dataloader)
             develop_dataloader = DataLoader(develop_dataset, batch_size=args.batch, shuffle=False)
 
             logging.info('Saving model parameters properties.')
@@ -372,7 +373,69 @@ def main():
                 eval_bc.evaluate(saving_path=os.path.join(run_dir, 'develop'))
 
                 logging.info(f'Computing reservoir test set.')
-                test_dataset = Reservoir2MLP(reservoir_model=reservoir_model, dataloader=test_dataloader)
+                test_dataset = Reservoir2NN(reservoir_model=reservoir_model, dataloader=test_dataloader)
+                test_dataloader = DataLoader(test_dataset, batch_size=args.batch, shuffle=False)
+
+                logging.info('Evaluating model on test set.')
+                eval_bc = EvaluateClassifier(model=model, num_classes=d_output, dataloader=test_dataloader)
+                eval_bc.evaluate(saving_path=os.path.join(run_dir, 'test'))
+        elif args.readout == 'ssm':
+            model = StackedNetwork(block_cls=S4D, n_layers=1,
+                                   d_input=reservoir_model.d_output, d_model=reservoir_model.d_output, d_output=d_output,
+                                   encoder='conv1d', decoder='conv1d',
+                                   to_vec=True,
+                                   mixing_layer='conv1d+glu',
+                                   convolution='fft',
+                                   kernel='miniV',
+                                   strong_stability=0.7,
+                                   weak_stability=0.95,
+                                   kernel_size=-args.transient if args.transient < 0 else kernel_size - args.transient)
+
+            logging.info(f'Moving model to {args.device}.')
+            torch.backends.cudnn.benchmark = False
+            reservoir_model.to(device=torch.device(args.device))
+            model.to(device=torch.device(args.device))
+
+            logging.info(f'Computing reservoir develop dataset.')
+            develop_dataset = Reservoir2NN(reservoir_model=reservoir_model, dataloader=develop_dataloader)
+            develop_dataloader = DataLoader(develop_dataset, batch_size=args.batch, shuffle=False)
+
+            logging.info('Saving model parameters properties.')
+            save_parameters(model=model, file_path=parameters_path)
+
+            logging.info('Splitting reservoir develop dataset into training and validation set.')
+            train_dataset, val_dataset = random_split_dataset(develop_dataset)
+            train_dataloader = DataLoader(train_dataset, batch_size=args.batch, shuffle=True)
+            val_dataloader = DataLoader(val_dataset, batch_size=args.batch, shuffle=False)
+
+            logging.info('Setting optimizer and trainer.')
+            optimizer = torch.optim.AdamW(params=model.parameters(), lr=0.004, weight_decay=0.1)
+            trainer = TrainModel(model=model, optimizer=optimizer, criterion=criterion,
+                                 develop_dataloader=develop_dataloader)
+
+            logging.info('Tracking energy consumption.')
+            tracker = EmissionsTracker(output_dir=output_dir, project_name=project_name,
+                                       log_level="ERROR",
+                                       gpu_ids=[check_model_device(model).index])
+
+            logging.info('Fitting model.')
+            tracker.start()
+            trainer.early_stopping(train_dataloader=train_dataloader, val_dataloader=val_dataloader,
+                                   patience=10, num_epochs=100,
+                                   plot_path=os.path.join(run_dir, 'loss.png'))
+            emissions = tracker.stop()
+            logging.info(f"Estimated CO2 emissions for this fit: {emissions} kg")
+
+            logging.info('Saving model.')
+            torch.save(model.state_dict(), os.path.join(run_dir, 'model.pt'))
+
+            if args.task in classification_task:
+                logging.info('Evaluating model on develop set.')
+                eval_bc = EvaluateClassifier(model=model, num_classes=d_output, dataloader=develop_dataloader)
+                eval_bc.evaluate(saving_path=os.path.join(run_dir, 'develop'))
+
+                logging.info(f'Computing reservoir test set.')
+                test_dataset = Reservoir2NN(reservoir_model=reservoir_model, dataloader=test_dataloader)
                 test_dataloader = DataLoader(test_dataset, batch_size=args.batch, shuffle=False)
 
                 logging.info('Evaluating model on test set.')
