@@ -1,7 +1,5 @@
 from torchvision import datasets, transforms
 from src.torch_dataset.sequantial_image import SequentialImage2Classify
-from torch.utils.data import DataLoader
-from src.utils.split_data import random_split_dataset
 from src.utils.saving import save_data
 import os
 import argparse
@@ -16,8 +14,6 @@ args, unknown = parser.parse_known_args()
 if args.task == 'pathfinder':
     parser.add_argument('--level', default='easy', help='Difficulty level of the task')
     parser.add_argument('--resolution', default='32', help='Image resolution')
-
-parser.add_argument('--batch', type=int, default=128, help='Batch size')
 
 args = parser.parse_args()
 
@@ -78,14 +74,5 @@ elif args.task == 'pathfinder':
 else:
     raise ValueError('Task not found')
 
-train_dataset, val_dataset = random_split_dataset(develop_dataset)
-
-develop_dataloader = DataLoader(develop_dataset, batch_size=args.batch, shuffle=False)
-train_dataloader = DataLoader(train_dataset, batch_size=args.batch, shuffle=True)
-val_dataloader = DataLoader(val_dataset, batch_size=args.batch, shuffle=False)
-test_dataloader = DataLoader(test_dataset, batch_size=args.batch, shuffle=False)
-
-save_data(develop_dataloader, os.path.join('./checkpoint', 'dataloaders', args.task, 'develop_dataloader'))
-save_data(train_dataloader, os.path.join('./checkpoint', 'dataloaders', args.task, 'train_dataloader'))
-save_data(val_dataloader, os.path.join('./checkpoint', 'dataloaders', args.task, 'val_dataloader'))
-save_data(test_dataloader, os.path.join('./checkpoint', 'dataloaders', args.task, 'test_dataloader'))
+save_data(develop_dataset, os.path.join('./checkpoint', 'datasets', args.task, 'develop_dataset'))
+save_data(test_dataset, os.path.join('./checkpoint', 'datasets', args.task, 'test_dataset'))

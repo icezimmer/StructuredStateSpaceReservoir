@@ -3,12 +3,16 @@ import logging
 import os
 from datetime import datetime
 import torch
+from torch.utils.data import DataLoader
+from src.utils.split_data import random_split_dataset
 from src.models.s4.s4 import S4Block
 from src.models.rnn.vanilla import VanillaRNN, VanillaGRU
 from src.models.esn.esn import ESN
 from src.models.s4d.s4d import S4D
 from src.models.s4r.s4r import S4R
 from src.deep.stacked import StackedNetwork, StackedReservoir, StackedEchoState
+from src.deep.hybrid import MLP
+from src.torch_dataset.reservoir_to_mlp import Reservoir2MLP
 from src.reservoir.readout import ReadOut
 from src.ml.optimization import setup_optimizer
 from src.ml.training import TrainModel
@@ -33,11 +37,14 @@ kernel_classes = ['V', 'V-freezeB', 'V-freezeC', 'V-freezeBC', 'V-freezeA', 'V-f
 
 kernel_classes_reservoir = ['Vr', 'miniVr']
 
+readout_classes = ['offline', 'mlp']
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Run classification task.')
-    parser.add_argument('--task', default='smnist', help='Name of task.')
     parser.add_argument('--device', default='cuda:1', help='Cuda device.')
+    parser.add_argument('--task', default='smnist', help='Name of task.')
+    parser.add_argument('--batch', type=int, default=128, help='Batch size')
     parser.add_argument('--block', choices=block_factories.keys(), default='S4D',
                         help='Block class to use for the model.')
 
@@ -77,7 +84,7 @@ def parse_args():
             parser.add_argument('--kernelwd', type=float, default=0.0, help='Learning rate for kernel pars.')
     elif args.block in ['ESN', 'S4R']:
         parser.add_argument('--transient', type=int, default=-1, help='Number of fist time steps to discard.')
-        parser.add_argument('--ridge', type=float, default=1.0, help='Regularization for Ridge Regression.')
+        parser.add_argument('--readout', choices=readout_classes, default='offline', help='Type of Readout.')
         if args.block == 'ESN':
             pass
         elif args.block == 'S4R':
@@ -92,14 +99,26 @@ def parse_args():
     # Update args with the new conditional arguments
     args, unknown = parser.parse_known_args()
 
-    # Conditionally add --scaleB and --scaleC if kernel starts with 'V'
-    if hasattr(args, 'kernel') and args.kernel.startswith('V'):
-        parser.add_argument('--scaleB', type=float, default=1.0, help='Scaling for the input2state matrix B.')
-        parser.add_argument('--scaleC', type=float, default=1.0, help='Scaling for the state2output matrix C.')
+    if hasattr(args, 'readout'):
+        if args.readout == 'offline':
+            parser.add_argument('--ridge', type=float, default=1.0, help='Regularization for Ridge Regression.')
 
-    # Conditionally add --scaleW if kernel starts with 'miniV'
-    if hasattr(args, 'kernel') and args.kernel.startswith('miniV'):
-        parser.add_argument('--scaleW', type=float, default=1.0, help='Scaling for the input-output matrix W.')
+        if args.readout == 'mlp':
+            parser.add_argument('--mlplayers', type=int, default=2, help='Number of MLP layers.')
+            parser.add_argument('--lr', type=float, default=0.004, help='Learning rate for MLP parameters.')
+            parser.add_argument('--wd', type=float, default=0.1, help='Weight decay for MLP parameters.')
+            parser.add_argument('--epochs', type=int, default=float('inf'), help='Number of epochs.')
+            parser.add_argument('--patience', type=int, default=10, help='Patience for the early stopping.')
+
+    # Conditionally add --scaleB and --scaleC if kernel starts with 'V'
+    if hasattr(args, 'kernel'):
+        if args.kernel.startswith('V'):
+            parser.add_argument('--scaleB', type=float, default=1.0, help='Scaling for the input2state matrix B.')
+            parser.add_argument('--scaleC', type=float, default=1.0, help='Scaling for the state2output matrix C.')
+
+        # Conditionally add --scaleW if kernel starts with 'miniV'
+        if hasattr(args, 'kernel') and args.kernel.startswith('miniV'):
+            parser.add_argument('--scaleW', type=float, default=1.0, help='Scaling for the input-output matrix W.')
 
     return parser.parse_args()
 
@@ -171,9 +190,11 @@ def main():
     else:
         raise ValueError('Invalid block name')
 
-    logging.info('Loading develop and test dataloaders.')
-    develop_dataloader = load_data(os.path.join('./checkpoint', 'dataloaders', args.task, 'develop_dataloader'))
-    test_dataloader = load_data(os.path.join('./checkpoint', 'dataloaders', args.task, 'test_dataloader'))
+    logging.info('Loading develop and test datasets.')
+    develop_dataset = load_data(os.path.join('./checkpoint', 'datasets', args.task, 'develop_dataset'))
+    test_dataset = load_data(os.path.join('./checkpoint', 'datasets', args.task, 'test_dataset'))
+    develop_dataloader = DataLoader(develop_dataset, batch_size=args.batch, shuffle=False)
+    test_dataloader = DataLoader(test_dataset, batch_size=args.batch, shuffle=False)
 
     current_time = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 
@@ -189,10 +210,10 @@ def main():
                         args.decoder)
     elif args.block == 'S4R':
         project_name = (args.encoder + '_[{' + block_name + '}_' + str(args.layers) + 'x' + str(args.neurons) + ']_' +
-                        'ridge')
+                        args.readout)
     elif args.block == 'ESN':
         project_name = ('[{' + block_name + '}_' + str(args.layers) + 'x' + str(args.neurons) + ']_' +
-                        'ridge')
+                        args.readout)
     else:
         raise ValueError('Invalid block name')
 
@@ -222,9 +243,10 @@ def main():
         logging.info('Saving model parameters properties.')
         save_parameters(model=model, file_path=parameters_path)
 
-        logging.info('Loading training and validation dataloaders.')
-        train_dataloader = load_data(os.path.join('./checkpoint', 'dataloaders', args.task, 'train_dataloader'))
-        val_dataloader = load_data(os.path.join('./checkpoint', 'dataloaders', args.task, 'val_dataloader'))
+        logging.info('Splitting develop data into training and validation data.')
+        train_dataset, val_dataset = random_split_dataset(develop_dataset)
+        train_dataloader = DataLoader(train_dataset, batch_size=args.batch, shuffle=True)
+        val_dataloader = DataLoader(val_dataset, batch_size=args.batch, shuffle=False)
 
         logging.info('Setting optimizer and trainer.')
         optimizer = setup_optimizer(model=model, lr=args.lr, weight_decay=args.wd)
@@ -259,46 +281,103 @@ def main():
     elif args.block in ['ESN', 'S4R']:
         logging.info('Initializing model.')
         if args.block == 'S4R':
-            model = StackedReservoir(n_layers=args.layers,
-                                     d_input=d_input, d_model=args.neurons,
-                                     transient=args.transient,
-                                     encoder=args.encoder,
-                                     **block_args)
+            reservoir_model = StackedReservoir(n_layers=args.layers,
+                                               d_input=d_input, d_model=args.neurons,
+                                               transient=args.transient,
+                                               encoder=args.encoder,
+                                               **block_args)
         elif args.block == 'ESN':
-            model = StackedEchoState(n_layers=args.layers,
-                                     d_input=d_input, d_model=args.neurons,
-                                     transient=args.transient,
-                                     **block_args)
+            reservoir_model = StackedEchoState(n_layers=args.layers,
+                                               d_input=d_input, d_model=args.neurons,
+                                               transient=args.transient,
+                                               **block_args)
+        else:
+            raise ValueError('Invalid block name')
 
-        logging.info(f'Moving model to {args.device}.')
-        torch.backends.cudnn.benchmark = False
-        model.to(device=torch.device(args.device))
+        if args.readout == 'offline':
+            logging.info(f'Moving model to {args.device}.')
+            torch.backends.cudnn.benchmark = False
+            reservoir_model.to(device=torch.device(args.device))
 
-        readout = ReadOut(reservoir_model=model, develop_dataloader=develop_dataloader,
-                          d_output=d_output, to_vec=to_vec, bias=True, lambda_=args.ridge)
+            readout = ReadOut(reservoir_model=reservoir_model, develop_dataloader=develop_dataloader,
+                              d_output=d_output, to_vec=to_vec, bias=True, lambda_=args.ridge)
 
-        logging.info('Saving model parameters properties.')
-        save_parameters(model=model, file_path=parameters_path)
+            logging.info('Saving model parameters properties.')
+            save_parameters(model=reservoir_model, file_path=parameters_path)
 
-        logging.info('Tracking energy consumption.')
-        tracker = EmissionsTracker(output_dir=output_dir, project_name=project_name,
-                                   log_level="ERROR",
-                                   gpu_ids=[check_model_device(model).index])
-        logging.info('Fitting model.')
-        tracker.start()
-        readout.fit_()
-        emissions = tracker.stop()
-        logging.info(f"Estimated CO2 emissions for this fit: {emissions} kg")
+            logging.info('Tracking energy consumption.')
+            tracker = EmissionsTracker(output_dir=output_dir, project_name=project_name,
+                                       log_level="ERROR",
+                                       gpu_ids=[check_model_device(reservoir_model).index])
+            logging.info('Fitting model.')
+            tracker.start()
+            readout.fit_()
+            emissions = tracker.stop()
+            logging.info(f"Estimated CO2 emissions for this fit: {emissions} kg")
 
-        logging.info('Saving model.')
-        torch.save(model.state_dict(), os.path.join(run_dir, 'model.pt'))
+            logging.info('Saving model.')
+            torch.save(reservoir_model.state_dict(), os.path.join(run_dir, 'model.pt'))
 
-        if args.task in classification_task:
-            logging.info('Evaluating model on develop set.')
-            readout.evaluate_(saving_path=os.path.join(run_dir, 'develop'))
+            if args.task in classification_task:
+                logging.info('Evaluating model on develop set.')
+                readout.evaluate_(saving_path=os.path.join(run_dir, 'develop'))
 
-            logging.info('Evaluating model on test set.')
-            readout.evaluate_(dataloader=test_dataloader, saving_path=os.path.join(run_dir, 'test'))
+                logging.info('Evaluating model on test set.')
+                readout.evaluate_(dataloader=test_dataloader, saving_path=os.path.join(run_dir, 'test'))
+
+        elif args.readout == 'mlp':
+            model = MLP(n_layers=args.mlplayers, d_input=reservoir_model.d_output, d_output=d_output)
+
+            logging.info(f'Moving model to {args.device}.')
+            torch.backends.cudnn.benchmark = False
+            reservoir_model.to(device=torch.device(args.device))
+            model.to(device=torch.device(args.device))
+
+            logging.info(f'Computing reservoir develop dataset.')
+            develop_dataset = Reservoir2MLP(reservoir_model=reservoir_model, dataloader=develop_dataloader)
+            develop_dataloader = DataLoader(develop_dataset, batch_size=args.batch, shuffle=False)
+
+            logging.info('Saving model parameters properties.')
+            save_parameters(model=model, file_path=parameters_path)
+
+            logging.info('Splitting reservoir develop dataset into training and validation set.')
+            train_dataset, val_dataset = random_split_dataset(develop_dataset)
+            train_dataloader = DataLoader(train_dataset, batch_size=args.batch, shuffle=True)
+            val_dataloader = DataLoader(val_dataset, batch_size=args.batch, shuffle=False)
+
+            logging.info('Setting optimizer and trainer.')
+            optimizer = torch.optim.AdamW(params=model.parameters(), lr=args.lr, weight_decay=args.wd)
+            trainer = TrainModel(model=model, optimizer=optimizer, criterion=criterion,
+                                 develop_dataloader=develop_dataloader)
+
+            logging.info('Tracking energy consumption.')
+            tracker = EmissionsTracker(output_dir=output_dir, project_name=project_name,
+                                       log_level="ERROR",
+                                       gpu_ids=[check_model_device(model).index])
+
+            logging.info('Fitting model.')
+            tracker.start()
+            trainer.early_stopping(train_dataloader=train_dataloader, val_dataloader=val_dataloader,
+                                   patience=args.patience, num_epochs=args.epochs,
+                                   plot_path=os.path.join(run_dir, 'loss.png'))
+            emissions = tracker.stop()
+            logging.info(f"Estimated CO2 emissions for this fit: {emissions} kg")
+
+            logging.info('Saving model.')
+            torch.save(model.state_dict(), os.path.join(run_dir, 'model.pt'))
+
+            if args.task in classification_task:
+                logging.info('Evaluating model on develop set.')
+                eval_bc = EvaluateClassifier(model=model, num_classes=d_output, dataloader=develop_dataloader)
+                eval_bc.evaluate(saving_path=os.path.join(run_dir, 'develop'))
+
+                logging.info(f'Computing reservoir test set.')
+                test_dataset = Reservoir2MLP(reservoir_model=reservoir_model, dataloader=test_dataloader)
+                test_dataloader = DataLoader(test_dataset, batch_size=args.batch, shuffle=False)
+
+                logging.info('Evaluating model on test set.')
+                eval_bc = EvaluateClassifier(model=model, num_classes=d_output, dataloader=test_dataloader)
+                eval_bc.evaluate(saving_path=os.path.join(run_dir, 'test'))
     else:
         raise ValueError('Invalid block name')
 
