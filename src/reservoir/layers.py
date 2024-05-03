@@ -55,9 +55,9 @@ class LinearStructuredReservoir(nn.Module):
 
 
 class LinearRegression(nn.Module):
-    def __init__(self, d_state, d_output, to_vec):
+    def __init__(self, d_input, d_output, to_vec):
         super().__init__()
-        self.d_state = d_state
+        self.d_input = d_input
         self.d_output = d_output
 
         self.to_vec = to_vec
@@ -78,15 +78,15 @@ class LinearRegression(nn.Module):
 
 
 class RidgeRegression(LinearRegression):
-    def __init__(self, d_state, d_output, to_vec, lambda_):
+    def __init__(self, d_input, d_output, to_vec, lambda_):
         if lambda_ <= 0:
             raise ValueError("Regularization lambda must be positive for Ridge Regression.")
 
-        super().__init__(d_state, d_output, to_vec)
+        super().__init__(d_input, d_output, to_vec)
 
         self.lambda_ = lambda_
 
-        self.register_buffer('eye_matrix', torch.eye(n=self.d_state, dtype=torch.float32))
+        self.register_buffer('eye_matrix', torch.eye(n=self.d_input, dtype=torch.float32))
 
     # TODO: resolve bug for StackedEchoState
     def forward(self, X, y):

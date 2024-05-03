@@ -26,17 +26,17 @@ class ReadOut:
         self.roc_auc_value = None
         self.confusion_matrix_value = None
 
-        d_state = self.reservoir_model.d_output
+        d_input = self.reservoir_model.d_output
         if self.bias:
-            d_state = d_state + 1
+            d_input = d_input + 1
 
         if lambda_ == 0.0:
-            self.readout_cls = LinearRegression(d_state=d_state, d_output=d_output, to_vec=self.to_vec)
+            self.readout_cls = LinearRegression(d_input=d_input, d_output=d_output, to_vec=self.to_vec)
         else:
-            self.readout_cls = RidgeRegression(d_state=d_state, d_output=d_output, to_vec=self.to_vec, lambda_=lambda_)
+            self.readout_cls = RidgeRegression(d_input=d_input, d_output=d_output, to_vec=self.to_vec, lambda_=lambda_)
 
-        structured_reservoir = Reservoir(d_in=d_output, d_out=d_state)
-        self.W_out_t = structured_reservoir.uniform_disk_matrix(radius=1.0, field='real')
+        structured_reservoir = Reservoir(d_in=d_output, d_out=d_input)  # transpose of matrix (left multiplication)
+        self.W_out_t = structured_reservoir.uniform_disk_matrix(radius=1.0, field='real')  # (P + 1, K)
 
     # TODO: try to move to cpu the hidden_state of each layer before to stacked them in deep module
     def _gather(self, dataloader):
