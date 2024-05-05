@@ -45,7 +45,7 @@ def parse_args():
     parser.add_argument('--device', default='cuda:1', help='Cuda device.')
     parser.add_argument('--task', default='smnist', help='Name of task.')
     parser.add_argument('--batch', type=int, default=128, help='Batch size')
-    parser.add_argument('--block', choices=block_factories.keys(), default='S4D',
+    parser.add_argument('--block', choices=block_factories.keys(), default='S4R',
                         help='Block class to use for the model.')
 
     parser.add_argument('--layers', type=int, default=2, help='Number of layers.')
@@ -83,9 +83,12 @@ def parse_args():
             parser.add_argument('--kernellr', type=float, default=0.001, help='Learning rate for kernel pars.')
             parser.add_argument('--kernelwd', type=float, default=0.0, help='Learning rate for kernel pars.')
     elif args.block in ['ESN', 'S4R']:
-        parser.add_argument('--readout', choices=readout_classes, default='offline', help='Type of Readout.')
+        parser.add_argument('--readout', choices=readout_classes, default='mlp', help='Type of Readout.')
         if args.block == 'ESN':
-            pass
+            # input_scaling=1.0, spectral_radius=1.0, leakage_rate=0.5
+            parser.add_argument('--input', type=float, default=1.0, help='Scaling of input matrix.')
+            parser.add_argument('--rho', type=float, default=1.0, help='Spectral Radius of hidden state matrix.')
+            parser.add_argument('--leaky', type=float, default=1.0, help='Leakage Rate for leaky integrator.')
         elif args.block == 'S4R':
             parser.add_argument('--encoder', default='reservoir', help='Encoder model.')
             parser.add_argument('--kernel', choices=kernel_classes_reservoir, default='Vr',
@@ -189,7 +192,7 @@ def main():
         elif args.kernel.startswith('miniV'):
             block_args['input_output_scaling'] = args.scaleW
     elif args.block == 'ESN':
-        block_args = {}
+        block_args = {'input_scaling': args.input, 'spectral_radius': args.rho, 'leakage_rate': args.leaky}
     elif args.block == 'S4R':
         block_args = {'mixing_layer': args.mix,
                       'kernel': args.kernel, 'kernel_size': kernel_size,
