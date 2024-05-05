@@ -83,7 +83,6 @@ def parse_args():
             parser.add_argument('--kernellr', type=float, default=0.001, help='Learning rate for kernel pars.')
             parser.add_argument('--kernelwd', type=float, default=0.0, help='Learning rate for kernel pars.')
     elif args.block in ['ESN', 'S4R']:
-        parser.add_argument('--transient', type=int, default=-1, help='Number of fist time steps to discard.')
         parser.add_argument('--readout', choices=readout_classes, default='offline', help='Type of Readout.')
         if args.block == 'ESN':
             pass
@@ -101,14 +100,26 @@ def parse_args():
 
     if hasattr(args, 'readout'):
         if args.readout == 'offline':
+            parser.add_argument('--transient', type=int, default=-1, help='Number of first time steps to discard.')
             parser.add_argument('--ridge', type=float, default=1.0, help='Regularization for Ridge Regression.')
 
         if args.readout == 'mlp':
+            parser.add_argument('--transient', type=int, default=-1, choices=[-1],
+                                help='Number of first time steps to discard.')
             parser.add_argument('--mlplayers', type=int, default=2, help='Number of MLP layers.')
             parser.add_argument('--lr', type=float, default=0.004, help='Learning rate for MLP parameters.')
             parser.add_argument('--wd', type=float, default=0.1, help='Weight decay for MLP parameters.')
             parser.add_argument('--epochs', type=int, default=float('inf'), help='Number of epochs.')
             parser.add_argument('--patience', type=int, default=10, help='Patience for the early stopping.')
+
+        if args.readout == 'ssm':
+            parser.add_argument('--transient', type=int, default=-128, help='Number of first time steps to discard.')
+            parser.add_argument('--ssmlayers', type=int, default=1, help='Number of layers.')
+            parser.add_argument('--lr', type=float, default=0.004, help='Learning rate for NON-kernel parameters.')
+            parser.add_argument('--wd', type=float, default=0.1, help='Weight decay for NON-kernel parameters.')
+            parser.add_argument('--epochs', type=int, default=float('inf'), help='Number of epochs.')
+            parser.add_argument('--patience', type=int, default=10, help='Patience for the early stopping.')
+
 
     # Conditionally add --scaleB and --scaleC if kernel starts with 'V'
     if hasattr(args, 'kernel'):
@@ -380,10 +391,10 @@ def main():
                 eval_bc = EvaluateClassifier(model=model, num_classes=d_output, dataloader=test_dataloader)
                 eval_bc.evaluate(saving_path=os.path.join(run_dir, 'test'))
         elif args.readout == 'ssm':
-            model = StackedNetwork(block_cls=S4D, n_layers=1,
+            model = StackedNetwork(block_cls=S4D, n_layers=args.ssmlayers,
                                    d_input=reservoir_model.d_output, d_model=reservoir_model.d_output, d_output=d_output,
                                    encoder='conv1d', decoder='conv1d',
-                                   to_vec=True,
+                                   to_vec=to_vec,
                                    mixing_layer='conv1d+glu',
                                    convolution='fft',
                                    kernel='miniV',
@@ -409,7 +420,7 @@ def main():
             val_dataloader = DataLoader(val_dataset, batch_size=args.batch, shuffle=False)
 
             logging.info('Setting optimizer and trainer.')
-            optimizer = torch.optim.AdamW(params=model.parameters(), lr=0.004, weight_decay=0.1)
+            optimizer = torch.optim.AdamW(params=model.parameters(), lr=args.lr, weight_decay=args.wd)
             trainer = TrainModel(model=model, optimizer=optimizer, criterion=criterion,
                                  develop_dataloader=develop_dataloader)
 
@@ -421,7 +432,7 @@ def main():
             logging.info('Fitting model.')
             tracker.start()
             trainer.early_stopping(train_dataloader=train_dataloader, val_dataloader=val_dataloader,
-                                   patience=10, num_epochs=100,
+                                   patience=args.patience, num_epochs=args.epochs,
                                    plot_path=os.path.join(run_dir, 'loss.png'))
             emissions = tracker.stop()
             logging.info(f"Estimated CO2 emissions for this fit: {emissions} kg")
