@@ -9,37 +9,41 @@ These instructions will help you get a copy of the project up and running on you
 
 ## Building Tasks
 
-The `build.py` script in the main directory is used to configure and prepare your classification tasks. Here's how you can build different tasks:
+The `build.py` script in the main directory is used to download and prepare the dataset relative to the task selected.
+Here's how you can build different tasks:
 
 ### Sequential MNIST
 
 To set up a Sequential MNIST classification task, navigate to the main directory and execute:
 
 ```
-python build.py --task smnist --device cuda:0 --batch 128
+python build.py --task smnist
 ```
 
-This command configures the task for Sequential MNIST, specifying the CUDA device and batch size.
+This command configures the task for Sequential MNIST.
 
 ### Pathfinder Task
 
 For the Pathfinder task, which requires specifying the difficulty level and image resolution, use:
 
 ```
-python build.py --task pathfinder --level easy --resolution 32 --device cuda:0 --batch 128
+python build.py --task pathfinder --level easy --resolution 32
 ```
 
 Here, `--level` and `--resolution` are additional arguments unique to the Pathfinder task.
 
 ## Running Tasks
 
-After building your task, you can run it with the `run.py` script. This allows you to specify the model configuration and training parameters.
+After building your task, you can run it with the `run.py` script.
+This allows you to specify the device, the task, the batch size, the model configuration and training parameters.
 
-### Example: Running with an S4 Block
+### Example: Sequential MNIST with S4 block
 
 ```
-python run.py --task smnist --block S4 --layers 2 --neurons 64 --lr 0.001 --epochs 100
+python run.py --device cuda:0 --task smnist --batch 128 --block S4 --layers 2 --neurons 64 --lr 0.001 --epochs 100 --patience 10
 ```
 
-This command runs the task with the S4 block, setting up two layers, each with 64 neurons, and specifies the learning rate and number of epochs.
+This command runs the task in the selected device setting the data in batch.
+You can select the block of the layer, the number of layers, the number of neurons for each layer, and specifies the learning rate,
+the number of epochs and the patience for early stopping.
 
