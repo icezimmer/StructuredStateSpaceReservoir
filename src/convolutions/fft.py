@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from src.reservoir.matrices import Reservoir
+from src.reservoir.vector import ReservoirVector
 from src.kernels.vandermonde import (Vandermonde, VandermondeInputReservoir, VandermondeOutputReservoir,
                                      VandermondeInputOutputReservoir,
                                      VandermondeStateReservoir,
@@ -52,9 +52,9 @@ class FFTConv(nn.Module):
 
         self.kernel_cls = kernel_classes[kernel](d_input=self.d_input, d_state=self.d_state, **kernel_args)
 
-        input2output_reservoir = Reservoir(d_in=self.d_input, d_out=self.d_output)
-        D = input2output_reservoir.uniform_disk_matrix(radius=1.0, field='real')
-        self.D = nn.Parameter(D, requires_grad=True)  # (H, H)
+        input2output_reservoir = ReservoirVector(d=self.d_input)
+        D = input2output_reservoir.uniform_disk(radius=1.0, field='real')
+        self.D = nn.Parameter(D, requires_grad=True)  # (H,)
 
         self.drop_kernel = nn.Dropout(drop_kernel) if drop_kernel > 0 else nn.Identity()
         self.drop = nn.Dropout(dropout) if dropout > 0 else nn.Identity()
@@ -88,7 +88,7 @@ class FFTConv(nn.Module):
         :return: y: time step output of shape (B, H), x: time step state of shape (B, P)
         """
         y, x = self.kernel_cls.step(u, x)
-        y = y + torch.einsum('hh,bh->bh', self.D, u)  # (B,H)
+        y = y + torch.einsum('h,bh->bh', self.D, u)  # (B, H)
         y = self.activation(y)
 
         return y, x
@@ -106,7 +106,7 @@ class FFTConv(nn.Module):
         k_s = torch.fft.fft(k, dim=-1)  # (H, L)
 
         y = torch.fft.ifft(torch.einsum('bhl,hl->bhl', u_s, k_s), dim=-1)  # (B, H, L)
-        y = y.real + torch.einsum('hh,bhl->bhl', self.D, u)  # (B, H, L)
+        y = y.real + torch.einsum('h,bhl->bhl', self.D, u)  # (B, H, L)
 
         y = self.drop(y)
         y = self.activation(y)
@@ -145,8 +145,8 @@ class FFTConvInputOutputReservoir(FFTConv):
         k_s = torch.fft.fft(k, dim=-1)  # (H, L)
 
         y = torch.fft.ifft(torch.einsum('bhl,hl->bhl', u_s, k_s), dim=-1)  # (B, H, L)
-        
-        y = y.real + torch.einsum('hh,bhl->bhl', self.D, u)  # (B, H, L)
+
+        y = y.real + torch.einsum('h,bhl->bhl', self.D, u)  # (B, H, L)
 
         y = self.drop(y)
         y = self.activation(y)
@@ -188,9 +188,9 @@ class FFTConvReservoir(nn.Module):
         K, _ = self.kernel_cls()
         self.register_buffer('K', K)  # (H, L)
 
-        input2output_reservoir = Reservoir(d_in=self.d_input, d_out=self.d_output)
-        D = input2output_reservoir.uniform_disk_matrix(radius=1.0, field='real')
-        self.register_buffer('D', D)  # (H, H)
+        input2output_reservoir = ReservoirVector(d=self.d_input)
+        D = input2output_reservoir.uniform_disk(radius=1.0, field='real')
+        self.register_buffer('D', D)  # (H,)
 
         self.activation = nn.Tanh()
 
@@ -204,7 +204,7 @@ class FFTConvReservoir(nn.Module):
         :return: y: time step output of shape (B, H), x: time step state of shape (B, P)
         """
         y, x = self.kernel_cls.step(u, x)
-        y = y + torch.einsum('hh,bh->bh', self.D, u)  # (B,H)
+        y = y + torch.einsum('h,bh->bh', self.D, u)  # (B, H)
         y = self.activation(y)
 
         return y, x
@@ -219,7 +219,7 @@ class FFTConvReservoir(nn.Module):
         k_s = torch.fft.fft(self.K, dim=-1)  # (H, L)
 
         y = torch.fft.ifft(torch.einsum('bhl,hl->bhl', u_s, k_s), dim=-1)  # (B, H, L)
-        y = y.real + torch.einsum('hh,bhl->bhl', self.D, u)  # (B, H, L)
+        y = y.real + torch.einsum('h,bhl->bhl', self.D, u)  # (B, H, L)
 
         y = self.activation(y)
 
