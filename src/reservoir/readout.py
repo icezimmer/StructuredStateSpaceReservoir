@@ -1,7 +1,7 @@
 import json
 import torch
 from matplotlib import pyplot as plt
-from src.reservoir.matrices import Reservoir
+from src.reservoir.matrices import ReservoirMatrix
 from src.reservoir.layers import LinearRegression, RidgeRegression
 from sklearn.metrics import accuracy_score, confusion_matrix
 from src.utils.check_device import check_model_device
@@ -35,8 +35,8 @@ class ReadOut:
         else:
             self.readout_cls = RidgeRegression(d_input=d_input, d_output=d_output, to_vec=self.to_vec, lambda_=lambda_)
 
-        structured_reservoir = Reservoir(d_in=d_output, d_out=d_input)  # transpose of matrix (left multiplication)
-        self.W_out_t = structured_reservoir.uniform_disk_matrix(radius=1.0, field='real')  # (P + 1, K)
+        structured_reservoir = ReservoirMatrix(d_in=d_output, d_out=d_input)  # transpose of matrix (left multipl.)
+        self.W_out_t = structured_reservoir.uniform_disk(radius=1.0, field='real')  # (P + 1, K)
 
     # TODO: try to move to cpu the hidden_state of each layer before to stacked them in deep module
     def _gather(self, dataloader):

@@ -1,6 +1,6 @@
 import torch
 from src.reservoir.state import DiscreteStateReservoir, ContinuousStateReservoir
-from src.reservoir.matrices import Reservoir
+from src.reservoir.matrices import ReservoirMatrix
 import torch.nn as nn
 import warnings
 
@@ -40,9 +40,9 @@ class MiniVandermonde(nn.Module):
 
         self.register_buffer('x0', torch.zeros(self.d_state, dtype=torch.complex64))
 
-        input_output_reservoir = Reservoir(d_in=self.d_state, d_out=self.d_output)
+        input_output_reservoir = ReservoirMatrix(d_in=self.d_state, d_out=self.d_output)
 
-        W = input_output_reservoir.uniform_disk_matrix(radius=input_output_scaling, field=field)
+        W = input_output_reservoir.uniform_disk(radius=input_output_scaling, field=field)
 
         if dt is None:
             state_reservoir = DiscreteStateReservoir(self.d_state)
@@ -267,9 +267,9 @@ class MiniVandermondeReservoir(nn.Module):
 
         self.register_buffer('x0', torch.zeros(self.d_state, dtype=torch.complex64))
 
-        input_output_reservoir = Reservoir(d_in=self.d_state, d_out=self.d_output)
+        input_output_reservoir = ReservoirMatrix(d_in=self.d_state, d_out=self.d_output)
 
-        W = input_output_reservoir.uniform_disk_matrix(radius=input_output_scaling, field=field)
+        W = input_output_reservoir.uniform_disk(radius=input_output_scaling, field=field)
 
         if dt is None:
             state_reservoir = DiscreteStateReservoir(self.d_state)

@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from src.reservoir.state import DiscreteStateReservoir
-from src.reservoir.matrices import Reservoir
+from src.reservoir.matrices import ReservoirMatrix
 
 
 class ESN(nn.Module):
@@ -16,8 +16,8 @@ class ESN(nn.Module):
         self.d_state = d_state
         self.leakage_rate = leakage_rate
 
-        input2state_reservoir = Reservoir(d_in=self.d_input, d_out=self.d_state)
-        w_in = input2state_reservoir.uniform_disk_matrix(radius=input_scaling, field='real')
+        input2state_reservoir = ReservoirMatrix(d_in=self.d_input, d_out=self.d_state)
+        w_in = input2state_reservoir.uniform_disk(radius=input_scaling, field='real')
         self.register_buffer('w_in', w_in)
 
         self.register_buffer('x0', torch.zeros(self.d_state, dtype=torch.float32))
