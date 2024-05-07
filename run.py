@@ -30,6 +30,8 @@ block_factories = {
     'S4R': S4R
 }
 
+s4_mode = ['s4d', 'diag', 's4', 'nplr', 'dplr']
+
 conv_classes = ['fft', 'fft-freezeD']
 
 kernel_classes = ['V', 'V-freezeB', 'V-freezeC', 'V-freezeBC', 'V-freezeA', 'V-freezeAB', 'V-freezeAC', 'V-freezeABC',
@@ -68,6 +70,7 @@ def parse_args():
         if args.block in ['VanillaRNN', 'VanillaGRU']:
             pass
         elif args.block == 'S4':
+            parser.add_argument('--kernel', choices=s4_mode, default='dplr', help='Kernel name.')
             parser.add_argument('--kerneldrop', type=float, default=0.0, help='Dropout the kernel inside the block.')
             parser.add_argument('--kernellr', type=float, default=0.001, help='Learning rate for kernel pars.')
             parser.add_argument('--kernelwd', type=float, default=0.0, help='Learning rate for kernel pars.')
@@ -173,7 +176,7 @@ def main():
     if args.block in ['VanillaRNN', 'VanillaGRU']:
         block_args = {}
     elif args.block == 'S4':
-        block_args = {'drop_kernel': args.kerneldrop, 'dropout': args.dropout,
+        block_args = {'mode':args.kernel, 'drop_kernel': args.kerneldrop, 'dropout': args.dropout,
                       'lr': args.kernellr, 'wd': args.kernelwd}
     elif args.block == 'S4D':
         block_args = {'mixing_layer': args.mix,
@@ -213,7 +216,9 @@ def main():
 
     current_time = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 
-    if args.block == 'S4D':
+    if args.block == 'S4':
+        block_name = args.block + '_' + args.kernel
+    elif args.block == 'S4D':
         block_name = args.block + '_' + args.conv + '_' + args.kernel + '_' + args.mix
     elif args.block == 'S4R':
         block_name = args.block + '_' + args.kernel + '_' + args.mix
