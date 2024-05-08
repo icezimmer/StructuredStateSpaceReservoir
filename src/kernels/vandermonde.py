@@ -123,7 +123,7 @@ class Vandermonde(nn.Module):
         returns: V: (P,L)
         """
         A = torch.view_as_complex(self.A)
-        V = A.unsqueeze(1) ** self.powers  # (P, L)
+        V = A.unsqueeze(-1) ** self.powers  # (P, L)
         return V
 
     def step(self, u, x=None):
@@ -463,7 +463,7 @@ class VandermondeReservoir(nn.Module):
         W = torch.einsum('hp,ph -> hp', self.C, self.B)
 
         powers = torch.arange(kernel_size, dtype=torch.float32)
-        V = self.A.unsqueeze(1) ** powers
+        V = self.A.unsqueeze(-1) ** powers
 
         kernel = torch.einsum('hp,pl->hl', W, V)  # (H, L)
         self.register_buffer('K', kernel)  # (H, L)
