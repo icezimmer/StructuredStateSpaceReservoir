@@ -74,7 +74,7 @@ class Vandermonde(nn.Module):
 
         # Register powers for Vandermonde matrix
         powers = torch.arange(kernel_size, dtype=torch.float32)
-        self.register_buffer('powers', powers)  # (L)
+        self.register_buffer('powers', powers)  # (L,)
 
     def _freeze_parameter(self, param_name):
         """
@@ -97,7 +97,7 @@ class Vandermonde(nn.Module):
     def _zoh(Lambda, B, dt):
         """
         Discretize the system using the zero-order-hold transform, where A = diag(Lambda):
-            A_bar = exp(A * Delta)
+            A_bar = exp(A * dt)
             B_bar = (A_bar - I) * inv(A) * B
             C_bar = C
             D_bar = D
@@ -106,7 +106,7 @@ class Vandermonde(nn.Module):
         :param dt: Delta time for discretization
         :return: Lambda_bar, B_bar (Discrete System)
         """
-        Ones = torch.ones(Lambda.shape[0], dtype=torch.float32)
+        Ones = torch.ones(size=Lambda.shape, dtype=torch.float32)
 
         Lambda_bar = torch.exp(Lambda * dt)
         B_bar = torch.einsum('p,ph->ph', torch.mul(1 / Lambda, (Lambda_bar - Ones)), B)
@@ -456,7 +456,7 @@ class VandermondeReservoir(nn.Module):
         else:
             raise ValueError("Delta time dt must be positive: set dt > 0 or None for 'discrete dynamics'.")
 
-        self.register_buffer('A', Lambda_bar)  # (P)
+        self.register_buffer('A', Lambda_bar)  # (P,)
         self.register_buffer('B', B_bar)  # (P, H)
         self.register_buffer('C', C)  # (H, P)
 
@@ -474,7 +474,7 @@ class VandermondeReservoir(nn.Module):
     def _zoh(Lambda, B, dt):
         """
         Discretize the system using the zero-order-hold transform, where A = diag(Lambda):
-            A_bar = exp(A * Delta)
+            A_bar = exp(A * dt)
             B_bar = (A_bar - I) * inv(A) * B
             C_bar = C
             D_bar = D
@@ -483,7 +483,7 @@ class VandermondeReservoir(nn.Module):
         :param dt: Delta time for discretization
         :return: Lambda_bar, B_bar (Discrete System)
         """
-        Ones = torch.ones(Lambda.shape[0], dtype=torch.float32)
+        Ones = torch.ones(size=Lambda.shape, dtype=torch.float32)
 
         Lambda_bar = torch.exp(Lambda * dt)
         B_bar = torch.einsum('p,ph->ph', torch.mul(1 / Lambda, (Lambda_bar - Ones)), B)
