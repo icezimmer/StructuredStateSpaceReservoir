@@ -80,7 +80,7 @@ def parse_args():
             parser.add_argument('--kernel', choices=kernel_classes, default='V',
                                 help='Kernel name.')
             parser.add_argument('--mix', default='conv1d+glu', help='Inner Mixing layer.')
-            parser.add_argument('--dt', type=int, default=None, help='Sampling rate (only for continuous dynamics).')
+            parser.add_argument('--dt', type=float, default=None, help='Sampling rate (only for continuous dynamics).')
             parser.add_argument('--strong', type=float, default=0.7, help='Strong Stability for internal dynamics.')
             parser.add_argument('--weak', type=float, default=0.95, help='Weak Stability for internal dynamics.')
             parser.add_argument('--kernellr', type=float, default=0.001, help='Learning rate for kernel pars.')
@@ -97,7 +97,7 @@ def parse_args():
             parser.add_argument('--kernel', choices=kernel_classes_reservoir, default='Vr',
                                 help='Kernel name.')
             parser.add_argument('--mix', default='identity', help='Inner Mixing layer.')
-            parser.add_argument('--dt', type=int, default=None, help='Sampling rate (only for continuous dynamics).')
+            parser.add_argument('--dt', type=float, default=None, help='Sampling rate (only for continuous dynamics).')
             parser.add_argument('--strong', type=float, default=0.98, help='Strong Stability for internal dynamics.')
             parser.add_argument('--weak', type=float, default=1.0, help='Weak Stability for internal dynamics.')
 
