@@ -12,7 +12,7 @@ class MiniVandermonde(nn.Module):
 
     def __init__(self, d_input, d_state, kernel_size,
                  strong_stability, weak_stability,
-                 input_output_scaling=1.0,
+                 scaleW=1.0,
                  lr=0.001, wd=0.0,
                  field='complex'):
         """
@@ -41,7 +41,7 @@ class MiniVandermonde(nn.Module):
 
         input_output_reservoir = ReservoirMatrix(d_in=self.d_state, d_out=self.d_output)
 
-        W = input_output_reservoir.uniform_disk(radius=input_output_scaling, field=field)
+        W = input_output_reservoir.uniform_disk(radius=scaleW, field=field)
 
         state_reservoir = DiscreteStateReservoir(self.d_state)
         Lambda_bar = state_reservoir.diagonal_state_space_matrix(
@@ -135,7 +135,7 @@ class MiniVandermondeFreezeW(MiniVandermonde):
 
     def __init__(self, d_input, d_state, kernel_size,
                  strong_stability, weak_stability, dt=None,
-                 input_output_scaling=1.0,
+                 scaleW=1.0,
                  lr=0.001, wd=0.0,
                  field='complex'):
         """
@@ -156,7 +156,7 @@ class MiniVandermondeFreezeW(MiniVandermonde):
         """
         super().__init__(d_input, d_state, kernel_size,
                          strong_stability, weak_stability,
-                         input_output_scaling,
+                         scaleW,
                          lr, wd,
                          field)
 
@@ -168,7 +168,7 @@ class MiniVandermondeFreezeA(MiniVandermonde):
 
     def __init__(self, d_input, d_state, kernel_size,
                  strong_stability, weak_stability, dt=None,
-                 input_output_scaling=1.0,
+                 scaleW=1.0,
                  lr=0.001, wd=0.0,
                  field='complex'):
         """
@@ -189,7 +189,7 @@ class MiniVandermondeFreezeA(MiniVandermonde):
         """
         super().__init__(d_input, d_state, kernel_size,
                          strong_stability, weak_stability,
-                         input_output_scaling,
+                         scaleW,
                          lr, wd,
                          field)
 

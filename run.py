@@ -76,9 +76,9 @@ def parse_args():
             parser.add_argument('--kernelwd', type=float, default=0.0, help='Learning rate for kernel pars.')
         elif args.block == 'S4D':
             parser.add_argument('--conv', choices=conv_classes, default='fft', help='Skip connection matrix D.')
+            parser.add_argument('--scaleD', type=float, default=1.0, help='Skip connection matrix D scaling.')
             parser.add_argument('--kerneldrop', type=float, default=0.0, help='Dropout the kernel inside the block.')
-            parser.add_argument('--kernel', choices=kernel_classes, default='V',
-                                help='Kernel name.')
+            parser.add_argument('--kernel', choices=kernel_classes, default='V', help='Kernel name.')
             parser.add_argument('--mix', default='conv1d+glu', help='Inner Mixing layer.')
             parser.add_argument('--strong', type=float, default=0.7, help='Strong Stability for internal dynamics.')
             parser.add_argument('--weak', type=float, default=0.95, help='Weak Stability for internal dynamics.')
@@ -92,7 +92,8 @@ def parse_args():
             parser.add_argument('--rho', type=float, default=1.0, help='Spectral Radius of hidden state matrix.')
             parser.add_argument('--leaky', type=float, default=1.0, help='Leakage Rate for leaky integrator.')
         elif args.block == 'S4R':
-            parser.add_argument('--encoder', default='reservoir', help='Encoder model.')
+            parser.add_argument('--scaleencoder', type=float, default=1.0, help='Encoder model scaling factor.')
+            parser.add_argument('--scaleD', type=float, default=1.0, help='Skip connection matrix D scaling.')
             parser.add_argument('--kernel', choices=kernel_classes_reservoir, default='Vr',
                                 help='Kernel name.')
             parser.add_argument('--mix', default='identity', help='Inner Mixing layer.')
@@ -182,6 +183,7 @@ def main():
     elif args.block == 'S4D':
         block_args = {'mixing_layer': args.mix,
                       'convolution': args.conv,
+                      'scaleD': args.scaleD,
                       'drop_kernel': args.kerneldrop, 'dropout': args.dropout,
                       'kernel': args.kernel, 'kernel_size': kernel_size,
                       'strong_stability': args.strong, 'weak_stability': args.weak}
@@ -192,22 +194,23 @@ def main():
             block_args['wd'] = args.kernelwd
         if args.kernel.startswith('V'):
             block_args['dt'] = args.dt
-            block_args['input2state_scaling'] = args.scaleB
-            block_args['state2output_scaling'] = args.scaleC
+            block_args['scaleB'] = args.scaleB
+            block_args['scaleC'] = args.scaleC
         elif args.kernel.startswith('miniV'):
-            block_args['input_output_scaling'] = args.scaleW
+            block_args['scaleW'] = args.scaleW
     elif args.block == 'ESN':
         block_args = {'input_scaling': args.input, 'spectral_radius': args.rho, 'leakage_rate': args.leaky}
     elif args.block == 'S4R':
         block_args = {'mixing_layer': args.mix,
+                      'scaleD': args.scaleD,
                       'kernel': args.kernel, 'kernel_size': kernel_size,
                       'strong_stability': args.strong, 'weak_stability': args.weak}
         if args.kernel.startswith('V'):
             block_args['dt'] = args.dt
-            block_args['input2state_scaling'] = args.scaleB
-            block_args['state2output_scaling'] = args.scaleC
+            block_args['scaleB'] = args.scaleB
+            block_args['scaleC'] = args.scaleC
         elif args.kernel.startswith('miniV'):
-            block_args['input_output_scaling'] = args.scaleW
+            block_args['scaleW'] = args.scaleW
     else:
         raise ValueError('Invalid block name')
 
@@ -307,7 +310,7 @@ def main():
             reservoir_model = StackedReservoir(n_layers=args.layers,
                                                d_input=d_input, d_model=args.neurons,
                                                transient=args.transient,
-                                               encoder=args.encoder,
+                                               encoder_scaling=args.scaleencoder,
                                                **block_args)
         elif args.block == 'ESN':
             reservoir_model = StackedEchoState(n_layers=args.layers,

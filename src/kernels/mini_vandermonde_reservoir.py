@@ -11,7 +11,7 @@ class MiniVandermondeReservoir(nn.Module):
 
     def __init__(self, d_input, d_state, kernel_size,
                  strong_stability, weak_stability,
-                 input_output_scaling=1.0,
+                 scaleW=1.0,
                  field='complex'):
         """
         Construct the convolution kernel.
@@ -38,7 +38,7 @@ class MiniVandermondeReservoir(nn.Module):
 
         input_output_reservoir = ReservoirMatrix(d_in=self.d_state, d_out=self.d_output)
 
-        W = input_output_reservoir.uniform_disk(radius=input_output_scaling, field=field)
+        W = input_output_reservoir.uniform_disk(radius=scaleW, field=field)
 
         state_reservoir = DiscreteStateReservoir(self.d_state)
         Lambda_bar = state_reservoir.diagonal_state_space_matrix(
