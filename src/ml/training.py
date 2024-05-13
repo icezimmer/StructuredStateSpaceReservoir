@@ -58,10 +58,10 @@ class TrainModel:
         self.training_loss = []
         self.validation_loss = []
 
-    def early_stopping(self, train_dataloader, val_dataloader, patience, num_epochs=float('inf'),
+    def early_stopping(self, train_dataloader, val_dataloader, patience, reduce_plateau, num_epochs=float('inf'),
                        plot_path=None):
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer=self.optimizer, patience=patience//2, factor=0.2)
+            optimizer=self.optimizer, patience=patience//2, factor=reduce_plateau)
         epoch = 0
         buffer = 0
         best_val_loss = float('inf')

@@ -64,6 +64,7 @@ def parse_args():
         parser.add_argument('--layerdrop', type=float, default=0.0, help='Dropout the output of each layer.')
         parser.add_argument('--lr', type=float, default=0.004, help='Learning rate for NON-kernel parameters.')
         parser.add_argument('--wd', type=float, default=0.1, help='Weight decay for NON-kernel parameters.')
+        parser.add_argument('--plateau', type=float, default=0.2, help='Learning rate decay factor on Plateau.')
         parser.add_argument('--epochs', type=int, default=float('inf'), help='Number of epochs.')
         parser.add_argument('--patience', type=int, default=10, help='Patience for the early stopping.')
         if args.block in ['VanillaRNN', 'VanillaGRU']:
@@ -112,6 +113,7 @@ def parse_args():
             parser.add_argument('--mlplayers', type=int, default=2, help='Number of MLP layers.')
             parser.add_argument('--lr', type=float, default=0.004, help='Learning rate for MLP parameters.')
             parser.add_argument('--wd', type=float, default=0.1, help='Weight decay for MLP parameters.')
+            parser.add_argument('--plateau', type=float, default=0.2, help='Learning rate decay factor on Plateau.')
             parser.add_argument('--epochs', type=int, default=float('inf'), help='Number of epochs.')
             parser.add_argument('--patience', type=int, default=10, help='Patience for the early stopping.')
 
@@ -120,6 +122,7 @@ def parse_args():
             parser.add_argument('--ssmlayers', type=int, default=1, help='Number of layers.')
             parser.add_argument('--lr', type=float, default=0.004, help='Learning rate for NON-kernel parameters.')
             parser.add_argument('--wd', type=float, default=0.1, help='Weight decay for NON-kernel parameters.')
+            parser.add_argument('--plateau', type=float, default=0.2, help='Learning rate decay factor on Plateau.')
             parser.add_argument('--epochs', type=int, default=float('inf'), help='Number of epochs.')
             parser.add_argument('--patience', type=int, default=10, help='Patience for the early stopping.')
 
@@ -281,7 +284,7 @@ def main():
         logging.info('Fitting model.')
         tracker.start()
         trainer.early_stopping(train_dataloader=train_dataloader, val_dataloader=val_dataloader,
-                               patience=args.patience, num_epochs=args.epochs,
+                               patience=args.patience, reduce_plateau=args.plateau, num_epochs=args.epochs,
                                plot_path=os.path.join(run_dir, 'loss.png'))
         emissions = tracker.stop()
         logging.info(f"Estimated CO2 emissions for this fit: {emissions} kg")
@@ -378,7 +381,7 @@ def main():
             logging.info('Fitting model.')
             tracker.start()
             trainer.early_stopping(train_dataloader=train_dataloader, val_dataloader=val_dataloader,
-                                   patience=args.patience, num_epochs=args.epochs,
+                                   patience=args.patience, num_epochs=args.epochs, reduce_plateau=args.plateau,
                                    plot_path=os.path.join(run_dir, 'loss.png'))
             emissions = tracker.stop()
             logging.info(f"Estimated CO2 emissions for this fit: {emissions} kg")
@@ -440,7 +443,7 @@ def main():
             logging.info('Fitting model.')
             tracker.start()
             trainer.early_stopping(train_dataloader=train_dataloader, val_dataloader=val_dataloader,
-                                   patience=args.patience, num_epochs=args.epochs,
+                                   patience=args.patience, num_epochs=args.epochs, reduce_plateau=args.plateau,
                                    plot_path=os.path.join(run_dir, 'loss.png'))
             emissions = tracker.stop()
             logging.info(f"Estimated CO2 emissions for this fit: {emissions} kg")
