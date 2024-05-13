@@ -62,7 +62,6 @@ def parse_args():
         parser.add_argument('--decoder', default='conv1d', help='Decoder model.')
         parser.add_argument('--dropout', type=float, default=0.0, help='Dropout the preactivation inside the block.')
         parser.add_argument('--layerdrop', type=float, default=0.0, help='Dropout the output of each layer.')
-
         parser.add_argument('--lr', type=float, default=0.004, help='Learning rate for NON-kernel parameters.')
         parser.add_argument('--wd', type=float, default=0.1, help='Weight decay for NON-kernel parameters.')
         parser.add_argument('--epochs', type=int, default=float('inf'), help='Number of epochs.')
@@ -80,7 +79,6 @@ def parse_args():
             parser.add_argument('--kernel', choices=kernel_classes, default='V',
                                 help='Kernel name.')
             parser.add_argument('--mix', default='conv1d+glu', help='Inner Mixing layer.')
-            parser.add_argument('--dt', type=float, default=None, help='Sampling rate (only for continuous dynamics).')
             parser.add_argument('--strong', type=float, default=0.7, help='Strong Stability for internal dynamics.')
             parser.add_argument('--weak', type=float, default=0.95, help='Weak Stability for internal dynamics.')
             parser.add_argument('--kernellr', type=float, default=0.001, help='Learning rate for kernel pars.')
@@ -97,7 +95,6 @@ def parse_args():
             parser.add_argument('--kernel', choices=kernel_classes_reservoir, default='Vr',
                                 help='Kernel name.')
             parser.add_argument('--mix', default='identity', help='Inner Mixing layer.')
-            parser.add_argument('--dt', type=float, default=None, help='Sampling rate (only for continuous dynamics).')
             parser.add_argument('--strong', type=float, default=0.98, help='Strong Stability for internal dynamics.')
             parser.add_argument('--weak', type=float, default=1.0, help='Weak Stability for internal dynamics.')
 
@@ -127,9 +124,10 @@ def parse_args():
             parser.add_argument('--patience', type=int, default=10, help='Patience for the early stopping.')
 
 
-    # Conditionally add --scaleB and --scaleC if kernel starts with 'V'
+    # Conditionally add --dt, --scaleB and --scaleC if kernel starts with 'V'
     if hasattr(args, 'kernel'):
         if args.kernel.startswith('V'):
+            parser.add_argument('--dt', type=float, default=None, help='Sampling rate (only for continuous dynamics).')
             parser.add_argument('--scaleB', type=float, default=1.0, help='Scaling for the input2state matrix B.')
             parser.add_argument('--scaleC', type=float, default=1.0, help='Scaling for the state2output matrix C.')
 
@@ -183,13 +181,14 @@ def main():
                       'convolution': args.conv,
                       'drop_kernel': args.kerneldrop, 'dropout': args.dropout,
                       'kernel': args.kernel, 'kernel_size': kernel_size,
-                      'dt': args.dt, 'strong_stability': args.strong, 'weak_stability': args.weak}
+                      'strong_stability': args.strong, 'weak_stability': args.weak}
 
         if args.kernel in ['V', 'V-freezeB', 'V-freezeC', 'V-freezeBC', 'V-freezeA', 'V-freezeAB', 'V-freezeAC',
                            'miniV', 'miniV-freezeW', 'miniV-freezeA']:
             block_args['lr'] = args.kernellr
             block_args['wd'] = args.kernelwd
         if args.kernel.startswith('V'):
+            block_args['dt'] = args.dt
             block_args['input2state_scaling'] = args.scaleB
             block_args['state2output_scaling'] = args.scaleC
         elif args.kernel.startswith('miniV'):
@@ -199,8 +198,9 @@ def main():
     elif args.block == 'S4R':
         block_args = {'mixing_layer': args.mix,
                       'kernel': args.kernel, 'kernel_size': kernel_size,
-                      'dt': args.dt, 'strong_stability': args.strong, 'weak_stability': args.weak}
+                      'strong_stability': args.strong, 'weak_stability': args.weak}
         if args.kernel.startswith('V'):
+            block_args['dt'] = args.dt
             block_args['input2state_scaling'] = args.scaleB
             block_args['state2output_scaling'] = args.scaleC
         elif args.kernel.startswith('miniV'):
