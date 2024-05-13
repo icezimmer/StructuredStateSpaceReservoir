@@ -232,7 +232,7 @@ def main():
         project_name = (args.encoder + '_[{' + block_name + '}_' + str(args.layers) + 'x' + str(args.neurons) + ']_' +
                         args.decoder)
     elif args.block == 'S4R':
-        project_name = (args.encoder + '_[{' + block_name + '}_' + str(args.layers) + 'x' + str(args.neurons) + ']_' +
+        project_name = ('[{' + block_name + '}_' + str(args.layers) + 'x' + str(args.neurons) + ']_' +
                         args.readout)
     elif args.block == 'ESN':
         project_name = ('[{' + block_name + '}_' + str(args.layers) + 'x' + str(args.neurons) + ']_' +
@@ -322,9 +322,6 @@ def main():
             torch.backends.cudnn.benchmark = False
             reservoir_model.to(device=torch.device(args.device))
 
-            readout = ReadOut(reservoir_model=reservoir_model, develop_dataloader=develop_dataloader,
-                              d_output=d_output, to_vec=to_vec, bias=True, lambda_=args.ridge)
-
             logging.info('Saving model parameters properties.')
             save_parameters(model=reservoir_model, file_path=parameters_path)
 
@@ -334,6 +331,8 @@ def main():
                                        gpu_ids=[check_model_device(reservoir_model).index])
             logging.info('Fitting model.')
             tracker.start()
+            readout = ReadOut(reservoir_model=reservoir_model, develop_dataloader=develop_dataloader,
+                              d_output=d_output, to_vec=to_vec, bias=True, lambda_=args.ridge)
             readout.fit_()
             emissions = tracker.stop()
             logging.info(f"Estimated CO2 emissions for this fit: {emissions} kg")
@@ -356,22 +355,11 @@ def main():
             reservoir_model.to(device=torch.device(args.device))
             model.to(device=torch.device(args.device))
 
-            logging.info(f'Computing reservoir develop dataset.')
-            develop_dataset = Reservoir2NN(reservoir_model=reservoir_model, dataloader=develop_dataloader)
-            develop_dataloader = DataLoader(develop_dataset, batch_size=args.batch, shuffle=False)
-
             logging.info('Saving model parameters properties.')
             save_parameters(model=model, file_path=parameters_path)
 
-            logging.info('Splitting reservoir develop dataset into training and validation set.')
-            train_dataset, val_dataset = random_split_dataset(develop_dataset)
-            train_dataloader = DataLoader(train_dataset, batch_size=args.batch, shuffle=True)
-            val_dataloader = DataLoader(val_dataset, batch_size=args.batch, shuffle=False)
-
-            logging.info('Setting optimizer and trainer.')
+            logging.info('Setting optimizer.')
             optimizer = torch.optim.AdamW(params=model.parameters(), lr=args.lr, weight_decay=args.wd)
-            trainer = TrainModel(model=model, optimizer=optimizer, criterion=criterion,
-                                 develop_dataloader=develop_dataloader)
 
             logging.info('Tracking energy consumption.')
             tracker = EmissionsTracker(output_dir=output_dir, project_name=project_name,
@@ -380,6 +368,16 @@ def main():
 
             logging.info('Fitting model.')
             tracker.start()
+            develop_dataset = Reservoir2NN(reservoir_model=reservoir_model, dataloader=develop_dataloader)
+            develop_dataloader = DataLoader(develop_dataset, batch_size=args.batch, shuffle=False)
+
+            train_dataset, val_dataset = random_split_dataset(develop_dataset)
+            train_dataloader = DataLoader(train_dataset, batch_size=args.batch, shuffle=True)
+            val_dataloader = DataLoader(val_dataset, batch_size=args.batch, shuffle=False)
+
+            trainer = TrainModel(model=model, optimizer=optimizer, criterion=criterion,
+                                 develop_dataloader=develop_dataloader)
+
             trainer.early_stopping(train_dataloader=train_dataloader, val_dataloader=val_dataloader,
                                    patience=args.patience, num_epochs=args.epochs, reduce_plateau=args.plateau,
                                    plot_path=os.path.join(run_dir, 'loss.png'))
@@ -418,22 +416,11 @@ def main():
             reservoir_model.to(device=torch.device(args.device))
             model.to(device=torch.device(args.device))
 
-            logging.info(f'Computing reservoir develop dataset.')
-            develop_dataset = Reservoir2NN(reservoir_model=reservoir_model, dataloader=develop_dataloader)
-            develop_dataloader = DataLoader(develop_dataset, batch_size=args.batch, shuffle=False)
-
             logging.info('Saving model parameters properties.')
             save_parameters(model=model, file_path=parameters_path)
 
-            logging.info('Splitting reservoir develop dataset into training and validation set.')
-            train_dataset, val_dataset = random_split_dataset(develop_dataset)
-            train_dataloader = DataLoader(train_dataset, batch_size=args.batch, shuffle=True)
-            val_dataloader = DataLoader(val_dataset, batch_size=args.batch, shuffle=False)
-
-            logging.info('Setting optimizer and trainer.')
+            logging.info('Setting optimizer.')
             optimizer = torch.optim.AdamW(params=model.parameters(), lr=args.lr, weight_decay=args.wd)
-            trainer = TrainModel(model=model, optimizer=optimizer, criterion=criterion,
-                                 develop_dataloader=develop_dataloader)
 
             logging.info('Tracking energy consumption.')
             tracker = EmissionsTracker(output_dir=output_dir, project_name=project_name,
@@ -442,6 +429,16 @@ def main():
 
             logging.info('Fitting model.')
             tracker.start()
+            develop_dataset = Reservoir2NN(reservoir_model=reservoir_model, dataloader=develop_dataloader)
+            develop_dataloader = DataLoader(develop_dataset, batch_size=args.batch, shuffle=False)
+
+            train_dataset, val_dataset = random_split_dataset(develop_dataset)
+            train_dataloader = DataLoader(train_dataset, batch_size=args.batch, shuffle=True)
+            val_dataloader = DataLoader(val_dataset, batch_size=args.batch, shuffle=False)
+
+            trainer = TrainModel(model=model, optimizer=optimizer, criterion=criterion,
+                                 develop_dataloader=develop_dataloader)
+
             trainer.early_stopping(train_dataloader=train_dataloader, val_dataloader=val_dataloader,
                                    patience=args.patience, num_epochs=args.epochs, reduce_plateau=args.plateau,
                                    plot_path=os.path.join(run_dir, 'loss.png'))
