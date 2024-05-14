@@ -1,3 +1,4 @@
+import torch
 from torchvision import datasets, transforms
 from src.torch_dataset.sequantial_image import SequentialImage2Classify
 from src.utils.saving import save_data
@@ -30,6 +31,22 @@ if args.task == 'smnist':
                                                            train=False,
                                                            transform=transform,
                                                            download=True))
+elif args.task == 'pmnist':
+    transform = transforms.Compose([
+        transforms.ToTensor(),  # Convert image to pytorch tensor with values in [0, 1] and shape (C, H, W)
+        # transforms.Normalize((0.1307,), (0.3081,)),
+    ])
+    permutation = torch.randperm(28 * 28)
+    develop_dataset = SequentialImage2Classify(dataset=datasets.MNIST(root='./checkpoint/',
+                                                                      train=True,
+                                                                      transform=transform,
+                                                                      download=True),
+                                               permutation=permutation)
+    test_dataset = SequentialImage2Classify(dataset=datasets.MNIST(root='./checkpoint/',
+                                                                   train=False,
+                                                                   transform=transform,
+                                                                   download=True),
+                                            permutation=permutation)
 elif args.task == 'scifar10':
     transform = transforms.Compose([
         transforms.ToTensor(),

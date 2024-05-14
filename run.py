@@ -23,8 +23,8 @@ from codecarbon import EmissionsTracker
 
 block_factories = {
     'S4': S4Block,
-    'VanillaRNN': VanillaRNN,
-    'VanillaGRU': VanillaGRU,
+    'RNN': VanillaRNN,
+    'GRU': VanillaGRU,
     'S4D': S4D,
     'ESN': ESN,
     'S4R': S4R
@@ -57,7 +57,7 @@ def parse_args():
     args, unknown = parser.parse_known_args()
 
     # Conditional argument additions based on block type
-    if args.block in ['VanillaRNN', 'VanillaGRU', 'S4', 'S4D']:
+    if args.block in ['RNN', 'GRU', 'S4', 'S4D']:
         parser.add_argument('--encoder', default='conv1d', help='Encoder model.')
         parser.add_argument('--decoder', default='conv1d', help='Decoder model.')
         parser.add_argument('--dropout', type=float, default=0.0, help='Dropout the preactivation inside the block.')
@@ -67,7 +67,7 @@ def parse_args():
         parser.add_argument('--plateau', type=float, default=0.2, help='Learning rate decay factor on Plateau.')
         parser.add_argument('--epochs', type=int, default=float('inf'), help='Number of epochs.')
         parser.add_argument('--patience', type=int, default=10, help='Patience for the early stopping.')
-        if args.block in ['VanillaRNN', 'VanillaGRU']:
+        if args.block in ['RNN', 'GRU']:
             pass
         elif args.block == 'S4':
             parser.add_argument('--kernel', choices=s4_mode, default='dplr', help='Kernel name.')
@@ -147,8 +147,8 @@ def main():
     logging.basicConfig(level=logging.INFO)
     args = parse_args()
 
-    classification_task = ['smnist', 'pathfinder', 'scifar10', 'scifar10gs']
-    if args.task == 'smnist':
+    classification_task = ['smnist', 'pmnist', 'pathfinder', 'scifar10', 'scifar10gs']
+    if args.task in ['smnist', 'pmnist']:
         criterion = torch.nn.CrossEntropyLoss()  # classification task
         to_vec = True  # classification task (take last time as output)
         d_input = 1  # number of input features
@@ -175,7 +175,7 @@ def main():
     else:
         raise ValueError('Invalid task name')
 
-    if args.block in ['VanillaRNN', 'VanillaGRU']:
+    if args.block in ['RNN', 'GRU']:
         block_args = {}
     elif args.block == 'S4':
         block_args = {'mode':args.kernel, 'drop_kernel': args.kerneldrop, 'dropout': args.dropout,
@@ -253,7 +253,7 @@ def main():
 
     parameters_path = os.path.join(run_dir, 'parameters.txt')
 
-    if args.block in ['VanillaRNN', 'VanillaGRU', 'S4', 'S4D']:
+    if args.block in ['RNN', 'GRU', 'S4', 'S4D']:
         logging.info('Initializing model.')
         model = StackedNetwork(block_cls=block_factories[args.block], n_layers=args.layers,
                                d_input=d_input, d_model=args.neurons, d_output=d_output,
