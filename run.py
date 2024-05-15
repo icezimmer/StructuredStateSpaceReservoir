@@ -17,7 +17,7 @@ from src.reservoir.readout import ReadOut
 from src.ml.optimization import setup_optimizer
 from src.ml.training import TrainModel
 from src.ml.evaluation import EvaluateClassifier
-from src.utils.saving import load_data, save_parameters, save_hyperparameters, update_results
+from src.utils.saving import load_data, save_hyperparameters, update_results
 from src.utils.check_device import check_model_device
 from codecarbon import EmissionsTracker
 
@@ -87,7 +87,6 @@ def parse_args():
     elif args.block in ['ESN', 'S4R']:
         parser.add_argument('--readout', choices=readout_classes, default='mlp', help='Type of Readout.')
         if args.block == 'ESN':
-            # input_scaling=1.0, spectral_radius=1.0, leakage_rate=0.5
             parser.add_argument('--input', type=float, default=1.0, help='Scaling of input matrix.')
             parser.add_argument('--rho', type=float, default=1.0, help='Spectral Radius of hidden state matrix.')
             parser.add_argument('--leaky', type=float, default=1.0, help='Leakage Rate for leaky integrator.')
@@ -251,8 +250,6 @@ def main():
     hyperparameters_path = os.path.join(run_dir, 'hyperparameters.json')
     save_hyperparameters(args=args, file_path=hyperparameters_path)
 
-    parameters_path = os.path.join(run_dir, 'parameters.txt')
-
     if args.block in ['RNN', 'GRU', 'S4', 'S4D']:
         logging.info('Initializing model.')
         model = StackedNetwork(block_cls=block_factories[args.block], n_layers=args.layers,
@@ -265,9 +262,6 @@ def main():
         logging.info(f'Moving model to {args.device}.')
         torch.backends.cudnn.benchmark = False
         model.to(device=torch.device(args.device))
-
-        logging.info('Saving model parameters properties.')
-        save_parameters(model=model, file_path=parameters_path)
 
         logging.info('Splitting develop data into training and validation data.')
         train_dataset, val_dataset = random_split_dataset(develop_dataset)
@@ -312,22 +306,27 @@ def main():
                                                transient=args.transient,
                                                encoder_scaling=args.scaleencoder,
                                                **block_args)
+            logging.info(f'Moving reservoir model to {args.device}.')
+            torch.backends.cudnn.benchmark = False
+            reservoir_model.to(device=torch.device(args.device))
+
+            logging.info('Saving reservoir model.')
+            torch.save(reservoir_model.state_dict(), os.path.join(run_dir, 'reservoir_model.pt'))
         elif args.block == 'ESN':
             reservoir_model = StackedEchoState(n_layers=args.layers,
                                                d_input=d_input, d_model=args.neurons,
                                                transient=args.transient,
                                                **block_args)
+            logging.info(f'Moving reservoir model to {args.device}.')
+            torch.backends.cudnn.benchmark = False
+            reservoir_model.to(device=torch.device(args.device))
+
+            logging.info('Saving reservoir model.')
+            torch.save(reservoir_model.state_dict(), os.path.join(run_dir, 'reservoir_model.pt'))
         else:
             raise ValueError('Invalid block name')
 
         if args.readout == 'offline':
-            logging.info(f'Moving model to {args.device}.')
-            torch.backends.cudnn.benchmark = False
-            reservoir_model.to(device=torch.device(args.device))
-
-            logging.info('Saving model parameters properties.')
-            save_parameters(model=reservoir_model, file_path=parameters_path)
-
             logging.info('Tracking energy consumption.')
             tracker = EmissionsTracker(output_dir=output_dir, project_name=project_name,
                                        log_level="ERROR",
@@ -354,12 +353,7 @@ def main():
             model = MLP(n_layers=args.mlplayers, d_input=reservoir_model.d_output, d_output=d_output)
 
             logging.info(f'Moving model to {args.device}.')
-            torch.backends.cudnn.benchmark = False
-            reservoir_model.to(device=torch.device(args.device))
             model.to(device=torch.device(args.device))
-
-            logging.info('Saving model parameters properties.')
-            save_parameters(model=model, file_path=parameters_path)
 
             logging.info('Setting optimizer.')
             optimizer = torch.optim.AdamW(params=model.parameters(), lr=args.lr, weight_decay=args.wd)
@@ -415,12 +409,7 @@ def main():
                                    kernel_size=-args.transient if args.transient < 0 else kernel_size - args.transient)
 
             logging.info(f'Moving model to {args.device}.')
-            torch.backends.cudnn.benchmark = False
-            reservoir_model.to(device=torch.device(args.device))
             model.to(device=torch.device(args.device))
-
-            logging.info('Saving model parameters properties.')
-            save_parameters(model=model, file_path=parameters_path)
 
             logging.info('Setting optimizer.')
             optimizer = torch.optim.AdamW(params=model.parameters(), lr=args.lr, weight_decay=args.wd)
