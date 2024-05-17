@@ -61,7 +61,8 @@ class StackedNetwork(nn.Module):
 
 
 class StackedReservoir(nn.Module):
-    def __init__(self, n_layers, d_input, d_model, transient, encoder_scaling=1.0,
+    def __init__(self, n_layers, d_input, d_model, transient,
+                 min_encoder_scaling=0.0, max_encoder_scaling=1.0,
                  **block_args):
         """
         Stack multiple blocks of the same type to form a deep network.
@@ -74,7 +75,8 @@ class StackedReservoir(nn.Module):
 
         self.d_output = self.n_layers * self.d_state
 
-        self.encoder = LinearReservoir(d_input=d_input, d_output=self.d_state, radius=encoder_scaling, field='real')
+        self.encoder = LinearReservoir(d_input=d_input, d_output=self.d_state,
+                                       min_radius=min_encoder_scaling, max_radius=max_encoder_scaling, field='real')
 
         self.layers = nn.ModuleList([S4R(d_model=self.d_state, **block_args) for _ in range(self.n_layers)])
 

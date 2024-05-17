@@ -14,7 +14,8 @@ from src.kernels.mini_vandermonde_reservoir import MiniVandermondeReservoir
 class FFTConv(nn.Module):
     """Generate convolution kernel from diagonal SSM parameters."""
 
-    def __init__(self, d_input, d_state, kernel, scaleD=1.0, dropout=0.0, drop_kernel=0.0, **kernel_args):
+    def __init__(self, d_input, d_state, kernel,
+                 min_scaleD=0.0, max_scaleD=1.0, dropout=0.0, drop_kernel=0.0, **kernel_args):
         """
         Construct a discrete LTI SSM model.
         Recurrence view:
@@ -54,7 +55,7 @@ class FFTConv(nn.Module):
         self.kernel_cls = kernel_classes[kernel](d_input=self.d_input, d_state=self.d_state, **kernel_args)
 
         input2output_reservoir = ReservoirVector(d=self.d_input)
-        D = input2output_reservoir.uniform_disk(radius=scaleD, field='real')
+        D = input2output_reservoir.uniform_ring(min_radius=min_scaleD, max_radius=max_scaleD, field='real')
         self.D = nn.Parameter(D, requires_grad=True)  # (H,)
 
         self.drop_kernel = nn.Dropout(drop_kernel) if drop_kernel > 0 else nn.Identity()
@@ -116,7 +117,8 @@ class FFTConv(nn.Module):
 
 
 class FFTConvFreezeD(FFTConv):
-    def __init__(self, d_input, d_state, kernel, scaleD=1.0, dropout=0.0, drop_kernel=0.0, **kernel_args):
+    def __init__(self, d_input, d_state, kernel, min_scaleD=0.0, max_scaleD=1.0,
+                 dropout=0.0, drop_kernel=0.0, **kernel_args):
         """
         Construct a discrete LTI SSM model whit frozen D.
         Recurrence view:
@@ -129,7 +131,7 @@ class FFTConvFreezeD(FFTConv):
         :param dt: delta time for continuous dynamics (default: None for discrete dynamics)
         :param field: field for the state 'real' or 'complex' (default: 'complex')
         """
-        super().__init__(d_input, d_state, kernel, scaleD, dropout, drop_kernel, **kernel_args)
+        super().__init__(d_input, d_state, kernel, min_scaleD, max_scaleD, dropout, drop_kernel, **kernel_args)
 
         self._freeze_parameter('D')
 

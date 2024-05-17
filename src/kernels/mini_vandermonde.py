@@ -12,7 +12,7 @@ class MiniVandermonde(nn.Module):
 
     def __init__(self, d_input, d_state, kernel_size,
                  strong_stability, weak_stability,
-                 scaleW=1.0,
+                 min_scaleW=0.0, max_scaleW=1.0,
                  lr=0.001, wd=0.0,
                  field='complex'):
         """
@@ -41,7 +41,7 @@ class MiniVandermonde(nn.Module):
 
         input_output_reservoir = ReservoirMatrix(d_in=self.d_state, d_out=self.d_output)
 
-        W = input_output_reservoir.uniform_disk(radius=scaleW, field=field)
+        W = input_output_reservoir.uniform_ring(min_radius=min_scaleW, max_radius=max_scaleW, field=field)
 
         state_reservoir = DiscreteStateReservoir(self.d_state)
         Lambda_bar = state_reservoir.diagonal_state_space_matrix(
@@ -134,8 +134,8 @@ class MiniVandermondeFreezeW(MiniVandermonde):
     """Generate convolution kernel from diagonal SSM parameters."""
 
     def __init__(self, d_input, d_state, kernel_size,
-                 strong_stability, weak_stability, dt=None,
-                 scaleW=1.0,
+                 strong_stability, weak_stability,
+                 min_scaleW=0.0, max_scaleW=1.0,
                  lr=0.001, wd=0.0,
                  field='complex'):
         """
@@ -151,12 +151,11 @@ class MiniVandermondeFreezeW(MiniVandermonde):
             l = 0, ..., kernel_size-1.
         :param d_input: dimensionality of the input space
         :param d_state: dimensionality of the latent space
-        :param dt: delta time for continuous dynamics (default: None for discrete dynamics)
         :param field: field for the state 'real' or 'complex' (default: 'complex')
         """
         super().__init__(d_input, d_state, kernel_size,
                          strong_stability, weak_stability,
-                         scaleW,
+                         min_scaleW, max_scaleW,
                          lr, wd,
                          field)
 
@@ -167,8 +166,8 @@ class MiniVandermondeFreezeA(MiniVandermonde):
     """Generate convolution kernel from diagonal SSM parameters."""
 
     def __init__(self, d_input, d_state, kernel_size,
-                 strong_stability, weak_stability, dt=None,
-                 scaleW=1.0,
+                 strong_stability, weak_stability,
+                 min_scaleW=0.0, max_scaleW=1.0,
                  lr=0.001, wd=0.0,
                  field='complex'):
         """
@@ -184,12 +183,11 @@ class MiniVandermondeFreezeA(MiniVandermonde):
             l = 0, ..., kernel_size-1.
         :param d_input: dimensionality of the input space
         :param d_state: dimensionality of the latent space
-        :param dt: delta time for continuous dynamics (default: None for discrete dynamics)
         :param field: field for the state 'real' or 'complex' (default: 'complex')
         """
         super().__init__(d_input, d_state, kernel_size,
                          strong_stability, weak_stability,
-                         scaleW,
+                         min_scaleW, max_scaleW,
                          lr, wd,
                          field)
 

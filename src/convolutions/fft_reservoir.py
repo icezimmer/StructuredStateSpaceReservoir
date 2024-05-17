@@ -8,7 +8,8 @@ from src.kernels.mini_vandermonde_reservoir import MiniVandermondeReservoir
 class FFTConvReservoir(nn.Module):
     """Generate convolution kernel from diagonal SSM parameters."""
 
-    def __init__(self, d_input, d_state, kernel, scaleD=1.0, **kernel_args):
+    def __init__(self, d_input, d_state, kernel,
+                 min_scaleD=1.0, max_scaleD=1.0, **kernel_args):
         """
         Construct a discrete LTI SSM model.
         Recurrence view:
@@ -40,7 +41,7 @@ class FFTConvReservoir(nn.Module):
         self.register_buffer('K', K)  # (H, L)
 
         input2output_reservoir = ReservoirVector(d=self.d_input)
-        D = input2output_reservoir.uniform_disk(radius=scaleD, field='real')
+        D = input2output_reservoir.uniform_ring(min_radius=min_scaleD, max_radius=max_scaleD, field='real')
         self.register_buffer('D', D)  # (H,)
 
         self.activation = nn.Tanh()

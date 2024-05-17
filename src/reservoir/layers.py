@@ -5,7 +5,8 @@ import torch.nn as nn
 
 class LinearReservoir(nn.Module):
     def __init__(self, d_input, d_output,
-                 radius=1.0,
+                 min_radius=0.0,
+                 max_radius=1.0,
                  field='real'):
         super().__init__()
 
@@ -14,7 +15,7 @@ class LinearReservoir(nn.Module):
         self.field = field
 
         reservoir = ReservoirMatrix(d_in=self.d_input, d_out=self.d_output)
-        W_in = reservoir.uniform_disk(radius=radius, field=field)
+        W_in = reservoir.uniform_ring(min_radius=min_radius, max_radius=max_radius, field=field)
         self.register_buffer('W_in', W_in)
 
     def step(self, u):

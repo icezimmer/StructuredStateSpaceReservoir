@@ -9,38 +9,20 @@ class ReservoirMatrix:
         self.d_in = d_in
         self.d_out = d_out
 
-    def uniform_disk(self, radius, field):
-        """
-        Create the random uniform matrix such that each matrix values: -radius <= |W_ij| < radius.
-        :param radius: float, the radius of the matrix
-        :param field: str, the field of the matrix, 'real' or 'complex'
-        """
-        if radius < 0:
-            raise ValueError('The radius must be non-negative')
-
-        if field == 'real':
-            W = - radius + 2 * radius * torch.rand(self.d_out, self.d_in, dtype=torch.float32)
-        elif field == 'complex':
-            theta = 2 * torch.pi * torch.rand(self.d_out, self.d_in, dtype=torch.float32)
-            radius = radius * torch.sqrt(torch.rand(self.d_out, self.d_in, dtype=torch.float32))
-
-            real_part = radius * torch.cos(theta)
-            imag_part = radius * torch.sin(theta)
-
-            W = torch.complex(real_part, imag_part)
-        else:
-            raise ValueError("The field must be 'complex' or 'real'.")
-
-        return W
-
-    def uniform_ring(self, radius, field):
+    def uniform_ring(self, min_radius, max_radius, field):
         """
         Create the random uniform matrix such that each matrix values: -radius = |W_ij| = radius.
-        :param radius: float, the radius of the matrix
+        :param min_radius: float, the minimum radius of the matrix values
+        :param max_radius: float, the maximum radius of the matrix values
         :param field: str, the field of the matrix, 'real' or 'complex'
         """
-        if radius < 0:
-            raise ValueError('The radius must be non-negative')
+        if min_radius < 0:
+            raise ValueError('The minimum radius must be non-negative')
+        if max_radius < min_radius:
+            raise ValueError('The maximum radius must be greater or equal to the minimum radius')
+
+        radius = (min_radius + (max_radius - min_radius) *
+                  torch.sqrt(torch.rand(self.d_out, self.d_in, dtype=torch.float32)))
 
         if field == 'real':
             random_signs = torch.sign(torch.randn(self.d_out, self.d_in))  # -1 or 1

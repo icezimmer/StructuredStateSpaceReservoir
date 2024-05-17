@@ -11,8 +11,8 @@ class Vandermonde(nn.Module):
     """
     def __init__(self, d_input, d_state, kernel_size,
                  dt, strong_stability, weak_stability,
-                 scaleB=1.0,
-                 scaleC=1.0,
+                 min_scaleB=0.0, max_scaleB=1.0,
+                 min_scaleC=0.0, max_scaleC=1.0,
                  lr=0.001, wd=0.0,
                  field='complex'):
         """
@@ -42,8 +42,8 @@ class Vandermonde(nn.Module):
         input2state_reservoir = ReservoirMatrix(d_in=self.d_input, d_out=self.d_state)
         state2output_reservoir = ReservoirMatrix(d_in=self.d_state, d_out=self.d_output)
 
-        B = input2state_reservoir.uniform_disk(radius=scaleB, field=field)
-        C = state2output_reservoir.uniform_disk(radius=scaleC, field=field)
+        B = input2state_reservoir.uniform_ring(min_radius=min_scaleB, max_radius=max_scaleB, field=field)
+        C = state2output_reservoir.uniform_ring(min_radius=min_scaleC, max_radius=max_scaleC, field=field)
 
         if dt is None:
             state_reservoir = DiscreteStateReservoir(self.d_state)
@@ -180,8 +180,8 @@ class VandermondeFreezeB(Vandermonde):
 
     def __init__(self, d_input, d_state, kernel_size,
                  dt, strong_stability, weak_stability,
-                 scaleB=1.0,
-                 scaleC=1.0,
+                 min_scaleB=0.0, max_scaleB=1.0,
+                 min_scaleC=0.0, max_scaleC=1.0,
                  lr=0.001, wd=0.0,
                  field='complex'):
         """
@@ -202,8 +202,8 @@ class VandermondeFreezeB(Vandermonde):
         """
         super().__init__(d_input, d_state, kernel_size,
                          dt, strong_stability, weak_stability,
-                         scaleB,
-                         scaleC,
+                         min_scaleB, max_scaleB,
+                         min_scaleC, max_scaleC,
                          lr, wd,
                          field)
 
@@ -215,8 +215,8 @@ class VandermondeFreezeC(Vandermonde):
 
     def __init__(self, d_input, d_state, kernel_size,
                  dt, strong_stability, weak_stability,
-                 scaleB=1.0,
-                 scaleC=1.0,
+                 min_scaleB=0.0, max_scaleB=1.0,
+                 min_scaleC=0.0, max_scaleC=1.0,
                  lr=0.001, wd=0.0,
                  field='complex'):
         """
@@ -237,8 +237,8 @@ class VandermondeFreezeC(Vandermonde):
         """
         super().__init__(d_input, d_state, kernel_size,
                          dt, strong_stability, weak_stability,
-                         scaleB,
-                         scaleC,
+                         min_scaleB, max_scaleB,
+                         min_scaleC, max_scaleC,
                          lr, wd,
                          field)
 
@@ -250,8 +250,8 @@ class VandermondeFreezeBC(Vandermonde):
 
     def __init__(self, d_input, d_state, kernel_size,
                  dt, strong_stability, weak_stability,
-                 scaleB=1.0,
-                 scaleC=1.0,
+                 min_scaleB=0.0, max_scaleB=1.0,
+                 min_scaleC=0.0, max_scaleC=1.0,
                  lr=0.001, wd=0.0,
                  field='complex'):
         """
@@ -272,8 +272,8 @@ class VandermondeFreezeBC(Vandermonde):
         """
         super().__init__(d_input, d_state, kernel_size,
                          dt, strong_stability, weak_stability,
-                         scaleB,
-                         scaleC,
+                         min_scaleB, max_scaleB,
+                         min_scaleC, max_scaleC,
                          lr, wd,
                          field)
 
@@ -286,8 +286,8 @@ class VandermondeFreezeA(Vandermonde):
 
     def __init__(self, d_input, d_state, kernel_size,
                  dt, strong_stability, weak_stability,
-                 scaleB=1.0,
-                 scaleC=1.0,
+                 min_scaleB=0.0, max_scaleB=1.0,
+                 min_scaleC=0.0, max_scaleC=1.0,
                  lr=0.001, wd=0.0,
                  field='complex'):
         """
@@ -308,8 +308,8 @@ class VandermondeFreezeA(Vandermonde):
         """
         super().__init__(d_input, d_state, kernel_size,
                          dt, strong_stability, weak_stability,
-                         scaleB,
-                         scaleC,
+                         min_scaleB, max_scaleB,
+                         min_scaleC, max_scaleC,
                          lr, wd,
                          field)
 
@@ -342,8 +342,8 @@ class VandermondeFreezeAB(VandermondeFreezeA):
 
     def __init__(self, d_input, d_state, kernel_size,
                  dt, strong_stability, weak_stability,
-                 scaleB=1.0,
-                 scaleC=1.0,
+                 min_scaleB=0.0, max_scaleB=1.0,
+                 min_scaleC=0.0, max_scaleC=1.0,
                  lr=0.001, wd=0.0,
                  field='complex'):
         """
@@ -364,8 +364,8 @@ class VandermondeFreezeAB(VandermondeFreezeA):
         """
         super().__init__(d_input, d_state, kernel_size,
                          dt, strong_stability, weak_stability,
-                         scaleB,
-                         scaleC,
+                         min_scaleB, max_scaleB,
+                         min_scaleC, max_scaleC,
                          lr, wd,
                          field)
 
@@ -377,8 +377,8 @@ class VandermondeFreezeAC(VandermondeFreezeA):
 
     def __init__(self, d_input, d_state, kernel_size,
                  dt, strong_stability, weak_stability,
-                 scaleB=1.0,
-                 scaleC=1.0,
+                 min_scaleB, max_scaleB,
+                 min_scaleC, max_scaleC,
                  lr=0.001, wd=0.0,
                  field='complex'):
         """
@@ -399,8 +399,8 @@ class VandermondeFreezeAC(VandermondeFreezeA):
         """
         super().__init__(d_input, d_state, kernel_size,
                          dt, strong_stability, weak_stability,
-                         scaleB,
-                         scaleC,
+                         min_scaleB, max_scaleB,
+                         min_scaleC, max_scaleC,
                          lr, wd,
                          field)
 

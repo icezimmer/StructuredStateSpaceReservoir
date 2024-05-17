@@ -11,8 +11,8 @@ class VandermondeReservoir(nn.Module):
 
     def __init__(self, d_input, d_state, kernel_size,
                  dt, strong_stability, weak_stability,
-                 scaleB=1.0,
-                 scaleC=1.0,
+                 min_scaleB=0.0, max_scaleB=1.0,
+                 min_scaleC=0.0, max_scaleC=1.0,
                  field='complex'):
         """
         Construct the convolution kernel.
@@ -41,8 +41,8 @@ class VandermondeReservoir(nn.Module):
         input2state_reservoir = ReservoirMatrix(d_in=self.d_input, d_out=self.d_state)
         state2output_reservoir = ReservoirMatrix(d_in=self.d_state, d_out=self.d_output)
 
-        B = input2state_reservoir.uniform_disk(radius=scaleB, field=field)
-        C = state2output_reservoir.uniform_disk(radius=scaleC, field=field)
+        B = input2state_reservoir.uniform_ring(min_radius=min_scaleB, max_radius=max_scaleB, field=field)
+        C = state2output_reservoir.uniform_ring(min_radius=min_scaleC, max_radius=max_scaleC, field=field)
 
         if dt is None:
             state_reservoir = DiscreteStateReservoir(self.d_state)

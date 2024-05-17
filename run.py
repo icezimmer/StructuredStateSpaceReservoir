@@ -76,7 +76,8 @@ def parse_args():
             parser.add_argument('--kernelwd', type=float, default=0.0, help='Learning rate for kernel pars.')
         elif args.block == 'S4D':
             parser.add_argument('--conv', choices=conv_classes, default='fft', help='Skip connection matrix D.')
-            parser.add_argument('--scaleD', type=float, default=1.0, help='Skip connection matrix D scaling.')
+            parser.add_argument('--minscaleD', type=float, default=0.0, help='Skip connection matrix D min scaling.')
+            parser.add_argument('--maxscaleD', type=float, default=1.0, help='Skip connection matrix D max scaling.')
             parser.add_argument('--kerneldrop', type=float, default=0.0, help='Dropout the kernel inside the block.')
             parser.add_argument('--kernel', choices=kernel_classes, default='V', help='Kernel name.')
             parser.add_argument('--mix', default='conv1d+glu', help='Inner Mixing layer.')
@@ -91,8 +92,10 @@ def parse_args():
             parser.add_argument('--rho', type=float, default=1.0, help='Spectral Radius of hidden state matrix.')
             parser.add_argument('--leaky', type=float, default=1.0, help='Leakage Rate for leaky integrator.')
         elif args.block == 'S4R':
-            parser.add_argument('--scaleencoder', type=float, default=1.0, help='Encoder model scaling factor.')
-            parser.add_argument('--scaleD', type=float, default=1.0, help='Skip connection matrix D scaling.')
+            parser.add_argument('--minscaleencoder', type=float, default=0.0, help='Min encoder model scaling factor.')
+            parser.add_argument('--maxscaleencoder', type=float, default=1.0, help='Max encoder model scaling factor.')
+            parser.add_argument('--minscaleD', type=float, default=0.0, help='Skip connection matrix D min scaling.')
+            parser.add_argument('--maxscaleD', type=float, default=1.0, help='Skip connection matrix D max scaling.')
             parser.add_argument('--kernel', choices=kernel_classes_reservoir, default='Vr',
                                 help='Kernel name.')
             parser.add_argument('--mix', default='identity', help='Inner Mixing layer.')
@@ -131,8 +134,10 @@ def parse_args():
     if hasattr(args, 'kernel'):
         if args.kernel.startswith('V'):
             parser.add_argument('--dt', type=float, default=None, help='Sampling rate (only for continuous dynamics).')
-            parser.add_argument('--scaleB', type=float, default=1.0, help='Scaling for the input2state matrix B.')
-            parser.add_argument('--scaleC', type=float, default=1.0, help='Scaling for the state2output matrix C.')
+            parser.add_argument('--minscaleB', type=float, default=0.0, help='Min scaling for input2state matrix B.')
+            parser.add_argument('--maxscaleB', type=float, default=1.0, help='Max scaling for input2state matrix B.')
+            parser.add_argument('--minscaleC', type=float, default=0.0, help='Min scaling for state2output matrix C.')
+            parser.add_argument('--maxscaleC', type=float, default=1.0, help='Max scaling for state2output matrix C.')
 
         # Conditionally add --scaleW if kernel starts with 'miniV'
         if hasattr(args, 'kernel') and args.kernel.startswith('miniV'):
@@ -182,7 +187,8 @@ def main():
     elif args.block == 'S4D':
         block_args = {'mixing_layer': args.mix,
                       'convolution': args.conv,
-                      'scaleD': args.scaleD,
+                      'min_scaleD': args.minscaleD,
+                      'max_scaleD': args.maxscaleD,
                       'drop_kernel': args.kerneldrop, 'dropout': args.dropout,
                       'kernel': args.kernel, 'kernel_size': kernel_size,
                       'strong_stability': args.strong, 'weak_stability': args.weak}
@@ -193,23 +199,29 @@ def main():
             block_args['wd'] = args.kernelwd
         if args.kernel.startswith('V'):
             block_args['dt'] = args.dt
-            block_args['scaleB'] = args.scaleB
-            block_args['scaleC'] = args.scaleC
+            block_args['min_scaleB'] = args.minscaleB
+            block_args['max_scaleB'] = args.maxscaleB
+            block_args['min_scaleC'] = args.minscaleC
+            block_args['max_scaleC'] = args.maxscaleC
         elif args.kernel.startswith('miniV'):
             block_args['scaleW'] = args.scaleW
     elif args.block == 'ESN':
         block_args = {'input_scaling': args.input, 'spectral_radius': args.rho, 'leakage_rate': args.leaky}
     elif args.block == 'S4R':
         block_args = {'mixing_layer': args.mix,
-                      'scaleD': args.scaleD,
+                      'min_scaleD': args.minscaleD,
+                      'max_scaleD': args.maxscaleD,
                       'kernel': args.kernel, 'kernel_size': kernel_size,
                       'strong_stability': args.strong, 'weak_stability': args.weak}
         if args.kernel.startswith('V'):
             block_args['dt'] = args.dt
-            block_args['scaleB'] = args.scaleB
-            block_args['scaleC'] = args.scaleC
+            block_args['min_scaleB'] = args.minscaleB
+            block_args['max_scaleB'] = args.maxscaleB
+            block_args['min_scaleC'] = args.minscaleC
+            block_args['max_scaleC'] = args.maxscaleC
         elif args.kernel.startswith('miniV'):
-            block_args['scaleW'] = args.scaleW
+            block_args['min_scaleW'] = args.minscaleW
+            block_args['max_scaleW'] = args.maxscaleW
     else:
         raise ValueError('Invalid block name')
 
@@ -304,7 +316,8 @@ def main():
             reservoir_model = StackedReservoir(n_layers=args.layers,
                                                d_input=d_input, d_model=args.neurons,
                                                transient=args.transient,
-                                               encoder_scaling=args.scaleencoder,
+                                               min_encoder_scaling=args.minscaleencoder,
+                                               max_encoder_scaling=args.maxscaleencoder,
                                                **block_args)
             logging.info(f'Moving reservoir model to {args.device}.')
             torch.backends.cudnn.benchmark = False
