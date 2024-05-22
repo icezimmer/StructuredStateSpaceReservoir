@@ -41,8 +41,8 @@ class VandermondeReservoir(nn.Module):
         input2state_reservoir = ReservoirMatrix(d_in=self.d_input, d_out=self.d_state)
         state2output_reservoir = ReservoirMatrix(d_in=self.d_state, d_out=self.d_output)
 
-        B = input2state_reservoir.uniform_ring(min_radius=min_scaleB, max_radius=max_scaleB, field=field)
-        C = state2output_reservoir.uniform_ring(min_radius=min_scaleC, max_radius=max_scaleC, field=field)
+        B = input2state_reservoir.uniform_ring(min_radius=min_scaleB, max_radius=max_scaleB, field=field)  # (P, H)
+        C = state2output_reservoir.uniform_ring(min_radius=min_scaleC, max_radius=max_scaleC, field=field)  # (H, P)
 
         if dt is None:
             state_reservoir = DiscreteStateReservoir(self.d_state)
@@ -61,10 +61,10 @@ class VandermondeReservoir(nn.Module):
         self.register_buffer('B', B_bar)  # (P, H)
         self.register_buffer('C', C)  # (H, P)
 
-        W = torch.einsum('hp,ph -> hp', self.C, self.B)
+        W = torch.einsum('hp,ph -> hp', self.C, self.B)  # (H, P)
 
-        powers = torch.arange(kernel_size, dtype=torch.float32)
-        V = self.A.unsqueeze(-1) ** powers
+        powers = torch.arange(kernel_size, dtype=torch.float32)  # (L,)
+        V = self.A.unsqueeze(-1) ** powers    # (P, L)
 
         kernel = torch.einsum('hp,pl->hl', W, V)  # (H, L)
         self.register_buffer('K', kernel)  # (H, L)
