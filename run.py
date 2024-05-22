@@ -228,8 +228,12 @@ def main():
     logging.info('Loading develop and test datasets.')
     develop_dataset = load_data(os.path.join('./checkpoint', 'datasets', args.task, 'develop_dataset'))
     test_dataset = load_data(os.path.join('./checkpoint', 'datasets', args.task, 'test_dataset'))
-    develop_dataloader = DataLoader(develop_dataset, batch_size=args.batch, shuffle=False)
-    test_dataloader = DataLoader(test_dataset, batch_size=args.batch, shuffle=False)
+    develop_dataloader = DataLoader(develop_dataset,
+                                    batch_size=args.batch,
+                                    shuffle=False)
+    test_dataloader = DataLoader(test_dataset,
+                                 batch_size=args.batch,
+                                 shuffle=False)
 
     current_time = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 
@@ -262,6 +266,10 @@ def main():
     hyperparameters_path = os.path.join(run_dir, 'hyperparameters.json')
     save_hyperparameters(args=args, file_path=hyperparameters_path)
 
+    # Check if cuDNN is enabled
+    logging.info(f"cuDNN enabled: {torch.backends.cudnn.enabled}")
+    torch.backends.cudnn.benchmark = True
+
     if args.block in ['RNN', 'GRU', 'S4', 'S4D']:
         logging.info('Initializing model.')
         model = StackedNetwork(block_cls=block_factories[args.block], n_layers=args.layers,
@@ -272,7 +280,6 @@ def main():
                                **block_args)
 
         logging.info(f'Moving model to {args.device}.')
-        torch.backends.cudnn.benchmark = False
         model.to(device=torch.device(args.device))
 
         logging.info('Splitting develop data into training and validation data.')
@@ -320,7 +327,6 @@ def main():
                                                max_encoder_scaling=args.maxscaleencoder,
                                                **block_args)
             logging.info(f'Moving reservoir model to {args.device}.')
-            torch.backends.cudnn.benchmark = False
             reservoir_model.to(device=torch.device(args.device))
 
             logging.info('Saving reservoir model.')
@@ -331,7 +337,6 @@ def main():
                                                transient=args.transient,
                                                **block_args)
             logging.info(f'Moving reservoir model to {args.device}.')
-            torch.backends.cudnn.benchmark = False
             reservoir_model.to(device=torch.device(args.device))
 
             logging.info('Saving reservoir model.')
