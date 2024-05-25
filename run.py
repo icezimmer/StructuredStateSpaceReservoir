@@ -31,15 +31,14 @@ block_factories = {
     'S4R': S4R
 }
 
-s4_mode = ['s4d', 'diag', 's4', 'nplr', 'dplr']
+s4_modes = ['s4d', 'diag', 's4', 'nplr', 'dplr']
+s4_activations = ['tanh', 'relu', 'gelu', 'elu', 'swish', 'silu', 'glu', 'sigmoid', 'softplus']
 
 conv_classes = ['fft', 'fft-freezeD']
-
 kernel_classes = ['V', 'V-freezeB', 'V-freezeC', 'V-freezeBC', 'V-freezeA', 'V-freezeAB', 'V-freezeAC', 'V-freezeABC',
                   'miniV', 'miniV-freezeW', 'miniV-freezeA', 'miniV-freezeAW']
 
 kernel_classes_reservoir = ['Vr', 'miniVr']
-
 readout_classes = ['offline', 'mlp', 'ssm']
 
 
@@ -71,7 +70,11 @@ def parse_args():
         if args.block in ['RNN', 'GRU', 'LSTM']:
             pass
         elif args.block == 'S4':
-            parser.add_argument('--kernel', choices=s4_mode, default='dplr', help='Kernel name.')
+            parser.add_argument('--tiedropout', action='store_true', help='Tie dropout.')
+            parser.add_argument('--bidirectional', action='store_true', help='Bidirectional.')
+            parser.add_argument('--finalact', choices=s4_activations, default='glu', help='Activation.')
+            parser.add_argument('--nssm', type=int, default=1, help='Kernel name.')
+            parser.add_argument('--kernel', choices=s4_modes, default='dplr', help='Kernel name.')
             parser.add_argument('--kerneldrop', type=float, default=0.0, help='Dropout the kernel inside the block.')
             parser.add_argument('--kernellr', type=float, default=0.001, help='Learning rate for kernel pars.')
             parser.add_argument('--kernelwd', type=float, default=0.0, help='Learning rate for kernel pars.')
@@ -180,10 +183,12 @@ def main():
     else:
         raise ValueError('Invalid task name')
 
-    if args.block in ['RNN', 'GRU']:
+    if args.block in ['RNN', 'GRU', 'LSTM']:
         block_args = {}
     elif args.block == 'S4':
-        block_args = {'mode':args.kernel, 'drop_kernel': args.kerneldrop, 'dropout': args.dropout,
+        block_args = {'tie_dropout': args.tiedropout, 'bidirectional': args.bidirectional,
+                      'final_act': args.finalact, 'n_ssm': args.nssm,
+                      'mode':args.kernel, 'drop_kernel': args.kerneldrop, 'dropout': args.dropout,
                       'lr': args.kernellr, 'wd': args.kernelwd}
     elif args.block == 'S4D':
         block_args = {'mixing_layer': args.mix,
