@@ -6,7 +6,7 @@ import torch
 from torch.utils.data import DataLoader
 from src.utils.split_data import random_split_dataset
 from src.models.s4.s4 import S4Block
-from src.models.rnn.vanilla import VanillaRNN, VanillaGRU
+from src.models.rnn.vanilla import VanillaRNN, VanillaGRU, VanillaLSTM
 from src.models.esn.esn import ESN
 from src.models.s4d.s4d import S4D
 from src.models.s4r.s4r import S4R
@@ -25,6 +25,7 @@ block_factories = {
     'S4': S4Block,
     'RNN': VanillaRNN,
     'GRU': VanillaGRU,
+    'LSTM': VanillaLSTM,
     'S4D': S4D,
     'ESN': ESN,
     'S4R': S4R
@@ -57,7 +58,7 @@ def parse_args():
     args, unknown = parser.parse_known_args()
 
     # Conditional argument additions based on block type
-    if args.block in ['RNN', 'GRU', 'S4', 'S4D']:
+    if args.block in ['RNN', 'GRU', 'LSTM', 'S4', 'S4D']:
         parser.add_argument('--encoder', default='conv1d', help='Encoder model.')
         parser.add_argument('--decoder', default='conv1d', help='Decoder model.')
         parser.add_argument('--dropout', type=float, default=0.0, help='Dropout the preactivation inside the block.')
@@ -67,7 +68,7 @@ def parse_args():
         parser.add_argument('--plateau', type=float, default=0.2, help='Learning rate decay factor on Plateau.')
         parser.add_argument('--epochs', type=int, default=float('inf'), help='Number of epochs.')
         parser.add_argument('--patience', type=int, default=10, help='Patience for the early stopping.')
-        if args.block in ['RNN', 'GRU']:
+        if args.block in ['RNN', 'GRU', 'LSTM']:
             pass
         elif args.block == 'S4':
             parser.add_argument('--kernel', choices=s4_mode, default='dplr', help='Kernel name.')
@@ -206,7 +207,8 @@ def main():
         elif args.kernel.startswith('miniV'):
             block_args['scaleW'] = args.scaleW
     elif args.block == 'ESN':
-        block_args = {'input_scaling': args.input, 'spectral_radius': args.rho, 'leakage_rate': args.leaky}
+        block_args = {'input_scaling': args.inputscaling, 'bias_scaling': args.biasscaling,
+                      'spectral_radius': args.rho, 'leakage_rate': args.leaky}
     elif args.block == 'S4R':
         block_args = {'mixing_layer': args.mix,
                       'min_scaleD': args.minscaleD,
@@ -270,7 +272,7 @@ def main():
     logging.info(f"cuDNN enabled: {torch.backends.cudnn.enabled}")
     torch.backends.cudnn.benchmark = True
 
-    if args.block in ['RNN', 'GRU', 'S4', 'S4D']:
+    if args.block in ['RNN', 'GRU', 'LSTM', 'S4', 'S4D']:
         logging.info('Initializing model.')
         model = StackedNetwork(block_cls=block_factories[args.block], n_layers=args.layers,
                                d_input=d_input, d_model=args.neurons, d_output=d_output,
