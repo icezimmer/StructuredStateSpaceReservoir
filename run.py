@@ -92,7 +92,8 @@ def parse_args():
     elif args.block in ['ESN', 'S4R']:
         parser.add_argument('--readout', choices=readout_classes, default='mlp', help='Type of Readout.')
         if args.block == 'ESN':
-            parser.add_argument('--input', type=float, default=1.0, help='Scaling of input matrix.')
+            parser.add_argument('--inputscaling', type=float, default=1.0, help='Scaling of input matrix.')
+            parser.add_argument('--biasscaling', type=float, default=0.0, help='Scaling of input matrix.')
             parser.add_argument('--rho', type=float, default=1.0, help='Spectral Radius of hidden state matrix.')
             parser.add_argument('--leaky', type=float, default=1.0, help='Leakage Rate for leaky integrator.')
         elif args.block == 'S4R':
