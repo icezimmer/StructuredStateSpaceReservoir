@@ -1,4 +1,3 @@
-import torch
 import torch.nn as nn
 
 
@@ -9,7 +8,6 @@ class VanillaRecurrent(nn.Module):
         self.d_model = d_model
         self.rnn = None
         self.drop = nn.Dropout(dropout) if dropout > 0 else nn.Identity()
-        self.nl = nn.Tanh()
 
     def forward(self, x):
         raise NotImplementedError
@@ -29,7 +27,6 @@ class VanillaRNN(VanillaRecurrent):
         y, _ = self.rnn(x)  # (B, L, H)
 
         y = self.drop(y)
-        y = self.nl(y)  # (B, L, H)
 
         y = y.transpose(-1, -2)  # (B, H, L)
 
@@ -50,7 +47,6 @@ class VanillaGRU(VanillaRecurrent):
         y, _ = self.rnn(x)  # (B, L, H)
 
         y = self.drop(y)
-        y = self.nl(y)  # (B, L, H)
 
         y = y.transpose(-1, -2)  # (B, H, L)
 
