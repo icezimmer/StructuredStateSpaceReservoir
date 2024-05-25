@@ -17,7 +17,7 @@ class ESN(nn.Module):
         self.leakage_rate = leakage_rate
 
         input2state_reservoir = ReservoirMatrix(d_in=self.d_input, d_out=self.d_state)
-        w_in = input2state_reservoir.uniform_disk(radius=input_scaling, field='real')
+        w_in = input2state_reservoir.uniform_ring(max_radius=input_scaling, min_radius=0.0, field='real')
         self.register_buffer('w_in', w_in)
 
         self.register_buffer('x0', torch.zeros(self.d_state, dtype=torch.float32))

@@ -36,7 +36,7 @@ class ReadOut:
             self.readout_cls = RidgeRegression(d_input=d_input, d_output=d_output, to_vec=self.to_vec, lambda_=lambda_)
 
         structured_reservoir = ReservoirMatrix(d_in=d_output, d_out=d_input)  # transpose of matrix (left multipl.)
-        self.W_out_t = structured_reservoir.uniform_disk(radius=1.0, field='real')  # (P + 1, K)
+        self.W_out_t = structured_reservoir.uniform_ring(max_radius=1.0, min_radius=0.0, field='real')  # (P + 1, K)
 
     # TODO: try to move to cpu the hidden_state of each layer before to stacked them in deep module
     def _gather(self, dataloader):
