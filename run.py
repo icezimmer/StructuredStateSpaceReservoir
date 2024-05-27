@@ -46,7 +46,6 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Run classification task.')
     parser.add_argument('--device', default='cuda:1', help='Cuda device.')
     parser.add_argument('--task', default='smnist', help='Name of task.')
-    parser.add_argument('--batch', type=int, default=128, help='Batch size')
     parser.add_argument('--block', choices=block_factories.keys(), default='S4R',
                         help='Block class to use for the model.')
 
@@ -58,11 +57,12 @@ def parse_args():
 
     # Conditional argument additions based on block type
     if args.block in ['RNN', 'GRU', 'LSTM', 'S4', 'S4D']:
+        parser.add_argument('--batch', type=int, default=128, help='Batch size')
         parser.add_argument('--encoder', default='conv1d', help='Encoder model.')
         parser.add_argument('--decoder', default='conv1d', help='Decoder model.')
         parser.add_argument('--dropout', type=float, default=0.0, help='Dropout the preactivation inside the block.')
         parser.add_argument('--layerdrop', type=float, default=0.0, help='Dropout the output of each layer.')
-        parser.add_argument('--lr', type=float, default=0.004, help='Learning rate for NON-kernel parameters.')
+        parser.add_argument('--lr', type=float, default=0.002, help='Learning rate for NON-kernel parameters.')
         parser.add_argument('--wd', type=float, default=0.1, help='Weight decay for NON-kernel parameters.')
         parser.add_argument('--plateau', type=float, default=0.2, help='Learning rate decay factor on Plateau.')
         parser.add_argument('--epochs', type=int, default=float('inf'), help='Number of epochs.')
@@ -90,6 +90,7 @@ def parse_args():
             parser.add_argument('--kernellr', type=float, default=0.001, help='Learning rate for kernel pars.')
             parser.add_argument('--kernelwd', type=float, default=0.0, help='Learning rate for kernel pars.')
     elif args.block in ['ESN', 'S4R']:
+        parser.add_argument('--rbatch', type=int, default=128, help='Batch size for Reservoir Model.')
         parser.add_argument('--readout', choices=readout_classes, default='mlp', help='Type of Readout.')
         if args.block == 'ESN':
             parser.add_argument('--inputscaling', type=float, default=1.0, help='Scaling of input matrix.')
@@ -116,6 +117,7 @@ def parse_args():
             parser.add_argument('--ridge', type=float, default=1.0, help='Regularization for Ridge Regression.')
 
         if args.readout == 'mlp':
+            parser.add_argument('--batch', type=int, default=128, help='Batch size')
             parser.add_argument('--transient', type=int, default=-1, choices=[-1],
                                 help='Number of first time steps to discard.')
             parser.add_argument('--mlplayers', type=int, default=2, help='Number of MLP layers.')
@@ -126,6 +128,7 @@ def parse_args():
             parser.add_argument('--patience', type=int, default=10, help='Patience for the early stopping.')
 
         if args.readout == 'ssm':
+            parser.add_argument('--batch', type=int, default=128, help='Batch size')
             parser.add_argument('--transient', type=int, default=-128, help='Number of first time steps to discard.')
             parser.add_argument('--ssmlayers', type=int, default=1, help='Number of layers.')
             parser.add_argument('--lr', type=float, default=0.004, help='Learning rate for NON-kernel parameters.')
@@ -233,16 +236,6 @@ def main():
     else:
         raise ValueError('Invalid block name')
 
-    logging.info('Loading develop and test datasets.')
-    develop_dataset = load_data(os.path.join('./checkpoint', 'datasets', args.task, 'develop_dataset'))
-    test_dataset = load_data(os.path.join('./checkpoint', 'datasets', args.task, 'test_dataset'))
-    develop_dataloader = DataLoader(develop_dataset,
-                                    batch_size=args.batch,
-                                    shuffle=False)
-    test_dataloader = DataLoader(test_dataset,
-                                 batch_size=args.batch,
-                                 shuffle=False)
-
     current_time = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 
     if args.block == 'S4':
@@ -279,6 +272,16 @@ def main():
     torch.backends.cudnn.benchmark = True
 
     if args.block in ['RNN', 'GRU', 'LSTM', 'S4', 'S4D']:
+        logging.info('Loading develop and test datasets.')
+        develop_dataset = load_data(os.path.join('./checkpoint', 'datasets', args.task, 'develop_dataset'))
+        test_dataset = load_data(os.path.join('./checkpoint', 'datasets', args.task, 'test_dataset'))
+        develop_dataloader = DataLoader(develop_dataset,
+                                        batch_size=args.batch,
+                                        shuffle=False)
+        test_dataloader = DataLoader(test_dataset,
+                                     batch_size=args.batch,
+                                     shuffle=False)
+
         logging.info('Initializing model.')
         model = StackedNetwork(block_cls=block_factories[args.block], n_layers=args.layers,
                                d_input=d_input, d_model=args.neurons, d_output=d_output,
@@ -326,6 +329,16 @@ def main():
             eval_bc.evaluate(saving_path=os.path.join(run_dir, 'test'))
 
     elif args.block in ['ESN', 'S4R']:
+        logging.info('Loading develop and test datasets.')
+        develop_dataset = load_data(os.path.join('./checkpoint', 'datasets', args.task, 'develop_dataset'))
+        test_dataset = load_data(os.path.join('./checkpoint', 'datasets', args.task, 'test_dataset'))
+        develop_dataloader = DataLoader(develop_dataset,
+                                        batch_size=args.rbatch,
+                                        shuffle=False)
+        test_dataloader = DataLoader(test_dataset,
+                                     batch_size=args.rbatch,
+                                     shuffle=False)
+
         logging.info('Initializing model.')
         if args.block == 'S4R':
             reservoir_model = StackedReservoir(n_layers=args.layers,
