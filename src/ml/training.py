@@ -1,5 +1,4 @@
 import matplotlib.pyplot as plt
-import os
 import torch
 from src.utils.check_device import check_model_device
 import copy
