@@ -44,7 +44,8 @@ def create_results(emissions_path, output_path):
     if os.path.exists(output_path):
         return  # Stop execution if the file exists
 
-    columns_to_remove = range(13, 31)  # Assuming you want to remove these columns
+    # Define the columns to remove (zero-indexed)
+    columns_to_remove = list(range(5, 12)) + list(range(13, 31))
 
     # Read and modify data
     modified_data = []
@@ -54,7 +55,7 @@ def create_results(emissions_path, output_path):
         # Read the header and modify it
         headers = next(reader)  # This grabs the first row of the CSV, which is the header
         filtered_headers = [header for index, header in enumerate(headers) if index not in columns_to_remove]
-        filtered_headers += ['accuracy']
+        filtered_headers.append('accuracy')  # Add 'accuracy' to the header
         modified_data.append(filtered_headers)
 
         # Read and modify each row
@@ -125,10 +126,11 @@ def update_results(emissions_path, metrics_test_path, results_path):
 
     # Process the emissions file to retrieve the last row and only take the first 12 columns
     last_row = []
+    indices = list(range(0, 5)) + [12]
     with open(emissions_path, 'r', newline='') as in_file:
         reader = csv.reader(in_file)
         for row in reader:
-            last_row = row[:13]  # Take only the first 13 columns
+            last_row = [row[i] for i in indices if i < len(row)]
 
     # If there was no data in the emissions file, stop further processing
     if not last_row:
@@ -145,7 +147,6 @@ def update_results(emissions_path, metrics_test_path, results_path):
         writer = csv.writer(out_file)
         if not file_exists:
             # Write header only if the file is being created
-            writer.writerow(['timestamp', 'project_name', 'run_id', 'duration', 'emissions', 'emissions_rate',
-                             'cpu_power', 'gpu_power', 'ram_power', 'cpu_energy', 'gpu_energy', 'ram_energy',
-                             'energy_consumed', 'accuracy'])
+            writer.writerow(['timestamp', 'project_name', 'run_id',
+                             'duration', 'emissions', 'energy_consumed', 'accuracy'])
         writer.writerow(last_row)
