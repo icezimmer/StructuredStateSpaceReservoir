@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from src.reservoir.layers import LinearReservoir
-from src.convolutions.fft_reservoir import FFTConvReservoir
+from src.models.rssm.convolutions.fft_reservoir import FFTConvReservoir
 
 """
 see: https://github.com/i404788/s5-pytorch/tree/74e2fdae00b915a62c914bf3615c0b8a4279eb84
@@ -15,7 +15,7 @@ class RSSM(torch.nn.Module):
                  kernel,
                  **layer_args):
         """
-        S4R model.
+        RSSM model.
         :param d_input: dimensionality of the input space
         :param d_state: dimensionality of the latent space
         :param dt: delta time for continuous dynamics (default: None for discrete dynamics)
@@ -62,7 +62,7 @@ class RSSM(torch.nn.Module):
 
     def forward(self, u):
         """
-        Forward method for the S4R model
+        Forward method for the RSSM model
         :param u: batched input sequence of shape (B,H,L) = (batch_size, d_input, input_length)
         :return: y: batched output sequence of shape (B,H,L) = (batch_size, d_output, input_length)
         """

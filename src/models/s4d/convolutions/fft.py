@@ -1,14 +1,14 @@
 import torch
 import torch.nn as nn
 from src.reservoir.vector import ReservoirVector
-from src.kernels.vandermonde import (Vandermonde, VandermondeFreezeB, VandermondeFreezeC,
-                                     VandermondeFreezeBC,
-                                     VandermondeFreezeA,
-                                     VandermondeFreezeAB, VandermondeFreezeAC)
-from src.kernels.vandermonde_reservoir import VandermondeReservoir
-from src.kernels.mini_vandermonde import (MiniVandermonde, MiniVandermondeFreezeW,
-                                          MiniVandermondeFreezeA)
-from src.kernels.mini_vandermonde_reservoir import MiniVandermondeReservoir
+from src.models.s4d.kernels.vandermonde import (Vandermonde, VandermondeFreezeB, VandermondeFreezeC,
+                                                VandermondeFreezeBC,
+                                                VandermondeFreezeA,
+                                                VandermondeFreezeAB, VandermondeFreezeAC)
+from src.models.s4d.kernels.vandermonde_reservoir import VandermondeReservoir
+from src.models.s4d.kernels.mini_vandermonde import (MiniVandermonde, MiniVandermondeFreezeW,
+                                                     MiniVandermondeFreezeA)
+from src.models.s4d.kernels.mini_vandermonde_reservoir import MiniVandermondeReservoir
 
 
 class FFTConv(nn.Module):

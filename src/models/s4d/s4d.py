@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from src.reservoir.layers import LinearReservoir
-from src.convolutions.fft import FFTConv, FFTConvFreezeD
+from src.models.s4d.convolutions.fft import FFTConv, FFTConvFreezeD
 
 """
 see: https://github.com/i404788/s5-pytorch/tree/74e2fdae00b915a62c914bf3615c0b8a4279eb84

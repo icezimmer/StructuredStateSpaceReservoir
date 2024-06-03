@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 from src.reservoir.vector import ReservoirVector
-from src.kernels.vandermonde_reservoir import VandermondeReservoir
-from src.kernels.mini_vandermonde_reservoir import MiniVandermondeReservoir
+from src.models.rssm.kernels.vandermonde_reservoir import VandermondeReservoir
+from src.models.rssm.kernels.mini_vandermonde_reservoir import MiniVandermondeReservoir
 
 
 class FFTConvReservoir(nn.Module):
