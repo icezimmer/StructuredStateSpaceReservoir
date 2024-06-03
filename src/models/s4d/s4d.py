@@ -15,7 +15,7 @@ class S4D(torch.nn.Module):
                  dropout=0.0,
                  **layer_args):
         """
-        S4R model.
+        S4D model.
         :param d_input: dimensionality of the input space
         :param d_state: dimensionality of the latent space
         :param dt: delta time for continuous dynamics (default: None for discrete dynamics)
@@ -68,7 +68,7 @@ class S4D(torch.nn.Module):
 
     def forward(self, u):
         """
-        Forward method for the S4R model
+        Forward method for the S4D model
         :param u: batched input sequence of shape (B,H,L) = (batch_size, d_input, input_length)
         :return: y: batched output sequence of shape (B,H,L) = (batch_size, d_output, input_length)
         """
