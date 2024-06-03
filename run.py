@@ -9,9 +9,9 @@ from src.models.s4.s4 import S4Block
 from src.models.rnn.vanilla import VanillaRNN, VanillaGRU, VanillaLSTM
 from src.models.esn.esn import ESN
 from src.models.s4d.s4d import S4D
-from src.models.s4r.s4r import S4R
+from src.models.rssm.rssm import RSSM
 from src.deep.stacked import StackedNetwork, StackedReservoir, StackedEchoState
-from src.deep.hybrid import MLP
+from src.deep.mlp import MLP
 from src.torch_dataset.reservoir_to_nn import Reservoir2NN
 from src.reservoir.readout import ReadOut
 from src.ml.optimization import setup_optimizer
@@ -28,7 +28,7 @@ block_factories = {
     'LSTM': VanillaLSTM,
     'S4D': S4D,
     'ESN': ESN,
-    'S4R': S4R
+    'RSSM': RSSM
 }
 
 s4_modes = ['s4d', 'diag', 's4', 'nplr', 'dplr']
@@ -46,7 +46,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Run classification task.')
     parser.add_argument('--device', default='cuda:1', help='Cuda device.')
     parser.add_argument('--task', default='smnist', help='Name of task.')
-    parser.add_argument('--block', choices=block_factories.keys(), default='S4R',
+    parser.add_argument('--block', choices=block_factories.keys(), default='RSSM',
                         help='Block class to use for the model.')
 
     parser.add_argument('--layers', type=int, default=2, help='Number of layers.')
@@ -89,7 +89,7 @@ def parse_args():
             parser.add_argument('--weak', type=float, default=0.95, help='Weak Stability for internal dynamics.')
             parser.add_argument('--kernellr', type=float, default=0.001, help='Learning rate for kernel pars.')
             parser.add_argument('--kernelwd', type=float, default=0.0, help='Learning rate for kernel pars.')
-    elif args.block in ['ESN', 'S4R']:
+    elif args.block in ['ESN', 'RSSM']:
         parser.add_argument('--rbatch', type=int, default=128, help='Batch size for Reservoir Model.')
         parser.add_argument('--readout', choices=readout_classes, default='mlp', help='Type of Readout.')
         if args.block == 'ESN':
@@ -97,7 +97,7 @@ def parse_args():
             parser.add_argument('--biasscaling', type=float, default=0.0, help='Scaling of input matrix.')
             parser.add_argument('--rho', type=float, default=1.0, help='Spectral Radius of hidden state matrix.')
             parser.add_argument('--leaky', type=float, default=1.0, help='Leakage Rate for leaky integrator.')
-        elif args.block == 'S4R':
+        elif args.block == 'RSSM':
             parser.add_argument('--minscaleencoder', type=float, default=0.0, help='Min encoder model scaling factor.')
             parser.add_argument('--maxscaleencoder', type=float, default=1.0, help='Max encoder model scaling factor.')
             parser.add_argument('--minscaleD', type=float, default=0.0, help='Skip connection matrix D min scaling.')
@@ -218,7 +218,7 @@ def main():
     elif args.block == 'ESN':
         block_args = {'input_scaling': args.inputscaling, 'bias_scaling': args.biasscaling,
                       'spectral_radius': args.rho, 'leakage_rate': args.leaky}
-    elif args.block == 'S4R':
+    elif args.block == 'RSSM':
         block_args = {'mixing_layer': args.mix,
                       'min_scaleD': args.minscaleD,
                       'max_scaleD': args.maxscaleD,
@@ -236,21 +236,21 @@ def main():
     else:
         raise ValueError('Invalid block name')
 
-    current_time = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    # current_time = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 
     if args.block == 'S4':
         block_name = args.block + '_' + args.kernel
     elif args.block == 'S4D':
         block_name = args.block + '_' + args.conv + '_' + args.kernel + '_' + args.mix
-    elif args.block == 'S4R':
+    elif args.block == 'RSSM':
         block_name = args.block + '_' + args.kernel + '_' + args.mix
     else:
         block_name = args.block
 
-    if args.block not in ['ESN', 'S4R']:
+    if args.block not in ['ESN', 'RSSM']:
         project_name = (args.encoder + '_[{' + block_name + '}_' + str(args.layers) + 'x' + str(args.neurons) + ']_' +
                         args.decoder)
-    elif args.block == 'S4R':
+    elif args.block == 'RSSM':
         project_name = ('[{' + block_name + '}_' + str(args.layers) + 'x' + str(args.neurons) + ']_' +
                         args.readout)
     elif args.block == 'ESN':
@@ -260,12 +260,11 @@ def main():
         raise ValueError('Invalid block name')
 
     output_dir = os.path.join('./checkpoint', 'results', args.task)
-    run_dir = os.path.join('./checkpoint', 'results', args.task, block_name, str(args.layers) + 'x' + str(args.neurons),
-                           current_time)
+    # run_dir = os.path.join(output_dir, str(tracker.run_id))
 
-    logging.info('Saving model hyper-parameters.')
-    hyperparameters_path = os.path.join(run_dir, 'hyperparameters.json')
-    save_hyperparameters(args=args, file_path=hyperparameters_path)
+    # logging.info('Saving model hyper-parameters.')
+    # hyperparameters_path = os.path.join(run_dir, 'hyperparameters.json')
+    # save_hyperparameters(args=args, file_path=hyperparameters_path)
 
     # Check if cuDNN is enabled
     logging.info(f"cuDNN enabled: {torch.backends.cudnn.enabled}")
@@ -303,12 +302,17 @@ def main():
         trainer = TrainModel(model=model, optimizer=optimizer, criterion=criterion,
                              develop_dataloader=develop_dataloader)
 
-        logging.info('Tracking energy consumption.')
+        logging.info('Setting tracker.')
         tracker = EmissionsTracker(output_dir=output_dir, project_name=project_name,
                                    log_level="ERROR",
                                    gpu_ids=[check_model_device(model).index])
 
-        logging.info('Fitting model.')
+        logging.info('Saving model hyper-parameters.')
+        run_dir = os.path.join(output_dir, str(tracker.run_id))
+        hyperparameters_path = os.path.join(run_dir, 'hyperparameters.json')
+        save_hyperparameters(args=args, file_path=hyperparameters_path)
+
+        logging.info('[Tracking] Fitting model.')
         tracker.start()
         trainer.early_stopping(train_dataloader=train_dataloader, val_dataloader=val_dataloader,
                                patience=args.patience, reduce_plateau=args.plateau, num_epochs=args.epochs,
@@ -321,14 +325,15 @@ def main():
 
         if args.task in classification_task:
             logging.info('Evaluating model on develop set.')
-            eval_bc = EvaluateClassifier(model=model, num_classes=d_output, dataloader=develop_dataloader)
-            eval_bc.evaluate(saving_path=os.path.join(run_dir, 'develop'))
+            eval_dev = EvaluateClassifier(model=model, num_classes=d_output, dataloader=develop_dataloader)
+            eval_dev.evaluate(saving_path=os.path.join(run_dir, 'develop'))
 
             logging.info('Evaluating model on test set.')
-            eval_bc = EvaluateClassifier(model=model, num_classes=d_output, dataloader=test_dataloader)
-            eval_bc.evaluate(saving_path=os.path.join(run_dir, 'test'))
+            eval_test = EvaluateClassifier(model=model, num_classes=d_output, dataloader=test_dataloader)
+            eval_test.evaluate(saving_path=os.path.join(run_dir, 'test'))
+            score = eval_test.accuracy_value
 
-    elif args.block in ['ESN', 'S4R']:
+    elif args.block in ['ESN', 'RSSM']:
         logging.info('Loading develop and test datasets.')
         develop_dataset = load_data(os.path.join('./checkpoint', 'datasets', args.task, 'develop_dataset'))
         test_dataset = load_data(os.path.join('./checkpoint', 'datasets', args.task, 'test_dataset'))
@@ -340,7 +345,7 @@ def main():
                                      shuffle=False)
 
         logging.info('Initializing model.')
-        if args.block == 'S4R':
+        if args.block == 'RSSM':
             reservoir_model = StackedReservoir(n_layers=args.layers,
                                                d_input=d_input, d_model=args.neurons,
                                                transient=args.transient,
@@ -366,11 +371,17 @@ def main():
             raise ValueError('Invalid block name')
 
         if args.readout == 'offline':
-            logging.info('Tracking energy consumption.')
+            logging.info('Setting tracker.')
             tracker = EmissionsTracker(output_dir=output_dir, project_name=project_name,
                                        log_level="ERROR",
                                        gpu_ids=[check_model_device(reservoir_model).index])
-            logging.info('Fitting model.')
+
+            logging.info('Saving model hyper-parameters.')
+            run_dir = os.path.join(output_dir, str(tracker.run_id))
+            hyperparameters_path = os.path.join(run_dir, 'hyperparameters.json')
+            save_hyperparameters(args=args, file_path=hyperparameters_path)
+
+            logging.info('[Tracking] Fitting model.')
             tracker.start()
             readout = ReadOut(reservoir_model=reservoir_model, develop_dataloader=develop_dataloader,
                               d_output=d_output, to_vec=to_vec, bias=True, lambda_=args.ridge)
@@ -387,6 +398,7 @@ def main():
 
                 logging.info('Evaluating model on test set.')
                 readout.evaluate_(dataloader=test_dataloader, saving_path=os.path.join(run_dir, 'test'))
+                score = readout.accuracy_value
 
         elif args.readout == 'mlp':
             model = MLP(n_layers=args.mlplayers, d_input=reservoir_model.d_output, d_output=d_output)
@@ -397,12 +409,17 @@ def main():
             logging.info('Setting optimizer.')
             optimizer = torch.optim.AdamW(params=model.parameters(), lr=args.lr, weight_decay=args.wd)
 
-            logging.info('Tracking energy consumption.')
+            logging.info('Setting tracker.')
             tracker = EmissionsTracker(output_dir=output_dir, project_name=project_name,
                                        log_level="ERROR",
                                        gpu_ids=[check_model_device(model).index])
 
-            logging.info('Fitting model.')
+            logging.info('Saving model hyper-parameters.')
+            run_dir = os.path.join(output_dir, str(tracker.run_id))
+            hyperparameters_path = os.path.join(run_dir, 'hyperparameters.json')
+            save_hyperparameters(args=args, file_path=hyperparameters_path)
+
+            logging.info('[Tracking] Fitting model.')
             tracker.start()
             develop_dataset = Reservoir2NN(reservoir_model=reservoir_model, dataloader=develop_dataloader)
             develop_dataloader = DataLoader(develop_dataset, batch_size=args.batch, shuffle=False)
@@ -425,16 +442,17 @@ def main():
 
             if args.task in classification_task:
                 logging.info('Evaluating model on develop set.')
-                eval_bc = EvaluateClassifier(model=model, num_classes=d_output, dataloader=develop_dataloader)
-                eval_bc.evaluate(saving_path=os.path.join(run_dir, 'develop'))
+                eval_dev = EvaluateClassifier(model=model, num_classes=d_output, dataloader=develop_dataloader)
+                eval_dev.evaluate(saving_path=os.path.join(run_dir, 'develop'))
 
                 logging.info(f'Computing reservoir test set.')
                 test_dataset = Reservoir2NN(reservoir_model=reservoir_model, dataloader=test_dataloader)
                 test_dataloader = DataLoader(test_dataset, batch_size=args.batch, shuffle=False)
 
                 logging.info('Evaluating model on test set.')
-                eval_bc = EvaluateClassifier(model=model, num_classes=d_output, dataloader=test_dataloader)
-                eval_bc.evaluate(saving_path=os.path.join(run_dir, 'test'))
+                eval_test = EvaluateClassifier(model=model, num_classes=d_output, dataloader=test_dataloader)
+                eval_test.evaluate(saving_path=os.path.join(run_dir, 'test'))
+                score = eval_test.accuracy_value
         elif args.readout == 'ssm':
             model = StackedNetwork(block_cls=S4D, n_layers=args.ssmlayers,
                                    d_input=reservoir_model.d_output, d_model=reservoir_model.d_output, d_output=d_output,
@@ -453,12 +471,17 @@ def main():
             logging.info('Setting optimizer.')
             optimizer = torch.optim.AdamW(params=model.parameters(), lr=args.lr, weight_decay=args.wd)
 
-            logging.info('Tracking energy consumption.')
+            logging.info('Setting tracker.')
             tracker = EmissionsTracker(output_dir=output_dir, project_name=project_name,
                                        log_level="ERROR",
                                        gpu_ids=[check_model_device(model).index])
 
-            logging.info('Fitting model.')
+            logging.info('Saving model hyper-parameters.')
+            run_dir = os.path.join(output_dir, str(tracker.run_id))
+            # hyperparameters_path = os.path.join(run_dir, 'hyperparameters.json')
+            # save_hyperparameters(args=args, file_path=hyperparameters_path)
+
+            logging.info('[Tracking] Fitting model.')
             tracker.start()
             develop_dataset = Reservoir2NN(reservoir_model=reservoir_model, dataloader=develop_dataloader)
             develop_dataloader = DataLoader(develop_dataset, batch_size=args.batch, shuffle=False)
@@ -481,22 +504,23 @@ def main():
 
             if args.task in classification_task:
                 logging.info('Evaluating model on develop set.')
-                eval_bc = EvaluateClassifier(model=model, num_classes=d_output, dataloader=develop_dataloader)
-                eval_bc.evaluate(saving_path=os.path.join(run_dir, 'develop'))
+                eval_dev = EvaluateClassifier(model=model, num_classes=d_output, dataloader=develop_dataloader)
+                eval_dev.evaluate(saving_path=os.path.join(run_dir, 'develop'))
 
                 logging.info(f'Computing reservoir test set.')
                 test_dataset = Reservoir2NN(reservoir_model=reservoir_model, dataloader=test_dataloader)
                 test_dataloader = DataLoader(test_dataset, batch_size=args.batch, shuffle=False)
 
                 logging.info('Evaluating model on test set.')
-                eval_bc = EvaluateClassifier(model=model, num_classes=d_output, dataloader=test_dataloader)
-                eval_bc.evaluate(saving_path=os.path.join(run_dir, 'test'))
+                eval_test = EvaluateClassifier(model=model, num_classes=d_output, dataloader=test_dataloader)
+                eval_test.evaluate(saving_path=os.path.join(run_dir, 'test'))
+                score = eval_test.accuracy_value
     else:
         raise ValueError('Invalid block name')
 
     logging.info('Updating results.')
     update_results(emissions_path=os.path.join(output_dir, 'emissions.csv'),
-                   metrics_test_path=os.path.join(run_dir, 'test', 'metrics.json'),
+                   score=score,
                    results_path=os.path.join(output_dir, 'results.csv'))
 
 
