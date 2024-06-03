@@ -11,14 +11,23 @@ class DiscreteStateReservoir:
         """
         self.d_state = d_state
 
-    def echo_state_matrix(self, max_radius):
+    def echo_state_matrix(self, max_radius, leakage_rate):
+        if max_radius < 0:
+            raise ValueError("Max radius must be non-negative")
         if max_radius > 1:
             warnings.warn("For a stable discrete dynamics set max_radius such that:"
-                          "0 <= min_radius <= |lambda| < max_radius <= 1.")
+                          "0 <= |lambda| < max_radius <= 1.")
 
-        w_hh = -1 + 2 * torch.rand(self.d_state, self.d_state, dtype=torch.float32)
-        eigenvalues = torch.linalg.eigvals(w_hh)
-        w_hh = (max_radius / torch.max(torch.abs(eigenvalues))) * w_hh
+        if leakage_rate < 0 or leakage_rate > 1:
+            raise ValueError("Leakage rate must be in [0, 1].")
+        if leakage_rate > 0:
+            w_hh = -1 + 2 * torch.rand(self.d_state, self.d_state, dtype=torch.float32)
+            w_tilde = (1 - leakage_rate) * torch.eye(self.d_state, dtype=torch.float32) + leakage_rate * w_hh
+            eigenvalues = torch.linalg.eigvals(w_tilde)
+            w_tilde = (max_radius / torch.max(torch.abs(eigenvalues))) * w_tilde
+            w_hh = (1 / leakage_rate) * (w_tilde - (1 - leakage_rate) * torch.eye(self.d_state, dtype=torch.float32))
+        else:
+            w_hh = torch.zeros(self.d_state, self.d_state, dtype=torch.float32)
         return w_hh
 
     def diagonal_state_space_matrix(self, min_radius, max_radius, field, n_ssm=None):
@@ -84,21 +93,6 @@ class ContinuousStateReservoir:
         :param d_state: int, the dimension of the state space
         """
         self.d_state = d_state
-
-    def echo_state_matrix(self, max_real_part):
-        if max_real_part > 0:
-            warnings.warn("For a stable continuous dynamics set max_real_part such that:"
-                          "Re(lambda) < max_real_part <= 0.")
-
-        real_parts = max_real_part - (1 + torch.abs(max_real_part)) * torch.rand(self.d_state, dtype=torch.float32)
-        imag_parts = 2 * torch.pi * torch.rand(self.d_state, dtype=torch.float32)
-        eigenvalues = torch.complex(real_parts, imag_parts)
-
-        D = torch.diag(eigenvalues)
-        Q, _ = torch.linalg.qr(torch.randn(self.d_state, self.d_state, dtype=torch.complex64))
-        w_hh = Q @ D @ Q.T.conj()
-
-        return w_hh
 
     def diagonal_state_space_matrix(self, min_real_part, max_real_part, field, n_ssm=None):
         """

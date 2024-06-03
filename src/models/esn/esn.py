@@ -23,7 +23,7 @@ class ESN(nn.Module):
         self.register_buffer('x0', torch.zeros(self.d_state, dtype=torch.float32))
 
         state_reservoir = DiscreteStateReservoir(self.d_state)
-        w_hh = state_reservoir.echo_state_matrix(max_radius=spectral_radius)
+        w_hh = state_reservoir.echo_state_matrix(max_radius=spectral_radius, leakage_rate=leakage_rate)
         self.register_buffer('w_hh', w_hh)
 
         self.register_buffer('bias',  2 * bias_scaling * torch.rand(self.d_state, dtype=torch.float32) - bias_scaling)
