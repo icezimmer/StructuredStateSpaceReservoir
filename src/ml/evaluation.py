@@ -70,6 +70,7 @@ class EvaluateClassifier:
         if saving_path is not None:
             self._plot(saving_path)
 
+    def reset(self):
         self.accuracy.reset()
         self.precision.reset()
         self.recall.reset()

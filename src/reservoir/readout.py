@@ -90,13 +90,6 @@ class ReadOut:
             if saving_path is not None:
                 self._plot(saving_path)
 
-            self.accuracy_value = None
-            self.precision_value = None
-            self.recall_value = None
-            self.f1_value = None
-            self.roc_auc_value = None
-            self.confusion_matrix_value = None
-
     def predict_(self, dataloader=None):
         with torch.no_grad():
             if dataloader is not None:
