@@ -260,11 +260,6 @@ def main():
         raise ValueError('Invalid block name')
 
     output_dir = os.path.join('./checkpoint', 'results', args.task)
-    # run_dir = os.path.join(output_dir, str(tracker.run_id))
-
-    # logging.info('Saving model hyper-parameters.')
-    # hyperparameters_path = os.path.join(run_dir, 'hyperparameters.json')
-    # save_hyperparameters(args=args, file_path=hyperparameters_path)
 
     # Check if cuDNN is enabled
     logging.info(f"cuDNN enabled: {torch.backends.cudnn.enabled}")
