@@ -1,6 +1,6 @@
 import torch.nn as nn
 from src.reservoir.layers import LinearReservoir
-from src.models.s4r.s4r import S4R
+from src.models.rssm.rssm import RSSM
 from src.models.esn.esn import ESN
 import torch
 
@@ -78,7 +78,7 @@ class StackedReservoir(nn.Module):
         self.encoder = LinearReservoir(d_input=d_input, d_output=self.d_state,
                                        min_radius=min_encoder_scaling, max_radius=max_encoder_scaling, field='real')
 
-        self.layers = nn.ModuleList([S4R(d_model=self.d_state, **block_args) for _ in range(self.n_layers)])
+        self.layers = nn.ModuleList([RSSM(d_model=self.d_state, **block_args) for _ in range(self.n_layers)])
 
         self.transient = transient
 

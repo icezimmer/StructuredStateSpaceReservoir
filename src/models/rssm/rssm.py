@@ -9,7 +9,7 @@ see: https://github.com/i404788/s5-pytorch/tree/74e2fdae00b915a62c914bf3615c0b8a
 
 
 # TODO: replace mixing layer with only a non-linearity (identity is the best choice for mixing layer)
-class S4R(torch.nn.Module):
+class RSSM(torch.nn.Module):
     def __init__(self, d_model,
                  mixing_layer,
                  kernel,
