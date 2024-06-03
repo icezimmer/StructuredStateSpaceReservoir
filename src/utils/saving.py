@@ -40,89 +40,10 @@ def save_parameters(model, file_path):
             file.write('----------------------------------------------------\n')
 
 
-def create_results(emissions_path, output_path):
-    if os.path.exists(output_path):
-        return  # Stop execution if the file exists
-
-    # Define the columns to remove (zero-indexed)
-    columns_to_remove = list(range(5, 12)) + list(range(13, 31))
-
-    # Read and modify data
-    modified_data = []
-    with open(emissions_path, mode='r', newline='') as in_file:
-        reader = csv.reader(in_file)
-
-        # Read the header and modify it
-        headers = next(reader)  # This grabs the first row of the CSV, which is the header
-        filtered_headers = [header for index, header in enumerate(headers) if index not in columns_to_remove]
-        filtered_headers.append('accuracy')  # Add 'accuracy' to the header
-        modified_data.append(filtered_headers)
-
-        # Read and modify each row
-        for row in reader:
-            filtered_row = [value for index, value in enumerate(row) if index not in columns_to_remove]
-            filtered_row.append('')  # Add an empty column for 'accuracy'
-            modified_data.append(filtered_row)
-
-    # Write the modified data to a new CSV file
-    with open(output_path, mode='w', newline='') as out_file:
-        writer = csv.writer(out_file)
-        writer.writerows(modified_data)
-
-
-def add_score(metrics_test_path, results_path):
-    if not os.path.exists(metrics_test_path):
-        print("Metrics file does not exist.")
-        return
-
-    if not os.path.exists(results_path):
-        print("Results file does not exist.")
-        return
-
-    with open(metrics_test_path, 'r') as json_file:
-        metrics = json.load(json_file)
-
-    if "Accuracy" not in metrics:
-        print("Accuracy data is missing in metrics.")
-        return
-
-    accuracy = metrics["Accuracy"]
-
-    with open(results_path, mode='r', newline='') as file:
-        reader = csv.reader(file)
-        rows = list(reader)
-
-    if rows:
-        header = rows[0]
-        accuracy_index = header.index('accuracy') if 'accuracy' in header else len(header)
-        if 'accuracy' not in header:
-            header.append('accuracy')
-            for row in rows[1:]:
-                row.append('')
-
-        rows[-1][accuracy_index] = accuracy  # Set accuracy in the last row's correct column
-
-        with open(results_path, mode='w', newline='') as file:
-            writer = csv.writer(file)
-            writer.writerows(rows)
-
-
-def update_results(emissions_path, metrics_test_path, results_path):
+def update_results(emissions_path, score, results_path):
     # Check if the metrics file exists
     if not os.path.exists(emissions_path):
         raise FileNotFoundError(f"The specified emissions file was not found: {emissions_path}")
-
-        # Check if the metrics file exists and is accessible
-    if not os.path.exists(metrics_test_path):
-        raise FileNotFoundError(f"The specified metrics file was not found: {metrics_test_path}")
-
-    # Load accuracy from the metrics file
-    with open(metrics_test_path, 'r') as json_file:
-        metrics = json.load(json_file)
-
-    if "Accuracy" not in metrics:
-        raise KeyError("The metrics file does not contain the 'Accuracy' key.")
-    accuracy = metrics["Accuracy"]
 
     # Process the emissions file to retrieve the last row and only take the first 12 columns
     last_row = []
@@ -137,7 +58,7 @@ def update_results(emissions_path, metrics_test_path, results_path):
         raise ValueError("The emissions file does not contain any data.")
 
     # Add the accuracy to the last row
-    last_row.append(accuracy)
+    last_row.append(score)
 
     # Check if results file exists to write header
     file_exists = os.path.exists(results_path)
@@ -148,5 +69,6 @@ def update_results(emissions_path, metrics_test_path, results_path):
         if not file_exists:
             # Write header only if the file is being created
             writer.writerow(['timestamp', 'project_name', 'run_id',
-                             'duration', 'emissions', 'energy_consumed', 'accuracy'])
+                             'duration', 'emissions', 'energy_consumed', 'score'])
         writer.writerow(last_row)
+
