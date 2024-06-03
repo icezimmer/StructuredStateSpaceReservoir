@@ -71,4 +71,3 @@ def update_results(emissions_path, score, results_path):
             writer.writerow(['timestamp', 'project_name', 'run_id',
                              'duration', 'emissions', 'energy_consumed', 'score'])
         writer.writerow(last_row)
-
