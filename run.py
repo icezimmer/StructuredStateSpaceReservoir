@@ -256,6 +256,7 @@ def main():
         raise ValueError('Invalid block name')
 
     output_dir = os.path.join('./checkpoint', 'results', args.task)
+    os.makedirs(output_dir, exist_ok=True)
 
     # Check if cuDNN is enabled
     logging.info(f"cuDNN enabled: {torch.backends.cudnn.enabled}")
