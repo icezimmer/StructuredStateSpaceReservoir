@@ -1,7 +1,6 @@
 import argparse
 import logging
 import os
-from datetime import datetime
 import torch
 from torch.utils.data import DataLoader
 from src.utils.split_data import random_split_dataset
@@ -44,6 +43,7 @@ readout_classes = ['offline', 'mlp', 'ssm']
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Run classification task.')
+    parser.add_argument('--save', action='store_true', help='Save results in a proper folder.')
     parser.add_argument('--device', default='cuda:1', help='Cuda device.')
     parser.add_argument('--task', default='smnist', help='Name of task.')
     parser.add_argument('--block', choices=block_factories.keys(), default='RSSM',
@@ -137,7 +137,6 @@ def parse_args():
             parser.add_argument('--epochs', type=int, default=float('inf'), help='Number of epochs.')
             parser.add_argument('--patience', type=int, default=10, help='Patience for the early stopping.')
 
-
     # Conditionally add --dt, --scaleB and --scaleC if kernel starts with 'V'
     if hasattr(args, 'kernel'):
         if args.kernel.startswith('V'):
@@ -154,7 +153,6 @@ def parse_args():
     return parser.parse_args()
 
 
-# TODO: Add args for ssm readout
 def main():
     logging.basicConfig(level=logging.INFO)
     args = parse_args()
@@ -236,8 +234,6 @@ def main():
     else:
         raise ValueError('Invalid block name')
 
-    # current_time = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-
     if args.block == 'S4':
         block_name = args.block + '_' + args.kernel
     elif args.block == 'S4D':
@@ -302,30 +298,43 @@ def main():
                                    log_level="ERROR",
                                    gpu_ids=[check_model_device(model).index])
 
-        logging.info('Saving model hyper-parameters.')
-        run_dir = os.path.join(output_dir, str(tracker.run_id))
-        hyperparameters_path = os.path.join(run_dir, 'hyperparameters.json')
-        save_hyperparameters(args=args, file_path=hyperparameters_path)
+        if args.save:
+            run_dir = os.path.join(output_dir, str(tracker.run_id))
+            os.makedirs(run_dir)
+            plot_path = os.path.join(run_dir, 'loss.png')
+            hyperparameters_path = os.path.join(run_dir, 'hyperparameters.json')
+            model_path = os.path.join(run_dir, 'model.pt')
+            develop_path = os.path.join(run_dir, 'develop')
+            test_path = os.path.join(run_dir, 'test')
+        else:
+            plot_path = None
+            hyperparameters_path = None
+            model_path = None
+            develop_path = None
+            test_path = None
 
         logging.info('[Tracking] Fitting model.')
         tracker.start()
         trainer.early_stopping(train_dataloader=train_dataloader, val_dataloader=val_dataloader,
                                patience=args.patience, reduce_plateau=args.plateau, num_epochs=args.epochs,
-                               plot_path=os.path.join(run_dir, 'loss.png'))
+                               plot_path=plot_path)
         emissions = tracker.stop()
         logging.info(f"Estimated CO2 emissions for this fit: {emissions} kg")
 
-        logging.info('Saving model.')
-        torch.save(model.state_dict(), os.path.join(run_dir, 'model.pt'))
+        if args.save:
+            logging.info('Saving model hyper-parameters.')
+            save_hyperparameters(args=args, file_path=hyperparameters_path)
+            logging.info('Saving model.')
+            torch.save(model.state_dict(), model_path)
 
         if args.task in classification_task:
             logging.info('Evaluating model on develop set.')
             eval_dev = EvaluateClassifier(model=model, num_classes=d_output, dataloader=develop_dataloader)
-            eval_dev.evaluate(saving_path=os.path.join(run_dir, 'develop'))
+            eval_dev.evaluate(saving_path=develop_path)
 
             logging.info('Evaluating model on test set.')
             eval_test = EvaluateClassifier(model=model, num_classes=d_output, dataloader=test_dataloader)
-            eval_test.evaluate(saving_path=os.path.join(run_dir, 'test'))
+            eval_test.evaluate(saving_path=test_path)
             score = eval_test.accuracy_value
 
     elif args.block in ['ESN', 'RSSM']:
@@ -350,8 +359,6 @@ def main():
             logging.info(f'Moving reservoir model to {args.device}.')
             reservoir_model.to(device=torch.device(args.device))
 
-            logging.info('Saving reservoir model.')
-            torch.save(reservoir_model.state_dict(), os.path.join(run_dir, 'reservoir_model.pt'))
         elif args.block == 'ESN':
             reservoir_model = StackedEchoState(n_layers=args.layers,
                                                d_input=d_input, d_model=args.neurons,
@@ -360,8 +367,6 @@ def main():
             logging.info(f'Moving reservoir model to {args.device}.')
             reservoir_model.to(device=torch.device(args.device))
 
-            logging.info('Saving reservoir model.')
-            torch.save(reservoir_model.state_dict(), os.path.join(run_dir, 'reservoir_model.pt'))
         else:
             raise ValueError('Invalid block name')
 
@@ -371,10 +376,18 @@ def main():
                                        log_level="ERROR",
                                        gpu_ids=[check_model_device(reservoir_model).index])
 
-            logging.info('Saving model hyper-parameters.')
-            run_dir = os.path.join(output_dir, str(tracker.run_id))
-            hyperparameters_path = os.path.join(run_dir, 'hyperparameters.json')
-            save_hyperparameters(args=args, file_path=hyperparameters_path)
+            if args.save:
+                run_dir = os.path.join(output_dir, str(tracker.run_id))
+                os.makedirs(run_dir)
+                hyperparameters_path = os.path.join(run_dir, 'hyperparameters.json')
+                reservoir_model_path = os.path.join(run_dir, 'reservoir_model.pt')
+                develop_path = os.path.join(run_dir, 'develop')
+                test_path = os.path.join(run_dir, 'test')
+            else:
+                hyperparameters_path = None
+                reservoir_model_path = None
+                develop_path = None
+                test_path = None
 
             logging.info('[Tracking] Fitting model.')
             tracker.start()
@@ -384,15 +397,18 @@ def main():
             emissions = tracker.stop()
             logging.info(f"Estimated CO2 emissions for this fit: {emissions} kg")
 
-            logging.info('Saving model.')
-            torch.save(reservoir_model.state_dict(), os.path.join(run_dir, 'model.pt'))
+            if args.save:
+                logging.info('Saving model hyper-parameters.')
+                save_hyperparameters(args=args, file_path=hyperparameters_path)
+                logging.info('Saving reservoir model.')
+                torch.save(reservoir_model.state_dict(), reservoir_model_path)
 
             if args.task in classification_task:
                 logging.info('Evaluating model on develop set.')
-                readout.evaluate_(saving_path=os.path.join(run_dir, 'develop'))
+                readout.evaluate_(saving_path=develop_path)
 
                 logging.info('Evaluating model on test set.')
-                readout.evaluate_(dataloader=test_dataloader, saving_path=os.path.join(run_dir, 'test'))
+                readout.evaluate_(dataloader=test_dataloader, saving_path=test_path)
                 score = readout.accuracy_value
 
         elif args.readout == 'mlp':
@@ -409,10 +425,22 @@ def main():
                                        log_level="ERROR",
                                        gpu_ids=[check_model_device(model).index])
 
-            logging.info('Saving model hyper-parameters.')
-            run_dir = os.path.join(output_dir, str(tracker.run_id))
-            hyperparameters_path = os.path.join(run_dir, 'hyperparameters.json')
-            save_hyperparameters(args=args, file_path=hyperparameters_path)
+            if args.save:
+                run_dir = os.path.join(output_dir, str(tracker.run_id))
+                os.makedirs(run_dir)
+                plot_path = os.path.join(run_dir, 'loss.png')
+                hyperparameters_path = os.path.join(run_dir, 'hyperparameters.json')
+                reservoir_model_path = os.path.join(run_dir, 'reservoir_model.pt')
+                model_path = os.path.join(run_dir, 'model.pt')
+                develop_path = os.path.join(run_dir, 'develop')
+                test_path = os.path.join(run_dir, 'test')
+            else:
+                plot_path = None
+                hyperparameters_path = None
+                reservoir_model_path = None
+                model_path = None
+                develop_path = None
+                test_path = None
 
             logging.info('[Tracking] Fitting model.')
             tracker.start()
@@ -428,17 +456,22 @@ def main():
 
             trainer.early_stopping(train_dataloader=train_dataloader, val_dataloader=val_dataloader,
                                    patience=args.patience, num_epochs=args.epochs, reduce_plateau=args.plateau,
-                                   plot_path=os.path.join(run_dir, 'loss.png'))
+                                   plot_path=plot_path)
             emissions = tracker.stop()
             logging.info(f"Estimated CO2 emissions for this fit: {emissions} kg")
 
-            logging.info('Saving model.')
-            torch.save(model.state_dict(), os.path.join(run_dir, 'model.pt'))
+            if args.save:
+                logging.info('Saving model hyper-parameters.')
+                save_hyperparameters(args=args, file_path=hyperparameters_path)
+                logging.info('Saving reservoir model.')
+                torch.save(reservoir_model.state_dict(), reservoir_model_path)
+                logging.info('Saving model.')
+                torch.save(model.state_dict(), model_path)
 
             if args.task in classification_task:
                 logging.info('Evaluating model on develop set.')
                 eval_dev = EvaluateClassifier(model=model, num_classes=d_output, dataloader=develop_dataloader)
-                eval_dev.evaluate(saving_path=os.path.join(run_dir, 'develop'))
+                eval_dev.evaluate(saving_path=develop_path)
 
                 logging.info(f'Computing reservoir test set.')
                 test_dataset = Reservoir2NN(reservoir_model=reservoir_model, dataloader=test_dataloader)
@@ -446,8 +479,9 @@ def main():
 
                 logging.info('Evaluating model on test set.')
                 eval_test = EvaluateClassifier(model=model, num_classes=d_output, dataloader=test_dataloader)
-                eval_test.evaluate(saving_path=os.path.join(run_dir, 'test'))
+                eval_test.evaluate(saving_path=test_path)
                 score = eval_test.accuracy_value
+
         elif args.readout == 'ssm':
             model = StackedNetwork(block_cls=S4D, n_layers=args.ssmlayers,
                                    d_input=reservoir_model.d_output, d_model=reservoir_model.d_output, d_output=d_output,
@@ -471,10 +505,22 @@ def main():
                                        log_level="ERROR",
                                        gpu_ids=[check_model_device(model).index])
 
-            logging.info('Saving model hyper-parameters.')
-            run_dir = os.path.join(output_dir, str(tracker.run_id))
-            # hyperparameters_path = os.path.join(run_dir, 'hyperparameters.json')
-            # save_hyperparameters(args=args, file_path=hyperparameters_path)
+            if args.save:
+                run_dir = os.path.join(output_dir, str(tracker.run_id))
+                os.makedirs(run_dir)
+                plot_path = os.path.join(run_dir, 'loss.png')
+                hyperparameters_path = os.path.join(run_dir, 'hyperparameters.json')
+                reservoir_model_path = os.path.join(run_dir, 'reservoir_model.pt')
+                model_path = os.path.join(run_dir, 'model.pt')
+                develop_path = os.path.join(run_dir, 'develop')
+                test_path = os.path.join(run_dir, 'test')
+            else:
+                plot_path = None
+                hyperparameters_path = None
+                reservoir_model_path = None
+                model_path = None
+                develop_path = None
+                test_path = None
 
             logging.info('[Tracking] Fitting model.')
             tracker.start()
@@ -490,17 +536,22 @@ def main():
 
             trainer.early_stopping(train_dataloader=train_dataloader, val_dataloader=val_dataloader,
                                    patience=args.patience, num_epochs=args.epochs, reduce_plateau=args.plateau,
-                                   plot_path=os.path.join(run_dir, 'loss.png'))
+                                   plot_path=plot_path)
             emissions = tracker.stop()
             logging.info(f"Estimated CO2 emissions for this fit: {emissions} kg")
 
-            logging.info('Saving model.')
-            torch.save(model.state_dict(), os.path.join(run_dir, 'model.pt'))
+            if args.save:
+                logging.info('Saving model hyper-parameters.')
+                save_hyperparameters(args=args, file_path=hyperparameters_path)
+                logging.info('Saving reservoir model.')
+                torch.save(reservoir_model.state_dict(), reservoir_model_path)
+                logging.info('Saving model.')
+                torch.save(model.state_dict(), model_path)
 
             if args.task in classification_task:
                 logging.info('Evaluating model on develop set.')
                 eval_dev = EvaluateClassifier(model=model, num_classes=d_output, dataloader=develop_dataloader)
-                eval_dev.evaluate(saving_path=os.path.join(run_dir, 'develop'))
+                eval_dev.evaluate(saving_path=develop_path)
 
                 logging.info(f'Computing reservoir test set.')
                 test_dataset = Reservoir2NN(reservoir_model=reservoir_model, dataloader=test_dataloader)
@@ -508,7 +559,7 @@ def main():
 
                 logging.info('Evaluating model on test set.')
                 eval_test = EvaluateClassifier(model=model, num_classes=d_output, dataloader=test_dataloader)
-                eval_test.evaluate(saving_path=os.path.join(run_dir, 'test'))
+                eval_test.evaluate(saving_path=test_path)
                 score = eval_test.accuracy_value
     else:
         raise ValueError('Invalid block name')
