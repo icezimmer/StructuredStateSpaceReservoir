@@ -16,7 +16,7 @@ from src.reservoir.readout import ReadOut
 from src.ml.optimization import setup_optimizer
 from src.ml.training import TrainModel
 from src.ml.evaluation import EvaluateClassifier
-from src.utils.saving import load_data, save_hyperparameters, update_results
+from src.utils.saving import load_data, save_hyperparameters, update_results, update_hyperparameters
 from src.utils.check_device import check_model_device
 from codecarbon import EmissionsTracker
 
@@ -190,7 +190,7 @@ def main():
     elif args.block == 'S4':
         block_args = {'tie_dropout': args.tiedropout, 'bidirectional': args.bidirectional,
                       'final_act': args.finalact, 'n_ssm': args.nssm,
-                      'mode':args.kernel, 'drop_kernel': args.kerneldrop, 'dropout': args.dropout,
+                      'mode': args.kernel, 'drop_kernel': args.kerneldrop, 'dropout': args.dropout,
                       'lr': args.kernellr, 'wd': args.kernelwd}
     elif args.block == 'S4D':
         block_args = {'mixing_layer': args.mix,
@@ -263,6 +263,8 @@ def main():
     torch.backends.cudnn.benchmark = True
 
     if args.block in ['RNN', 'GRU', 'LSTM', 'S4', 'S4D']:
+        log_file_name = args.block
+
         logging.info('Loading develop and test datasets.')
         develop_dataset = load_data(os.path.join('./checkpoint', 'datasets', args.task, 'develop_dataset'))
         test_dataset = load_data(os.path.join('./checkpoint', 'datasets', args.task, 'test_dataset'))
@@ -336,9 +338,13 @@ def main():
             logging.info('Evaluating model on test set.')
             eval_test = EvaluateClassifier(model=model, num_classes=d_output, dataloader=test_dataloader)
             eval_test.evaluate(saving_path=test_path)
-            score = eval_test.accuracy_value
+            scores = {'test_accuracy': eval_test.accuracy_value}
+        else:
+            scores = {}
 
     elif args.block in ['ESN', 'RSSM']:
+        log_file_name = args.block + '-' + args.readout
+
         logging.info('Loading develop and test datasets.')
         develop_dataset = load_data(os.path.join('./checkpoint', 'datasets', args.task, 'develop_dataset'))
         test_dataset = load_data(os.path.join('./checkpoint', 'datasets', args.task, 'test_dataset'))
@@ -410,7 +416,9 @@ def main():
 
                 logging.info('Evaluating model on test set.')
                 readout.evaluate_(dataloader=test_dataloader, saving_path=test_path)
-                score = readout.accuracy_value
+                scores = {'test_accuracy': readout.accuracy_value}
+            else:
+                scores = {}
 
         elif args.readout == 'mlp':
             model = MLP(n_layers=args.mlplayers, d_input=reservoir_model.d_output, d_output=d_output)
@@ -481,11 +489,14 @@ def main():
                 logging.info('Evaluating model on test set.')
                 eval_test = EvaluateClassifier(model=model, num_classes=d_output, dataloader=test_dataloader)
                 eval_test.evaluate(saving_path=test_path)
-                score = eval_test.accuracy_value
+                scores = {'test_accuracy': eval_test.accuracy_value}
+            else:
+                scores = {}
 
         elif args.readout == 'ssm':
             model = StackedNetwork(block_cls=S4D, n_layers=args.ssmlayers,
-                                   d_input=reservoir_model.d_output, d_model=reservoir_model.d_output, d_output=d_output,
+                                   d_input=reservoir_model.d_output, d_model=reservoir_model.d_output,
+                                   d_output=d_output,
                                    encoder='conv1d', decoder='conv1d',
                                    to_vec=to_vec,
                                    mixing_layer='conv1d+glu',
@@ -561,14 +572,19 @@ def main():
                 logging.info('Evaluating model on test set.')
                 eval_test = EvaluateClassifier(model=model, num_classes=d_output, dataloader=test_dataloader)
                 eval_test.evaluate(saving_path=test_path)
-                score = eval_test.accuracy_value
+                scores = {'test_accuracy': eval_test.accuracy_value}
+            else:
+                scores = {}
     else:
         raise ValueError('Invalid block name')
 
     logging.info('Updating results.')
     update_results(emissions_path=os.path.join(output_dir, 'emissions.csv'),
-                   score=score,
+                   scores=scores,
                    results_path=os.path.join(output_dir, 'results.csv'))
+    update_hyperparameters(emissions_path=os.path.join(output_dir, 'emissions.csv'),
+                           hyperparameters=vars(args),
+                           hyperparameters_path=os.path.join(output_dir, log_file_name + '_hyperparameters.csv'))
 
 
 if __name__ == '__main__':
