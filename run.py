@@ -247,7 +247,7 @@ def main():
         project_name = (args.encoder + '_[{' + block_name + '}_' + str(args.layers) + 'x' + str(args.neurons) + ']_' +
                         args.decoder)
     elif args.block == 'RSSM':
-        project_name = ('[{' + block_name + '}_' + str(args.layers) + 'x' + str(args.neurons) + ']_' +
+        project_name = ('reservoir_[{' + block_name + '}_' + str(args.layers) + 'x' + str(args.neurons) + ']_' +
                         args.readout)
     elif args.block == 'ESN':
         project_name = ('[{' + block_name + '}_' + str(args.layers) + 'x' + str(args.neurons) + ']_' +
