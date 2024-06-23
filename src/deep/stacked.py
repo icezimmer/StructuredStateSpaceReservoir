@@ -90,10 +90,13 @@ class StackedReservoir(nn.Module):
         Returns: y (B, H), state (B, P)
         """
         u = self.encoder.step(u)
+        u_list = []
         x_list = []
         for layer in self.layers:
             u, x = layer.step(u, x)
+            u_list.append(u)
             x_list.append(x)
+        u = torch.cat(tensors=u_list, dim=1)
         x = torch.cat(tensors=x_list, dim=1)
 
         return u, x
@@ -142,9 +145,9 @@ class StackedEchoState(nn.Module):
     def step(self, u, x=None):
         """
         Step one time step as a recurrent model. Intended to be used during validation.
-        x: (B, H)
-        state: (B, P)
-        Returns: y (B, H), state (B, P)
+        u: (B, H)
+        x: (B, P)
+        Returns: x (B, P)
         """
         x_list = []
         for layer in self.layers:

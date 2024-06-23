@@ -51,12 +51,12 @@ class RSSM(torch.nn.Module):
     def step(self, u, x):
         """
         Step one time step as a recurrent model. Intended to be used during validation.
-        x: (B, H)
-        state: (B, P)
+        u: (B, H)
+        x: (B, P)
         Returns: y (B, H), state (B, P)
         """
         y, x = self.layer.step(u, x)
-        y = self.mixing_layer.step(y)
+        # y = self.mixing_layer.step(y)
 
         return y, x
 
