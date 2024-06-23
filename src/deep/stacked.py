@@ -155,7 +155,7 @@ class StackedEchoState(nn.Module):
             x_list.append(x)
         x = torch.cat(tensors=x_list, dim=1)
 
-        return u, x
+        return None, x
 
     def forward(self, x):
         """
