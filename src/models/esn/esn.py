@@ -32,7 +32,7 @@ class ESN(nn.Module):
     def step(self, u, x=None):
         # Step function for updating state
         if x is None:
-            x = self.x0.unsqueeze(0).expand_as(u)
+            x = self.x0.unsqueeze(0).expand(u.size(0), -1)
         preactivation = (torch.einsum('ph, bh -> bp', self.w_in, u) +
                          torch.einsum('pp, bp -> bp', self.w_hh, x) +
                          self.bias)
