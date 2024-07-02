@@ -2,6 +2,7 @@ import argparse
 import logging
 import os
 import torch
+from src.utils.experiments import set_seed
 from torch.utils.data import DataLoader
 from src.utils.split_data import random_split_dataset
 from src.models.s4.s4 import S4Block
@@ -43,6 +44,7 @@ readout_classes = ['offline', 'mlp', 'ssm']
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Run classification task.')
+    parser.add_argument('--seed', type=int, default=42, help='Random seed.')
     parser.add_argument('--save', action='store_true', help='Save results in a proper folder.')
     parser.add_argument('--device', default='cuda:1', help='Cuda device.')
     parser.add_argument('--task', default='smnist', help='Name of task.')
@@ -157,6 +159,12 @@ def main():
     logging.basicConfig(level=logging.INFO)
     args = parse_args()
 
+    # Check if cuDNN is enabled
+    logging.info(f"cuDNN enabled: {torch.backends.cudnn.enabled}")
+
+    logging.info(f"Setting seed: {args.seed}")
+    set_seed(args.seed)
+
     classification_task = ['smnist', 'pmnist', 'pathfinder', 'scifar10', 'scifar10gs']
     if args.task in ['smnist', 'pmnist']:
         criterion = torch.nn.CrossEntropyLoss()  # classification task
@@ -257,10 +265,6 @@ def main():
 
     output_dir = os.path.join('./checkpoint', 'results', args.task)
     os.makedirs(output_dir, exist_ok=True)
-
-    # Check if cuDNN is enabled
-    logging.info(f"cuDNN enabled: {torch.backends.cudnn.enabled}")
-    torch.backends.cudnn.benchmark = True
 
     if args.block in ['RNN', 'GRU', 'LSTM', 'S4', 'S4D']:
         log_file_name = args.block

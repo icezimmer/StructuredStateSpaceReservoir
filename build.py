@@ -1,13 +1,15 @@
 import torch
-from torchvision import datasets, transforms
-from src.torch_dataset.sequantial_image import SequentialImage2Classify
-from src.utils.saving import save_data
 import os
 import argparse
+from torchvision import datasets, transforms
+from src.utils.experiments import set_seed
+from src.torch_dataset.sequantial_image import SequentialImage2Classify
+from src.utils.saving import save_data
 from lra_benchmarks.data.pathfinder import Pathfinder32, Pathfinder64, Pathfinder128, Pathfinder256
 from src.torch_dataset.torch_pathfinder import PathfinderDataset
 
 parser = argparse.ArgumentParser(description='Build Classification task.')
+parser.add_argument('--seed', type=int, default=42, help='Random seed.')
 parser.add_argument('--task', default='smnist', help='Name of classification task.')
 
 args, unknown = parser.parse_known_args()
@@ -17,6 +19,8 @@ if args.task == 'pathfinder':
     parser.add_argument('--resolution', default='32', help='Image resolution')
 
 args = parser.parse_args()
+
+set_seed(args.seed)
 
 if args.task == 'smnist':
     transform = transforms.Compose([
