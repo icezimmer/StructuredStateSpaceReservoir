@@ -1,5 +1,6 @@
 import torch
 import os
+import logging
 import argparse
 from torchvision import datasets, transforms
 from src.utils.experiments import set_seed
@@ -18,9 +19,13 @@ if args.task == 'pathfinder':
     parser.add_argument('--level', default='easy', help='Difficulty level of the task')
     parser.add_argument('--resolution', default='32', help='Image resolution')
 
+logging.basicConfig(level=logging.INFO)
 args = parser.parse_args()
 
+logging.info(f"Setting seed: {args.seed}")
 set_seed(args.seed)
+
+logging.info(f"Building task: {args.task}")
 
 if args.task == 'smnist':
     transform = transforms.Compose([
@@ -95,5 +100,6 @@ elif args.task == 'pathfinder':
 else:
     raise ValueError('Task not found')
 
+logging.info('Saving datasets')
 save_data(develop_dataset, os.path.join('./checkpoint', 'datasets', args.task, 'develop_dataset'))
 save_data(test_dataset, os.path.join('./checkpoint', 'datasets', args.task, 'test_dataset'))
