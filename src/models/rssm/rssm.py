@@ -50,10 +50,10 @@ class RSSM(torch.nn.Module):
     # TODO: implement step method for mixing layer
     def step(self, u, x):
         """
-        Step one time step as a recurrent model. Intended to be used during validation.
-        u: (B, H)
-        x: (B, P)
-        Returns: y (B, H), state (B, P)
+        Step one time step as a recurrent model.
+        :param u: input step of shape (B, H)
+        :param x: previous state of shape (B, P)
+        :return: output step (B, H), new state (B, P)
         """
         y, x = self.layer.step(u, x)
         # y = self.mixing_layer.step(y)
@@ -62,9 +62,9 @@ class RSSM(torch.nn.Module):
 
     def forward(self, u):
         """
-        Forward method for the RSSM model
-        :param u: batched input sequence of shape (B,H,L) = (batch_size, d_input, input_length)
-        :return: y: batched output sequence of shape (B,H,L) = (batch_size, d_output, input_length)
+        Forward method for the RSSM layer.
+        :param u: batched input sequence of shape (B, H, L) = (batch_size, d_input, input_length)
+        :return: y: batched output sequence of shape (B, H, L) = (batch_size, d_output, input_length)
         """
         y, _ = self.layer(u)
         y = self.mixing_layer(y)

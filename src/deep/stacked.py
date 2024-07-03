@@ -84,10 +84,10 @@ class StackedReservoir(nn.Module):
 
     def step(self, u, x=None):
         """
-        Step one time step as a recurrent model. Intended to be used during validation.
-        x: (B, H)
-        state: (B, P)
-        Returns: y (B, H), state (B, P)
+        Step one time step as a recurrent model.
+        :param u: input step of shape (B, H)
+        :param x: previous state of shape (B, P)
+        :return: output step (B, H), new state (B, P)
         """
         u = self.encoder.step(u)
         u_list = []
@@ -103,10 +103,9 @@ class StackedReservoir(nn.Module):
 
     def forward(self, x):
         """
-        args:
-            x: torch tensor of shape (B, d_input, L)
-        return:
-            x: torch tensor of shape (B, d_output) or (B, d_output, L))
+        Forward method for the RSSM model.
+        :param  x: input sequence, torch tensor of shape (B, d_input, L)
+        :return: output sequence, torch tensor of shape (B, d_output, L - w)
         """
         x = self.encoder(x)  # (B, d_input, L) -> (B, d_model, L)
 
@@ -144,10 +143,10 @@ class StackedEchoState(nn.Module):
 
     def step(self, u, x=None):
         """
-        Step one time step as a recurrent model. Intended to be used during validation.
-        u: (B, H)
-        x: (B, P)
-        Returns: x (B, P)
+        Step one time step as a recurrent model.
+        :param u: input step of shape (B, H)
+        :param x: previous state of shape (B, P)
+        :return: None, new state (B, P)
         """
         x_list = []
         for layer in self.layers:
@@ -159,10 +158,9 @@ class StackedEchoState(nn.Module):
 
     def forward(self, x):
         """
-        args:
-            x: torch tensor of shape (B, d_input, L)
-        return:
-            x: torch tensor of shape (B, d_output) or (B, d_output, L))
+        Forward method for the DeepESN model.
+        :param  x: input sequence, torch tensor of shape (B, d_input, L)
+        :return: output sequence, torch tensor of shape (B, d_output, L - w)
         """
         x_list = []
         for layer in self.layers:

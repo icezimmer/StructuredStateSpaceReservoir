@@ -30,7 +30,12 @@ class ESN(nn.Module):
         self.nl = nn.Tanh()
 
     def step(self, u, x=None):
-        # Step function for updating state
+        """
+        Step one time step as a recurrent model.
+        :param u: input step of shape (B, H)
+        :param x: previous state of shape (B, P)
+        :return: new state (B, P)
+        """
         if x is None:
             x = self.x0.unsqueeze(0).expand(u.size(0), -1)
         preactivation = (torch.einsum('ph, bh -> bp', self.w_in, u) +
@@ -40,7 +45,11 @@ class ESN(nn.Module):
         return x
 
     def forward(self, u):
-        # Forward pass for processing sequences
+        """
+        Forward method for the ESN model
+        :param u: batched input sequence of shape (B, H, L) = (batch_size, d_input, input_length)
+        :return: x: batched state sequence of shape (B, H, L) = (batch_size, d_state, input_length)
+        """
         x_prev = self.x0.unsqueeze(0).expand(u.shape[0], -1)
         x_list = []
         for k in range(u.shape[-1]):
