@@ -38,8 +38,8 @@ class ESN(nn.Module):
         """
         if x is None:
             x = self.x0.unsqueeze(0).expand(u.size(0), -1)
-        preactivation = (torch.einsum('ph, bh -> bp', self.w_in, u) +
-                         torch.einsum('pp, bp -> bp', self.w_hh, x) +
+        preactivation = (torch.matmul(u, self.w_in.t()) +
+                         torch.matmul(x, self.w_hh.t()) +
                          self.bias)
         x = (1 - self.leakage_rate) * x + self.leakage_rate * self.nl(preactivation)
         return x
@@ -48,7 +48,7 @@ class ESN(nn.Module):
         """
         Forward method for the ESN model
         :param u: batched input sequence of shape (B, H, L) = (batch_size, d_input, input_length)
-        :return: x: batched state sequence of shape (B, H, L) = (batch_size, d_state, input_length)
+        :return: x: batched state sequence of shape (B, P, L) = (batch_size, d_state, input_length)
         """
         x_prev = self.x0.unsqueeze(0).expand(u.shape[0], -1)
         x_list = []

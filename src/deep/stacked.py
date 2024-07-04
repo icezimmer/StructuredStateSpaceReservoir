@@ -136,8 +136,9 @@ class StackedEchoState(nn.Module):
 
         self.d_output = self.n_layers * self.d_state
 
-        self.layers = nn.ModuleList([ESN(d_input=d_input, d_state=self.d_state, **block_args)
-                                     for _ in range(self.n_layers)])
+        self.layers = nn.ModuleList([ESN(d_input=d_input, d_state=self.d_state, **block_args)] +
+                                    [ESN(d_input=self.d_state, d_state=self.d_state, **block_args)
+                                    for _ in range(self.n_layers - 1)])
 
         self.transient = transient
 
@@ -160,7 +161,7 @@ class StackedEchoState(nn.Module):
         """
         Forward method for the DeepESN model.
         :param  x: input sequence, torch tensor of shape (B, d_input, L)
-        :return: output sequence, torch tensor of shape (B, d_output, L - w)
+        :return: output sequence, torch tensor of shape (B, d_state, L - w)
         """
         x_list = []
         for layer in self.layers:
