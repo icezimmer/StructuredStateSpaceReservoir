@@ -39,7 +39,7 @@ kernel_classes = ['V', 'V-freezeB', 'V-freezeC', 'V-freezeBC', 'V-freezeA', 'V-f
                   'miniV', 'miniV-freezeW', 'miniV-freezeA', 'miniV-freezeAW']
 
 kernel_classes_reservoir = ['Vr', 'miniVr']
-readout_classes = ['offline', 'mlp', 'ssm']
+readout_classes = ['ridge', 'mlp', 'ssm']
 
 
 def parse_args():
@@ -114,9 +114,9 @@ def parse_args():
     args, unknown = parser.parse_known_args()
 
     if hasattr(args, 'readout'):
-        if args.readout == 'offline':
+        if args.readout == 'ridge':
             parser.add_argument('--transient', type=int, default=-1, help='Number of first time steps to discard.')
-            parser.add_argument('--ridge', type=float, default=1.0, help='Regularization for Ridge Regression.')
+            parser.add_argument('--regul', type=float, default=1.0, help='Regularization for Ridge Regression.')
 
         if args.readout == 'mlp':
             parser.add_argument('--batch', type=int, default=128, help='Batch size')
@@ -381,7 +381,7 @@ def main():
         else:
             raise ValueError('Invalid block name')
 
-        if args.readout == 'offline':
+        if args.readout == 'ridge':
             logging.info('Setting tracker.')
             tracker = EmissionsTracker(output_dir=output_dir, project_name=project_name,
                                        log_level="ERROR",
@@ -403,7 +403,7 @@ def main():
             logging.info('[Tracking] Fitting model.')
             tracker.start()
             readout = ReadOut(reservoir_model=reservoir_model, develop_dataloader=develop_dataloader,
-                              d_output=d_output, to_vec=to_vec, bias=True, lambda_=args.ridge)
+                              d_output=d_output, to_vec=to_vec, bias=True, lambda_=args.regul)
             readout.fit_()
             emissions = tracker.stop()
             logging.info(f"Estimated CO2 emissions for this fit: {emissions} kg")
