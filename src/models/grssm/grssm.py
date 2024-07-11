@@ -53,7 +53,7 @@ class gRSSM(torch.nn.Module):
         :return: output step (B, H), new state (B, P)
         """
         y, x = self.layer.step(u, x)
-        # y = self.mixing_layer.step(y)
+        y = torch.nn.functional.glu(y, dim=-1)
 
         return y, x
 
