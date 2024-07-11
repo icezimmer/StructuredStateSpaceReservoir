@@ -10,6 +10,7 @@ from src.models.rnn.vanilla import VanillaRNN, VanillaGRU, VanillaLSTM
 from src.models.esn.esn import ESN
 from src.models.s4d.s4d import S4D
 from src.models.rssm.rssm import RSSM
+from src.models.grssm.grssm import gRSSM
 from src.deep.stacked import StackedNetwork, StackedReservoir, StackedEchoState
 from src.deep.mlp import MLP
 from src.torch_dataset.reservoir_to_nn import Reservoir2NN
@@ -28,7 +29,8 @@ block_factories = {
     'LSTM': VanillaLSTM,
     'S4D': S4D,
     'ESN': ESN,
-    'RSSM': RSSM
+    'RSSM': RSSM,
+    'gRSSM': gRSSM
 }
 
 s4_modes = ['s4d', 'diag', 's4', 'nplr', 'dplr']
@@ -91,7 +93,7 @@ def parse_args():
             parser.add_argument('--weak', type=float, default=0.95, help='Weak Stability for internal dynamics.')
             parser.add_argument('--kernellr', type=float, default=0.001, help='Learning rate for kernel pars.')
             parser.add_argument('--kernelwd', type=float, default=0.0, help='Learning rate for kernel pars.')
-    elif args.block in ['ESN', 'RSSM']:
+    elif args.block in ['ESN', 'RSSM', 'gRSSM']:
         parser.add_argument('--rbatch', type=int, default=128, help='Batch size for Reservoir Model.')
         parser.add_argument('--readout', choices=readout_classes, default='mlp', help='Type of Readout.')
         if args.block == 'ESN':
@@ -99,7 +101,7 @@ def parse_args():
             parser.add_argument('--biasscaling', type=float, default=0.0, help='Scaling of input matrix.')
             parser.add_argument('--rho', type=float, default=1.0, help='Spectral Radius of hidden state matrix.')
             parser.add_argument('--leaky', type=float, default=1.0, help='Leakage Rate for leaky integrator.')
-        elif args.block == 'RSSM':
+        elif args.block in ['RSSM', 'gRSSM']:
             parser.add_argument('--minscaleencoder', type=float, default=0.0, help='Min encoder model scaling factor.')
             parser.add_argument('--maxscaleencoder', type=float, default=1.0, help='Max encoder model scaling factor.')
             parser.add_argument('--minscaleD', type=float, default=0.0, help='Skip connection matrix D min scaling.')
@@ -224,7 +226,7 @@ def main():
     elif args.block == 'ESN':
         block_args = {'input_scaling': args.inputscaling, 'bias_scaling': args.biasscaling,
                       'spectral_radius': args.rho, 'leakage_rate': args.leaky}
-    elif args.block == 'RSSM':
+    elif args.block in ['RSSM', 'gRSSM']:
         block_args = {'mixing_layer': args.mix,
                       'min_scaleD': args.minscaleD,
                       'max_scaleD': args.maxscaleD,
@@ -246,15 +248,15 @@ def main():
         block_name = args.block + '_' + args.kernel
     elif args.block == 'S4D':
         block_name = args.block + '_' + args.conv + '_' + args.kernel + '_' + args.mix
-    elif args.block == 'RSSM':
+    elif args.block in ['RSSM', 'gRSSM']:
         block_name = args.block + '_' + args.kernel + '_' + args.mix
     else:
         block_name = args.block
 
-    if args.block not in ['ESN', 'RSSM']:
+    if args.block not in ['ESN', 'RSSM', 'gRSSM']:
         project_name = (args.encoder + '_[{' + block_name + '}_' + str(args.layers) + 'x' + str(args.neurons) + ']_' +
                         args.decoder)
-    elif args.block == 'RSSM':
+    elif args.block in ['RSSM', 'gRSSM']:
         project_name = ('reservoir_[{' + block_name + '}_' + str(args.layers) + 'x' + str(args.neurons) + ']_' +
                         args.readout)
     elif args.block == 'ESN':
@@ -346,7 +348,7 @@ def main():
         else:
             scores = {}
 
-    elif args.block in ['ESN', 'RSSM']:
+    elif args.block in ['ESN', 'RSSM', 'gRSSM']:
         log_file_name = args.block + '-' + args.readout
 
         logging.info('Loading develop and test datasets.')
@@ -360,8 +362,9 @@ def main():
                                      shuffle=False)
 
         logging.info('Initializing model.')
-        if args.block == 'RSSM':
-            reservoir_model = StackedReservoir(n_layers=args.layers,
+        if args.block in ['RSSM', 'gRSSM']:
+            reservoir_model = StackedReservoir(block_cls=block_factories[args.block],
+                                               n_layers=args.layers,
                                                d_input=d_input, d_model=args.neurons,
                                                transient=args.transient,
                                                min_encoder_scaling=args.minscaleencoder,
