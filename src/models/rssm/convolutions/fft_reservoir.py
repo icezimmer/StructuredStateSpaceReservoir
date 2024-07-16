@@ -57,7 +57,6 @@ class FFTConvReservoir(nn.Module):
         """
         y, x = self.kernel_cls.step(u, x)
         y = y + torch.einsum('h,bh->bh', self.D, u)  # (B, H)
-        y = self.activation(y)
 
         return y, x
 
@@ -71,8 +70,6 @@ class FFTConvReservoir(nn.Module):
         k_s = torch.fft.fft(self.K, dim=-1)  # (H, L)
 
         y = torch.fft.ifft(torch.einsum('bhl,hl->bhl', u_s, k_s), dim=-1)  # (B, H, L)
-        y = y.real + torch.einsum('h,bhl->bhl', self.D, u)  # (B, H, L)
-
-        y = self.activation(y)
+        y = y + torch.einsum('h,bhl->bhl', self.D, u)  # (B, H, L)
 
         return y, None

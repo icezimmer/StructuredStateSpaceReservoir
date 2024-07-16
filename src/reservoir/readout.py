@@ -1,6 +1,8 @@
 import json
 import torch
 from matplotlib import pyplot as plt
+from tqdm import tqdm
+
 from src.reservoir.matrices import ReservoirMatrix
 from src.reservoir.layers import LinearRegression, RidgeRegression
 from sklearn.metrics import accuracy_score, confusion_matrix
@@ -44,7 +46,7 @@ class ReadOut:
         with torch.no_grad():
             hidden_state_list = []
             label_list = []
-            for input_batch, label_batch in dataloader:
+            for input_batch, label_batch in tqdm(dataloader):
                 input_batch = input_batch.to(self.device)  # (B, H, L)
 
                 hidden_state_batch = self.reservoir_model(input_batch)  # (B, P, L-w)

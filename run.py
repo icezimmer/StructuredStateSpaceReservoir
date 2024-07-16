@@ -10,7 +10,6 @@ from src.models.rnn.vanilla import VanillaRNN, VanillaGRU, VanillaLSTM
 from src.models.esn.esn import ESN
 from src.models.s4d.s4d import S4D
 from src.models.rssm.rssm import RSSM
-from src.models.grssm.grssm import gRSSM
 from src.deep.stacked import StackedNetwork, StackedReservoir, StackedEchoState
 from src.deep.mlp import MLP
 from src.torch_dataset.reservoir_to_nn import Reservoir2NN
@@ -29,8 +28,7 @@ block_factories = {
     'LSTM': VanillaLSTM,
     'S4D': S4D,
     'ESN': ESN,
-    'RSSM': RSSM,
-    'gRSSM': gRSSM
+    'RSSM': RSSM
 }
 
 s4_modes = ['s4d', 'diag', 's4', 'nplr', 'dplr']
@@ -93,7 +91,7 @@ def parse_args():
             parser.add_argument('--weak', type=float, default=0.95, help='Weak Stability for internal dynamics.')
             parser.add_argument('--kernellr', type=float, default=0.001, help='Learning rate for kernel pars.')
             parser.add_argument('--kernelwd', type=float, default=0.0, help='Learning rate for kernel pars.')
-    elif args.block in ['ESN', 'RSSM', 'gRSSM']:
+    elif args.block in ['ESN', 'RSSM']:
         parser.add_argument('--rbatch', type=int, default=128, help='Batch size for Reservoir Model.')
         parser.add_argument('--readout', choices=readout_classes, default='mlp', help='Type of Readout.')
         if args.block == 'ESN':
@@ -101,14 +99,14 @@ def parse_args():
             parser.add_argument('--biasscaling', type=float, default=0.0, help='Scaling of input matrix.')
             parser.add_argument('--rho', type=float, default=1.0, help='Spectral Radius of hidden state matrix.')
             parser.add_argument('--leaky', type=float, default=1.0, help='Leakage Rate for leaky integrator.')
-        elif args.block in ['RSSM', 'gRSSM']:
+        elif args.block == 'RSSM':
             parser.add_argument('--minscaleencoder', type=float, default=0.0, help='Min encoder model scaling factor.')
             parser.add_argument('--maxscaleencoder', type=float, default=1.0, help='Max encoder model scaling factor.')
             parser.add_argument('--minscaleD', type=float, default=0.0, help='Skip connection matrix D min scaling.')
             parser.add_argument('--maxscaleD', type=float, default=1.0, help='Skip connection matrix D max scaling.')
             parser.add_argument('--kernel', choices=kernel_classes_reservoir, default='Vr',
                                 help='Kernel name.')
-            parser.add_argument('--mix', default='identity', help='Inner Mixing layer.')
+            parser.add_argument('--realfun', default='glu', help='Real function of complex variable.')
             parser.add_argument('--strong', type=float, default=0.98, help='Strong Stability for internal dynamics.')
             parser.add_argument('--weak', type=float, default=1.0, help='Weak Stability for internal dynamics.')
 
@@ -226,8 +224,8 @@ def main():
     elif args.block == 'ESN':
         block_args = {'input_scaling': args.inputscaling, 'bias_scaling': args.biasscaling,
                       'spectral_radius': args.rho, 'leakage_rate': args.leaky}
-    elif args.block in ['RSSM', 'gRSSM']:
-        block_args = {'mixing_layer': args.mix,
+    elif args.block == 'RSSM':
+        block_args = {'realfun': args.realfun,
                       'min_scaleD': args.minscaleD,
                       'max_scaleD': args.maxscaleD,
                       'kernel': args.kernel, 'kernel_size': kernel_size,
@@ -248,15 +246,15 @@ def main():
         block_name = args.block + '_' + args.kernel
     elif args.block == 'S4D':
         block_name = args.block + '_' + args.conv + '_' + args.kernel + '_' + args.mix
-    elif args.block in ['RSSM', 'gRSSM']:
-        block_name = args.block + '_' + args.kernel + '_' + args.mix
+    elif args.block == 'RSSM':
+        block_name = args.block + '_' + args.kernel + '_' + args.realfun
     else:
         block_name = args.block
 
-    if args.block not in ['ESN', 'RSSM', 'gRSSM']:
+    if args.block not in ['ESN', 'RSSM']:
         project_name = (args.encoder + '_[{' + block_name + '}_' + str(args.layers) + 'x' + str(args.neurons) + ']_' +
                         args.decoder)
-    elif args.block in ['RSSM', 'gRSSM']:
+    elif args.block == 'RSSM':
         project_name = ('reservoir_[{' + block_name + '}_' + str(args.layers) + 'x' + str(args.neurons) + ']_' +
                         args.readout)
     elif args.block == 'ESN':
@@ -348,7 +346,7 @@ def main():
         else:
             scores = {}
 
-    elif args.block in ['ESN', 'RSSM', 'gRSSM']:
+    elif args.block in ['ESN', 'RSSM']:
         log_file_name = args.block + '-' + args.readout
 
         logging.info('Loading develop and test datasets.')
@@ -362,7 +360,7 @@ def main():
                                      shuffle=False)
 
         logging.info('Initializing model.')
-        if args.block in ['RSSM', 'gRSSM']:
+        if args.block == 'RSSM':
             reservoir_model = StackedReservoir(block_cls=block_factories[args.block],
                                                n_layers=args.layers,
                                                d_input=d_input, d_model=args.neurons,

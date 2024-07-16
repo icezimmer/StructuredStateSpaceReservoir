@@ -71,7 +71,7 @@ class MiniVandermondeReservoir(nn.Module):
         if x is None:
             x = self.x0.unsqueeze(0).expand(u.shape[0], -1)
         x = torch.einsum('p,bp->bp', self.A, x) + torch.einsum('ph,bh->bp', self.B, u)  # (B,P)
-        y = torch.einsum('hp,bp->bh', self.C, x).real  # (B,H)
+        y = torch.einsum('hp,bp->bh', self.C, x)  # (B,H)
 
         return y, x
 

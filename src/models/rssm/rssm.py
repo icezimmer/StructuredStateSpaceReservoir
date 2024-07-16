@@ -1,7 +1,7 @@
 import torch
-import torch.nn as nn
-from src.reservoir.layers import LinearReservoir
 from src.models.rssm.convolutions.fft_reservoir import FFTConvReservoir
+from src.models.rssm.realfun_complexvar.complex_to_real import (ComplexToReal, ComplexToRealGLU, ComplexToRealABS,
+                                                                ComplexToRealAngle)
 
 """
 see: https://github.com/i404788/s5-pytorch/tree/74e2fdae00b915a62c914bf3615c0b8a4279eb84
@@ -11,7 +11,7 @@ see: https://github.com/i404788/s5-pytorch/tree/74e2fdae00b915a62c914bf3615c0b8a
 # TODO: replace mixing layer with only a non-linearity (identity is the best choice for mixing layer)
 class RSSM(torch.nn.Module):
     def __init__(self, d_model,
-                 mixing_layer,
+                 realfun,
                  kernel,
                  **layer_args):
         """
@@ -23,13 +23,12 @@ class RSSM(torch.nn.Module):
         """
 
         kernel_classes = ['Vr', 'miniVr']
-
         if kernel not in kernel_classes:
             raise ValueError('Kernel must be one of {}'.format(kernel_classes))
 
-        mixing_layers = ['reservoir+tanh', 'reservoir+glu', 'identity']
-        if mixing_layer not in mixing_layers:
-            raise ValueError('Mixing Layer must be one of {}'.format(mixing_layers))
+        realfuns = ['real', 'abs', 'angle', 'glu']
+        if realfun not in realfuns:
+            raise ValueError('Mixing Layer must be one of {}'.format(realfuns))
 
         super().__init__()
 
@@ -38,14 +37,14 @@ class RSSM(torch.nn.Module):
         self.layer = FFTConvReservoir(d_input=self.d_model, d_state=self.d_model, kernel=kernel,
                                       **layer_args)
 
-        if mixing_layer == 'reservoir+tanh':
-            self.mixing_layer = nn.Sequential(LinearReservoir(d_input=d_model, d_output=d_model, field='real'),
-                                              nn.Tanh())
-        elif mixing_layer == 'reservoir+glu':
-            self.mixing_layer = nn.Sequential(LinearReservoir(d_input=d_model, d_output=2 * d_model, field='real'),
-                                              nn.GLU(dim=-2))
-        elif mixing_layer == 'identity':
-            self.mixing_layer = nn.Identity()
+        if realfun == 'real':
+            self.realfun = ComplexToReal()
+        elif realfun == 'abs':
+            self.realfun = ComplexToRealABS()
+        elif realfun == 'angle':
+            self.realfun = ComplexToRealAngle()
+        elif realfun == 'glu':
+            self.realfun = ComplexToRealGLU()
 
     # TODO: implement step method for mixing layer
     def step(self, u, x):
@@ -56,7 +55,7 @@ class RSSM(torch.nn.Module):
         :return: output step (B, H), new state (B, P)
         """
         y, x = self.layer.step(u, x)
-        # y = self.mixing_layer.step(y)
+        y = self.realfun(y)
 
         return y, x
 
@@ -67,7 +66,7 @@ class RSSM(torch.nn.Module):
         :return: y: batched output sequence of shape (B, H, L) = (batch_size, d_output, input_length)
         """
         y, _ = self.layer(u)
-        y = self.mixing_layer(y)
+        y = self.realfun(y)
 
         # Return a dummy state to satisfy this repo's interface, but this can be modified
         return y, None
