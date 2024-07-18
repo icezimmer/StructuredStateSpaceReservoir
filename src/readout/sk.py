@@ -1,7 +1,7 @@
 import json
 import torch
-from src.reservoir.matrices import ReservoirMatrix
-import torch.nn as nn
+from sklearn import preprocessing
+from sklearn.linear_model import RidgeClassifier
 from matplotlib import pyplot as plt
 from tqdm import tqdm
 
@@ -10,70 +10,11 @@ from src.utils.check_device import check_model_device
 import os
 
 
-class LinearRegression(nn.Module):
-    def __init__(self, d_input, d_output, to_vec):
-        super().__init__()
-        self.d_input = d_input
-        self.d_output = d_output
-
-        self.to_vec = to_vec
-
-        structured_reservoir = ReservoirMatrix(d_in=d_output, d_out=d_input)  # transpose of matrix (left multipl.)
-        self.register_buffer('W_out_t',
-                             structured_reservoir.uniform_ring(max_radius=1.0, min_radius=0.0, field='real'))  # (P+1,K)
-
-    def _one_hot_encoding(self, labels):
-        y = torch.nn.functional.one_hot(input=labels, num_classes=self.d_output)
-        y = y.to(dtype=torch.float32)
-        return y
-
-    # TODO: resolve bug for StackedEchoState
-    def forward(self, X, y=None):
-        if y is not None:
-            if self.to_vec:
-                y = self._one_hot_encoding(y)
-
-            self.W_out_t = torch.linalg.pinv(X).mm(y)  # (P, K)
-            o = None
-        else:
-            o = torch.einsum('np,pk -> nk', X, self.W_out_t)  # prediction
-            o = torch.argmax(o, dim=1) if self.to_vec else o
-
-        return o
-
-
-class RidgeRegression(LinearRegression):
-    def __init__(self, d_input, d_output, to_vec, lambda_):
-        if lambda_ <= 0:
-            raise ValueError("Regularization lambda must be positive for Ridge Regression.")
-
-        super().__init__(d_input, d_output, to_vec)
-
-        self.lambda_ = lambda_
-
-        self.register_buffer('eye_matrix', torch.eye(n=self.d_input, dtype=torch.float32))
-
-    def forward(self, X, y=None):
-        if y is not None:
-            if self.to_vec:
-                y = self._one_hot_encoding(y)
-
-            self.W_out_t = torch.linalg.inv(X.t().mm(X) + self.lambda_ * self.eye_matrix).mm(X.t()).mm(y)  # (P, K)
-            o = None
-        else:
-            o = torch.einsum('np,pk -> nk', X, self.W_out_t)  # prediction
-            o = torch.argmax(o, dim=1) if self.to_vec else o
-
-        return o
-
-
 class Ridge:
-    def __init__(self, reservoir_model, develop_dataloader, d_output, to_vec, lambda_, bias=True):
+    def __init__(self, reservoir_model, develop_dataloader, lambda_):
         self.reservoir_model = reservoir_model
         self.device = check_model_device(model=self.reservoir_model)
         self.develop_dataloader = develop_dataloader
-        self.bias = bias
-        self.to_vec = to_vec
 
         self.hidden_state = None
         self.label = None
@@ -85,14 +26,8 @@ class Ridge:
         self.roc_auc_value = None
         self.confusion_matrix_value = None
 
-        d_input = self.reservoir_model.d_output
-        if self.bias:
-            d_input = d_input + 1
-
-        if lambda_ == 0.0:
-            self.readout_cls = LinearRegression(d_input=d_input, d_output=d_output, to_vec=self.to_vec)
-        else:
-            self.readout_cls = RidgeRegression(d_input=d_input, d_output=d_output, to_vec=self.to_vec, lambda_=lambda_)
+        self.scaler = preprocessing.StandardScaler()
+        self.readout_cls = RidgeClassifier(alpha=lambda_, solver='svd')
 
     # TODO: try to move to cpu the hidden_state of each layer before to stacked them in deep module
     def _gather(self, dataloader):
@@ -118,26 +53,21 @@ class Ridge:
         with torch.no_grad():
             self._gather(self.develop_dataloader)  # (N, P, L-w), (N,)
 
-            _, P, L = self.hidden_state.shape
-            if L > 1:
-                label = torch.repeat_interleave(input=self.label, repeats=L, dim=0)  # (N*(L-w),)
-            else:
-                label = self.label
+            label = torch.repeat_interleave(input=self.label, repeats=self.hidden_state.shape[-1], dim=0).numpy()  # (N*(L-w),)
             hidden_state = self.hidden_state.permute(0, 2, 1)  # (N, L-w, P)
-            hidden_state = hidden_state.reshape(-1, P)  # (N*(L-w), P) = (num_samples, features)
-            if self.bias:
-                hidden_state = torch.cat(tensors=(hidden_state, torch.ones(size=(hidden_state.size(0), 1),
-                                                                           dtype=torch.float32)),
-                                         dim=1)  # (N*(L-w), P+1)
+            hidden_state = hidden_state.reshape(-1, hidden_state.shape[-1]).numpy()  # (N*(L-w), P) = (num_samples, features)
 
-            _ = self.readout_cls(X=hidden_state, y=label)  # (P+1, K)
+            self.scaler = self.scaler.fit(hidden_state)
+            hidden_state = self.scaler.transform(hidden_state)
+
+            self.readout_cls = self.readout_cls.fit(hidden_state, label)
 
     # TODO: compute the rest of metrics
     def evaluate_(self, dataloader=None, saving_path=None):
         with torch.no_grad():
             prediction = self.predict_(dataloader)  # (N, K)
 
-            prediction = prediction.numpy()
+            prediction = prediction
             label = self.label.numpy()
 
             self.accuracy_value = accuracy_score(y_true=label, y_pred=prediction)
@@ -157,12 +87,10 @@ class Ridge:
                 if self.hidden_state is None or self.label is None:
                     raise ValueError("Hidden state and label are not set, please provide a dataloader.")
 
-            hidden_state = self.hidden_state[:, :, -1]  # (N, P)
-            if self.bias:
-                hidden_state = torch.cat(tensors=(hidden_state, torch.ones(size=(hidden_state.size(0), 1),
-                                                                           dtype=torch.float32)), dim=1)  # (N, P+1)
+            hidden_state = self.hidden_state[:, :, -1].numpy()  # (N, P)
+            hidden_state = self.scaler.transform(hidden_state)
 
-            prediction = self.readout_cls(X=hidden_state)  # (P+1, K)
+            prediction = self.readout_cls.predict(X=hidden_state)  # (P+1, K)
 
         return prediction
 

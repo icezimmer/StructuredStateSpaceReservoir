@@ -459,7 +459,6 @@ def main():
             logging.info('[Tracking] Fitting model.')
             tracker.start()
             develop_dataset = Reservoir2NN(reservoir_model=reservoir_model, dataloader=develop_dataloader)
-            print(develop_dataset)
             develop_dataloader = DataLoader(develop_dataset, batch_size=args.batch, shuffle=False)
 
             train_dataset, val_dataset = random_split_dataset(develop_dataset)
