@@ -11,9 +11,9 @@ from src.models.esn.esn import ESN
 from src.models.s4d.s4d import S4D
 from src.models.rssm.rssm import RSSM
 from src.deep.stacked import StackedNetwork, StackedReservoir, StackedEchoState
-from src.deep.mlp import MLP
+from src.readout.mlp import MLP
 from src.torch_dataset.reservoir_to_nn import Reservoir2NN
-from src.reservoir.readout import ReadOut
+from src.readout.ridge import Ridge
 from src.ml.optimization import setup_optimizer
 from src.ml.training import TrainModel
 from src.ml.evaluation import EvaluateClassifier
@@ -403,8 +403,8 @@ def main():
 
             logging.info('[Tracking] Fitting model.')
             tracker.start()
-            readout = ReadOut(reservoir_model=reservoir_model, develop_dataloader=develop_dataloader,
-                              d_output=d_output, to_vec=to_vec, bias=True, lambda_=args.regul)
+            readout = Ridge(reservoir_model=reservoir_model, develop_dataloader=develop_dataloader,
+                            d_output=d_output, to_vec=to_vec, bias=True, lambda_=args.regul)
             readout.fit_()
             emissions = tracker.stop()
             logging.info(f"Estimated CO2 emissions for this fit: {emissions} kg")
@@ -459,6 +459,7 @@ def main():
             logging.info('[Tracking] Fitting model.')
             tracker.start()
             develop_dataset = Reservoir2NN(reservoir_model=reservoir_model, dataloader=develop_dataloader)
+            print(develop_dataset)
             develop_dataloader = DataLoader(develop_dataset, batch_size=args.batch, shuffle=False)
 
             train_dataset, val_dataset = random_split_dataset(develop_dataset)
