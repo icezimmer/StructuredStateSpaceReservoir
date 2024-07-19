@@ -10,6 +10,24 @@ from src.utils.check_device import check_model_device
 import os
 
 
+class TorchStandardScaler:
+    def __init__(self, dim=0, keepdim=True, correction=1):
+        self.dim = dim
+        self.keepdim = keepdim
+        self.correction = correction
+        self.m = 0.0
+        self.s = 1.0
+
+    def fit(self, x):
+        self.m = x.mean(dim=self.dim, keepdim=self.keepdim)
+        self.s = x.std(dim=self.dim, correction=self.correction, keepdim=self.keepdim)
+
+    def transform(self, x):
+        x -= self.m
+        x /= (self.s + 1e-7)
+        return x
+
+
 class LinearRegression(nn.Module):
     def __init__(self, d_input, d_output, to_vec):
         super().__init__()
@@ -27,7 +45,6 @@ class LinearRegression(nn.Module):
         y = y.to(dtype=torch.float32)
         return y
 
-    # TODO: resolve bug for StackedEchoState
     def forward(self, X, y=None):
         if y is not None:
             if self.to_vec:
@@ -89,6 +106,8 @@ class Ridge:
         if self.bias:
             d_input = d_input + 1
 
+        # self.scaler = TorchStandardScaler()
+
         if lambda_ == 0.0:
             self.readout_cls = LinearRegression(d_input=d_input, d_output=d_output, to_vec=self.to_vec)
         else:
@@ -125,6 +144,10 @@ class Ridge:
                 label = self.label
             hidden_state = self.hidden_state.permute(0, 2, 1)  # (N, L-w, P)
             hidden_state = hidden_state.reshape(-1, P)  # (N*(L-w), P) = (num_samples, features)
+
+            # self.scaler.fit(hidden_state)
+            # hidden_state = self.scaler.transform(hidden_state)
+
             if self.bias:
                 hidden_state = torch.cat(tensors=(hidden_state, torch.ones(size=(hidden_state.size(0), 1),
                                                                            dtype=torch.float32)),
@@ -158,6 +181,9 @@ class Ridge:
                     raise ValueError("Hidden state and label are not set, please provide a dataloader.")
 
             hidden_state = self.hidden_state[:, :, -1]  # (N, P)
+
+            # hidden_state = self.scaler.transform(hidden_state)
+
             if self.bias:
                 hidden_state = torch.cat(tensors=(hidden_state, torch.ones(size=(hidden_state.size(0), 1),
                                                                            dtype=torch.float32)), dim=1)  # (N, P+1)
