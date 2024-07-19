@@ -1,6 +1,5 @@
 import torch.nn as nn
 from src.reservoir.layers import LinearReservoir
-from src.models.rssm.rssm import RSSM
 from src.models.esn.esn import ESN
 import torch
 
@@ -8,6 +7,8 @@ import torch
 class StackedNetwork(nn.Module):
     def __init__(self, block_cls, n_layers, d_input, d_model, d_output,
                  encoder, to_vec, decoder,
+                 min_encoder_scaling=0.0, max_encoder_scaling=1.0,
+                 min_decoder_scaling=0.0, max_decoder_scaling=1.0,
                  layer_dropout=0.0,
                  **block_args):
         """
@@ -27,7 +28,8 @@ class StackedNetwork(nn.Module):
         if encoder == 'conv1d':
             self.encoder = nn.Conv1d(in_channels=d_input, out_channels=d_model, kernel_size=1)
         elif encoder == 'reservoir':
-            self.encoder = LinearReservoir(d_input=d_input, d_output=d_model, field='real')
+            self.encoder = LinearReservoir(d_input=d_input, d_output=d_model,
+                                           min_radius=min_encoder_scaling, max_radius=max_encoder_scaling, field='real')
 
         self.layers = nn.ModuleList([block_cls(d_model=d_model, **block_args) for _ in range(n_layers)])
         self.dropouts = nn.ModuleList([nn.Dropout(layer_dropout) if layer_dropout > 0 else nn.Identity()
@@ -37,7 +39,8 @@ class StackedNetwork(nn.Module):
         if decoder == 'conv1d':
             self.decoder = nn.Conv1d(in_channels=d_model, out_channels=d_output, kernel_size=1)
         elif decoder == 'reservoir':
-            self.decoder = LinearReservoir(d_input=d_model, d_output=d_output, field='real')
+            self.decoder = LinearReservoir(d_input=d_model, d_output=d_output,
+                                           min_radius=min_decoder_scaling, max_radius=max_decoder_scaling, field='real')
 
     def forward(self, x):
         """
