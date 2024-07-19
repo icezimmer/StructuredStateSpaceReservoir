@@ -9,6 +9,7 @@ from src.models.s4.s4 import S4Block
 from src.models.rnn.vanilla import VanillaRNN, VanillaGRU, VanillaLSTM
 from src.models.esn.esn import ESN
 from src.models.s4d.s4d import S4D
+from src.models.lrssm.lrssm import LRSSM
 from src.models.rssm.rssm import RSSM
 from src.deep.stacked import StackedNetwork, StackedReservoir, StackedEchoState
 from src.readout.mlp import MLP
@@ -27,6 +28,7 @@ block_factories = {
     'GRU': VanillaGRU,
     'LSTM': VanillaLSTM,
     'S4D': S4D,
+    'LRSSM': LRSSM,
     'ESN': ESN,
     'RSSM': RSSM
 }
@@ -59,10 +61,14 @@ def parse_args():
     args, unknown = parser.parse_known_args()
 
     # Conditional argument additions based on block type
-    if args.block in ['RNN', 'GRU', 'LSTM', 'S4', 'S4D']:
+    if args.block in ['RNN', 'GRU', 'LSTM', 'S4', 'S4D', 'LRSSM']:
         parser.add_argument('--batch', type=int, default=128, help='Batch size')
         parser.add_argument('--encoder', default='conv1d', help='Encoder model.')
+        # parser.add_argument('--minscaleencoder', type=float, default=0.0, help='Min encoder model scaling factor.')
+        # parser.add_argument('--maxscaleencoder', type=float, default=1.0, help='Max encoder model scaling factor.')
         parser.add_argument('--decoder', default='conv1d', help='Decoder model.')
+        # parser.add_argument('--minscaledecoder', type=float, default=0.0, help='Min decoder model scaling factor.')
+        # parser.add_argument('--maxscaledecoder', type=float, default=1.0, help='Max decoder model scaling factor.')
         parser.add_argument('--dropout', type=float, default=0.0, help='Dropout the preactivation inside the block.')
         parser.add_argument('--layerdrop', type=float, default=0.0, help='Dropout the output of each layer.')
         parser.add_argument('--lr', type=float, default=0.002, help='Learning rate for NON-kernel parameters.')
@@ -92,6 +98,12 @@ def parse_args():
             parser.add_argument('--weak', type=float, default=0.95, help='Weak Stability for internal dynamics.')
             parser.add_argument('--kernellr', type=float, default=0.001, help='Learning rate for kernel pars.')
             parser.add_argument('--kernelwd', type=float, default=0.0, help='Learning rate for kernel pars.')
+        elif args.block == 'LRSSM':
+            parser.add_argument('--minscaleD', type=float, default=0.0, help='Skip connection matrix D min scaling.')
+            parser.add_argument('--maxscaleD', type=float, default=1.0, help='Skip connection matrix D max scaling.')
+            parser.add_argument('--kernel', choices=kernel_classes_reservoir, default='Vr', help='Kernel name.')
+            parser.add_argument('--strong', type=float, default=0.7, help='Strong Stability for internal dynamics.')
+            parser.add_argument('--weak', type=float, default=0.95, help='Weak Stability for internal dynamics.')
     elif args.block in ['ESN', 'RSSM']:
         parser.add_argument('--rbatch', type=int, default=128, help='Batch size for Reservoir Model.')
         parser.add_argument('--readout', choices=readout_classes, default='mlp', help='Type of Readout.')
@@ -222,6 +234,20 @@ def main():
             block_args['max_scaleC'] = args.maxscaleC
         elif args.kernel.startswith('miniV'):
             block_args['scaleW'] = args.scaleW
+    elif args.block == 'LRSSM':
+        block_args = {'min_scaleD': args.minscaleD,
+                      'max_scaleD': args.maxscaleD,
+                      'dropout': args.dropout,
+                      'kernel': args.kernel, 'kernel_size': kernel_size,
+                      'strong_stability': args.strong, 'weak_stability': args.weak}
+        if args.kernel.startswith('V'):
+            block_args['dt'] = args.dt
+            block_args['min_scaleB'] = args.minscaleB
+            block_args['max_scaleB'] = args.maxscaleB
+            block_args['min_scaleC'] = args.minscaleC
+            block_args['max_scaleC'] = args.maxscaleC
+        elif args.kernel.startswith('miniV'):
+            block_args['scaleW'] = args.scaleW
     elif args.block == 'ESN':
         block_args = {'input_scaling': args.inputscaling, 'bias_scaling': args.biasscaling,
                       'spectral_radius': args.rho, 'leakage_rate': args.leaky}
@@ -247,6 +273,8 @@ def main():
         block_name = args.block + '_' + args.kernel
     elif args.block == 'S4D':
         block_name = args.block + '_' + args.conv + '_' + args.kernel + '_' + args.mix
+    elif args.block == 'LRSSM':
+        block_name = args.block + '_' + args.kernel + '_conv1d+glu'
     elif args.block == 'RSSM':
         block_name = args.block + '_' + args.kernel + '_' + args.realfun
     else:
@@ -267,7 +295,7 @@ def main():
     output_dir = os.path.join('./checkpoint', 'results', args.task)
     os.makedirs(output_dir, exist_ok=True)
 
-    if args.block in ['RNN', 'GRU', 'LSTM', 'S4', 'S4D']:
+    if args.block in ['RNN', 'GRU', 'LSTM', 'S4', 'S4D', 'LRSSM']:
         log_file_name = args.block
 
         logging.info('Loading develop and test datasets.')
