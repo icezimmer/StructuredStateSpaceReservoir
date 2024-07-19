@@ -46,6 +46,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Run classification task.')
     parser.add_argument('--seed', type=int, default=42, help='Random seed.')
     parser.add_argument('--save', action='store_true', help='Save results in a proper folder.')
+    parser.add_argument('--tr', action='store_true', help='Development set assessment.')
     parser.add_argument('--device', default='cuda:1', help='Cuda device.')
     parser.add_argument('--task', default='smnist', help='Name of task.')
     parser.add_argument('--block', choices=block_factories.keys(), default='RSSM',
@@ -335,9 +336,10 @@ def main():
             torch.save(model.state_dict(), model_path)
 
         if args.task in classification_task:
-            logging.info('Evaluating model on develop set.')
-            eval_dev = EvaluateClassifier(model=model, num_classes=d_output, dataloader=develop_dataloader)
-            eval_dev.evaluate(saving_path=develop_path)
+            if args.tr:
+                logging.info('Evaluating model on develop set.')
+                eval_dev = EvaluateClassifier(model=model, num_classes=d_output, dataloader=develop_dataloader)
+                eval_dev.evaluate(saving_path=develop_path)
 
             logging.info('Evaluating model on test set.')
             eval_test = EvaluateClassifier(model=model, num_classes=d_output, dataloader=test_dataloader)
@@ -416,8 +418,9 @@ def main():
                 torch.save(reservoir_model.state_dict(), reservoir_model_path)
 
             if args.task in classification_task:
-                logging.info('Evaluating model on develop set.')
-                readout.evaluate_(saving_path=develop_path)
+                if args.tr:
+                    logging.info('Evaluating model on develop set.')
+                    readout.evaluate_(saving_path=develop_path)
 
                 logging.info('Evaluating model on test set.')
                 readout.evaluate_(dataloader=test_dataloader, saving_path=test_path)
@@ -483,9 +486,10 @@ def main():
                 torch.save(model.state_dict(), model_path)
 
             if args.task in classification_task:
-                logging.info('Evaluating model on develop set.')
-                eval_dev = EvaluateClassifier(model=model, num_classes=d_output, dataloader=develop_dataloader)
-                eval_dev.evaluate(saving_path=develop_path)
+                if args.tr:
+                    logging.info('Evaluating model on develop set.')
+                    eval_dev = EvaluateClassifier(model=model, num_classes=d_output, dataloader=develop_dataloader)
+                    eval_dev.evaluate(saving_path=develop_path)
 
                 logging.info(f'Computing reservoir test set.')
                 test_dataset = Reservoir2NN(reservoir_model=reservoir_model, dataloader=test_dataloader)
@@ -566,9 +570,10 @@ def main():
                 torch.save(model.state_dict(), model_path)
 
             if args.task in classification_task:
-                logging.info('Evaluating model on develop set.')
-                eval_dev = EvaluateClassifier(model=model, num_classes=d_output, dataloader=develop_dataloader)
-                eval_dev.evaluate(saving_path=develop_path)
+                if args.tr:
+                    logging.info('Evaluating model on develop set.')
+                    eval_dev = EvaluateClassifier(model=model, num_classes=d_output, dataloader=develop_dataloader)
+                    eval_dev.evaluate(saving_path=develop_path)
 
                 logging.info(f'Computing reservoir test set.')
                 test_dataset = Reservoir2NN(reservoir_model=reservoir_model, dataloader=test_dataloader)
