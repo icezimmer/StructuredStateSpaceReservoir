@@ -1,5 +1,7 @@
 import matplotlib.pyplot as plt
 import torch
+from tqdm import tqdm
+
 from src.utils.check_device import check_model_device
 import copy
 
@@ -18,7 +20,7 @@ class TrainModel:
         self.model.train()
 
         running_loss = 0.0
-        for input_, label in dataloader:
+        for input_, label in tqdm(dataloader):
             input_ = input_.to(self.device)
             label = label.to(self.device)
             self.optimizer.zero_grad()
@@ -35,7 +37,7 @@ class TrainModel:
         self.model.eval()
         with torch.no_grad():
             running_loss = 0.0
-            for input_, label in dataloader:
+            for input_, label in tqdm(dataloader):
                 input_ = input_.to(self.device)
                 label = label.to(self.device)
                 output = self.model(input_)

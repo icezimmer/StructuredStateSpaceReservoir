@@ -1,4 +1,6 @@
 import torch
+from tqdm import tqdm
+
 from src.utils.check_device import check_model_device
 from torch.utils.data import Dataset
 
@@ -15,7 +17,7 @@ class Reservoir2NN(Dataset):
 
         with torch.no_grad():
 
-            for input_batch, label_batch in self.dataloader:
+            for input_batch, label_batch in tqdm(self.dataloader):
                 input_batch = input_batch.to(device=self.device)
                 label_batch = label_batch.to(device=self.device)  # (B, ?)
                 output_batch = self.reservoir_model(input_batch)  # (B, P, L)
