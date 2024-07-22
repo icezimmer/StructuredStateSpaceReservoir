@@ -9,7 +9,7 @@ class FFTConvReservoir(nn.Module):
     """Generate convolution kernel from diagonal SSM parameters."""
 
     def __init__(self, d_input, d_state, kernel,
-                 min_scaleD=1.0, max_scaleD=1.0, **kernel_args):
+                 min_scaleD=0.0, max_scaleD=1.0, **kernel_args):
         """
         Construct a discrete LTI SSM model.
         Recurrence view:
