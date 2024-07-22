@@ -6,7 +6,7 @@ import torch
 
 class StackedNetwork(nn.Module):
     def __init__(self, block_cls, n_layers, d_input, d_model, d_output,
-                 encoder, to_vec, decoder,
+                 encoder, decoder, to_vec,
                  min_encoder_scaling=0.0, max_encoder_scaling=1.0,
                  min_decoder_scaling=0.0, max_decoder_scaling=1.0,
                  layer_dropout=0.0,
