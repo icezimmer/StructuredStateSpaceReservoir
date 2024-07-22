@@ -64,11 +64,7 @@ def parse_args():
     if args.block in ['RNN', 'GRU', 'LSTM', 'S4', 'S4D', 'LRSSM']:
         parser.add_argument('--batch', type=int, default=128, help='Batch size')
         parser.add_argument('--encoder', default='conv1d', help='Encoder model.')
-        # parser.add_argument('--minscaleencoder', type=float, default=0.0, help='Min encoder model scaling factor.')
-        # parser.add_argument('--maxscaleencoder', type=float, default=1.0, help='Max encoder model scaling factor.')
         parser.add_argument('--decoder', default='conv1d', help='Decoder model.')
-        # parser.add_argument('--minscaledecoder', type=float, default=0.0, help='Min decoder model scaling factor.')
-        # parser.add_argument('--maxscaledecoder', type=float, default=1.0, help='Max decoder model scaling factor.')
         parser.add_argument('--dropout', type=float, default=0.0, help='Dropout the preactivation inside the block.')
         parser.add_argument('--layerdrop', type=float, default=0.0, help='Dropout the output of each layer.')
         parser.add_argument('--lr', type=float, default=0.002, help='Learning rate for NON-kernel parameters.')
@@ -125,6 +121,14 @@ def parse_args():
 
     # Update args with the new conditional arguments
     args, unknown = parser.parse_known_args()
+
+    if hasattr(args, 'encoder'):
+        parser.add_argument('--minscaleencoder', type=float, default=0.0, help='Min encoder model scaling factor.')
+        parser.add_argument('--maxscaleencoder', type=float, default=1.0, help='Max encoder model scaling factor.')
+
+    if hasattr(args, 'decoder'):
+        parser.add_argument('--minscaledecoder', type=float, default=0.0, help='Min decoder model scaling factor.')
+        parser.add_argument('--maxscaledecoder', type=float, default=1.0, help='Max decoder model scaling factor.')
 
     if hasattr(args, 'readout'):
         if args.readout == 'ridge':
