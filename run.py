@@ -317,6 +317,8 @@ def main():
                                d_input=d_input, d_model=args.neurons, d_output=d_output,
                                encoder=args.encoder, decoder=args.decoder,
                                to_vec=to_vec,
+                               min_encoder_scaling=args.minscaleencoder, max_encoder_scaling=args.maxscaleencoder,
+                               min_decoder_scaling=args.minscadeencoder, max_decoder_scaling=args.maxscaledecoder,
                                layer_dropout=args.layerdrop,
                                **block_args)
 
