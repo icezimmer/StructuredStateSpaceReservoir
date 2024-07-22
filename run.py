@@ -318,7 +318,7 @@ def main():
                                encoder=args.encoder, decoder=args.decoder,
                                to_vec=to_vec,
                                min_encoder_scaling=args.minscaleencoder, max_encoder_scaling=args.maxscaleencoder,
-                               min_decoder_scaling=args.minscadeencoder, max_decoder_scaling=args.maxscaledecoder,
+                               min_decoder_scaling=args.minscaledecoder, max_decoder_scaling=args.maxscaledecoder,
                                layer_dropout=args.layerdrop,
                                **block_args)
 
