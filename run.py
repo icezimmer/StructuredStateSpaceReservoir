@@ -94,8 +94,8 @@ def parse_args():
             parser.add_argument('--kerneldrop', type=float, default=0.0, help='Dropout the kernel inside the block.')
             parser.add_argument('--kernel', choices=kernel_classes, default='V', help='Kernel name.')
             parser.add_argument('--mix', default='conv1d+glu', help='Inner Mixing layer.')
-            parser.add_argument('--strong', type=float, default=0.7, help='Strong Stability for internal dynamics.')
-            parser.add_argument('--weak', type=float, default=0.95, help='Weak Stability for internal dynamics.')
+            parser.add_argument('--strong', type=float, default=-1.0, help='Strong Stability for internal dynamics.')
+            parser.add_argument('--weak', type=float, default=0.0, help='Weak Stability for internal dynamics.')
             parser.add_argument('--kernellr', type=float, default=0.001, help='Learning rate for kernel pars.')
             parser.add_argument('--kernelwd', type=float, default=0.0, help='Learning rate for kernel pars.')
         elif args.block == 'LRSSM':
@@ -155,7 +155,7 @@ def parse_args():
     # Conditionally add --dt, --scaleB and --scaleC if kernel starts with 'V'
     if hasattr(args, 'kernel'):
         if args.kernel.startswith('V'):
-            parser.add_argument('--dt', type=float, default=None, help='Sampling rate (only for continuous dynamics).')
+            parser.add_argument('--dt', type=float, default=0.05, help='Sampling rate (only for continuous dynamics).')
             parser.add_argument('--minscaleB', type=float, default=0.0, help='Min scaling for input2state matrix B.')
             parser.add_argument('--maxscaleB', type=float, default=1.0, help='Max scaling for input2state matrix B.')
             parser.add_argument('--minscaleC', type=float, default=0.0, help='Min scaling for state2output matrix C.')
