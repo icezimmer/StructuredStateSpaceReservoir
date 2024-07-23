@@ -15,7 +15,7 @@ class LinearReservoir(nn.Module):
         self.field = field
 
         reservoir = ReservoirMatrix(d_in=self.d_input, d_out=self.d_output)
-        W_in = reservoir.uniform_ring(min_radius=min_radius, max_radius=max_radius, field=field)
+        W_in = reservoir.uniform_ring(min_radius=min_radius, max_radius=max_radius, field=self.field)
         self.register_buffer('W_in', W_in)
 
     def step(self, u):

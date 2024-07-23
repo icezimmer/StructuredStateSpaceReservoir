@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from src.reservoir.layers import LinearReservoir
+from src.layers.reservoir import LinearReservoir
 from src.models.s4d.convolutions.fft import FFTConv, FFTConvFreezeD
 
 """
