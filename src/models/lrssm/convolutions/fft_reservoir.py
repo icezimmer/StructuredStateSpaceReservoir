@@ -3,6 +3,7 @@ import torch.nn as nn
 from src.reservoir.vector import ReservoirVector
 from src.models.rssm.kernels.vandermonde_reservoir import VandermondeReservoir
 from src.models.rssm.kernels.mini_vandermonde_reservoir import MiniVandermondeReservoir
+from src.utils.signals import hilbert_transform
 
 
 class FFTConvReservoir(nn.Module):
@@ -44,8 +45,6 @@ class FFTConvReservoir(nn.Module):
         D = input2output_reservoir.uniform_ring(min_radius=min_scaleD, max_radius=max_scaleD, field='real')
         self.register_buffer('D', D)  # (H,)
 
-        self.activation = nn.Tanh()
-
     def step(self, u, x=None):
         """
         Step one time step as a recurrent model. Intended to be used during validation:
@@ -60,8 +59,6 @@ class FFTConvReservoir(nn.Module):
 
         y = torch.cat((y.real, y.imag), dim=-2)
 
-        y = self.activation(y)
-
         return y, x
 
     def forward(self, u):
@@ -70,14 +67,20 @@ class FFTConvReservoir(nn.Module):
         :param u: batched input sequence of shape (B,H,L) = (batch_size, d_input, input_length)
         :return: y: batched output sequence of shape (B,H,L) = (batch_size, d_input, input_length)
         """
+        # if u.dtype == torch.complex64:
+        #     u_s = torch.fft.fft(u, dim=-1)  # (B, H, L)
+        # elif u.dtype == torch.float32:
+        #     u, u_s = hilbert_transform(u)
+        # else:
+        #     raise ValueError('Input must be real or complex')
+
         u_s = torch.fft.fft(u, dim=-1)  # (B, H, L)
+
         k_s = torch.fft.fft(self.K, dim=-1)  # (H, L)
 
         y = torch.fft.ifft(torch.einsum('bhl,hl->bhl', u_s, k_s), dim=-1)  # (B, H, L)
         y = y + torch.einsum('h,bhl->bhl', self.D, u)  # (B, H, L)
 
         y = torch.cat((y.real, y.imag), dim=-2)
-
-        y = self.activation(y)
 
         return y, None

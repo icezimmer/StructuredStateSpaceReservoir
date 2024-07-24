@@ -49,6 +49,8 @@ class StackedNetwork(nn.Module):
         return:
             x: torch tensor of shape (B, d_output) or (B, d_output, L))
         """
+        # x, _ = hilbert_transform(x)
+        # x = self.encoder(torch.cat((x.real, x.imag), dim=-2))  # (B, d_input, L) -> (B, d_model, L)
         x = self.encoder(x)  # (B, d_input, L) -> (B, d_model, L)
 
         for layer, dropout in zip(self.layers, self.dropouts):

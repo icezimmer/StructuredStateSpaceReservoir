@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from src.models.lrssm.convolutions.fft_reservoir import FFTConvReservoir
+from src.layers.online import ConvolutionSignal
 
 """
 see: https://github.com/i404788/s5-pytorch/tree/74e2fdae00b915a62c914bf3615c0b8a4279eb84
@@ -30,12 +31,8 @@ class LRSSM(torch.nn.Module):
         self.layer = FFTConvReservoir(d_input=self.d_model, d_state=self.d_model, kernel=kernel,
                                       **layer_args)
 
-        # self.learning_layer = nn.Sequential(nn.Conv1d(in_channels=2 * d_model, out_channels=2 * d_model, kernel_size=1),
-        #                                     nn.GLU(dim=-2))
-
-        self.learning_layer = nn.Sequential(#nn.BatchNorm1d(num_features=2 * d_model),
+        self.learning_layer = nn.Sequential(nn.Conv1d(in_channels=2 * d_model, out_channels=2 * d_model, kernel_size=1),
                                             nn.GLU(dim=-2))
-                                            #nn.BatchNorm1d(num_features=d_model))
 
         self.drop = nn.Dropout(dropout) if dropout > 0 else nn.Identity()
 
