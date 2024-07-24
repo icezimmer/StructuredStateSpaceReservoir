@@ -1,5 +1,5 @@
 import torch.nn as nn
-from src.reservoir.layers import LinearReservoir
+from src.layers.reservoir import LinearReservoir
 from src.models.esn.esn import ESN
 import torch
 
@@ -111,11 +111,12 @@ class StackedReservoir(nn.Module):
         :param  x: input sequence, torch tensor of shape (B, d_input, L)
         :return: output sequence, torch tensor of shape (B, d_output, L - w)
         """
-        x = self.encoder(x)  # (B, d_input, L) -> (B, d_model, L)
+        # x, _ = hilbert_transform(x)
+        y = self.encoder(x)  # (B, d_input, L) -> (B, d_model, L)
 
         x_list = []
         for layer in self.layers:
-            x, _ = layer(x)  # (B, d_model, L) -> (B, d_model, L)
+            y, x = layer(y)  # (B, d_model, L) -> (B, d_model, L)
             x_list.append(x)
 
         x = torch.cat(tensors=x_list, dim=-2)  # (B, d_model, L) -> (B, num_layers * d_model, L)

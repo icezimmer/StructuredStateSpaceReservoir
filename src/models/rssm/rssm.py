@@ -67,6 +67,7 @@ class RSSM(torch.nn.Module):
         """
         y, _ = self.layer(u)
         y = self.realfun(y)
+        x = y
 
         # Return a dummy state to satisfy this repo's interface, but this can be modified
-        return y, None
+        return y, x

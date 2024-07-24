@@ -44,8 +44,6 @@ class FFTConvReservoir(nn.Module):
         D = input2output_reservoir.uniform_ring(min_radius=min_scaleD, max_radius=max_scaleD, field='real')
         self.register_buffer('D', D)  # (H,)
 
-        self.activation = nn.Tanh()
-
     def step(self, u, x=None):
         """
         Step one time step as a recurrent model. Intended to be used during validation:
@@ -66,7 +64,15 @@ class FFTConvReservoir(nn.Module):
         :param u: batched input sequence of shape (B,H,L) = (batch_size, d_input, input_length)
         :return: y: batched output sequence of shape (B,H,L) = (batch_size, d_input, input_length)
         """
+        # if u.dtype == torch.complex64:
+        #     u_s = torch.fft.fft(u, dim=-1)  # (B, H, L)
+        # elif u.dtype == torch.float32:
+        #     u, _ = hilbert_transform(u)
+        # else:
+        #     raise ValueError('Input must be real or complex')
+
         u_s = torch.fft.fft(u, dim=-1)  # (B, H, L)
+
         k_s = torch.fft.fft(self.K, dim=-1)  # (H, L)
 
         y = torch.fft.ifft(torch.einsum('bhl,hl->bhl', u_s, k_s), dim=-1)  # (B, H, L)
