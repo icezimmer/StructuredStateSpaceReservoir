@@ -42,27 +42,27 @@ class StackedNetwork(nn.Module):
             self.decoder = LinearReservoir(d_input=d_model, d_output=d_output,
                                            min_radius=min_decoder_scaling, max_radius=max_decoder_scaling, field='real')
 
-    def forward(self, x):
+    def forward(self, u):
         """
         args:
-            x: torch tensor of shape (B, d_input, L)
+            u: torch tensor of shape (B, d_input, L)
         return:
-            x: torch tensor of shape (B, d_output) or (B, d_output, L))
+            y: torch tensor of shape (B, d_output) or (B, d_output, L))
         """
-        # x, _ = hilbert_transform(x)
-        # x = self.encoder(torch.cat((x.real, x.imag), dim=-2))  # (B, d_input, L) -> (B, d_model, L)
-        x = self.encoder(x)  # (B, d_input, L) -> (B, d_model, L)
+        # y, _ = hilbert_transform(u)
+        # y = self.encoder(torch.cat((u.real, u.imag), dim=-2))  # (B, d_input, L) -> (B, d_model, L)
+        y = self.encoder(u)  # (B, d_input, L) -> (B, d_model, L)
 
         for layer, dropout in zip(self.layers, self.dropouts):
-            x, _ = layer(x)
-            x = dropout(x)
+            y, _ = layer(y)
+            y = dropout(y)
 
         if self.to_vec:
-            x = self.decoder(x[:, :, -1:]).squeeze(-1)  # (B, d_model, L) -> (B, d_output)
+            y = self.decoder(y[:, :, -1:]).squeeze(-1)  # (B, d_model, L) -> (B, d_output)
         else:
-            x = self.decoder(x)  # (B, d_model, L) -> (B, d_output, L)
+            y = self.decoder(y)  # (B, d_model, L) -> (B, d_output, L)
 
-        return x
+        return y
 
 
 class StackedReservoir(nn.Module):
@@ -107,19 +107,21 @@ class StackedReservoir(nn.Module):
 
         return u, x
 
-    def forward(self, x):
+    def forward(self, u):
         """
         Forward method for the RSSM model.
-        :param  x: input sequence, torch tensor of shape (B, d_input, L)
+        :param  u: input sequence, torch tensor of shape (B, d_input, L)
         :return: output sequence, torch tensor of shape (B, d_output, L - w)
         """
-        # x, _ = hilbert_transform(x)
-        y = self.encoder(x)  # (B, d_input, L) -> (B, d_model, L)
+        # y, _ = hilbert_transform(u)
+        y = self.encoder(u)  # (B, d_input, L) -> (B, d_model, L)
 
         x_list = []
         for layer in self.layers:
+            # y_old = y
             y, x = layer(y)  # (B, d_model, L) -> (B, d_model, L)
             x_list.append(x)
+            # y = y + y_old
 
         x = torch.cat(tensors=x_list, dim=-2)  # (B, d_model, L) -> (B, num_layers * d_model, L)
         x = x[:, :, self.transient:]  # (B, num_layers * d_model, L) -> (B, num_layers * d_model, L - w)
