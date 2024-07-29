@@ -58,8 +58,9 @@ class VandermondeReservoir(nn.Module):
             state_reservoir = ContinuousStateReservoir(self.d_state)
             Lambda = state_reservoir.diagonal_state_space_matrix(
                      min_real_part=strong_stability, max_real_part=weak_stability, field=field)
-            rate_reservoir = ReservoirVector(self.d_state)
-            dt = torch.abs(rate_reservoir.uniform_ring(min_radius=low_oscillation, max_radius=high_oscillation, field='real'))
+            rate_reservoir = ReservoirVector(d=self.d_state)
+            dt = torch.abs(rate_reservoir.uniform_ring(min_radius=low_oscillation, max_radius=high_oscillation,
+                                                       field='real'))
             Lambda_bar, B_bar = self._zoh(Lambda, B, dt)
 
         self.register_buffer('A', Lambda_bar)  # (P,)
