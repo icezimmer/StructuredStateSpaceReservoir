@@ -47,14 +47,15 @@ class DiscreteStateReservoir:
         if max_radius > 1.0:
             warnings.warn("For a stable discrete dynamics set max_radius such that:"
                           "0 <= min_radius <= |lambda| < max_radius <= 1.")
-
-        if min_theta > max_theta or min_theta < 0.0:
-            raise ValueError("For the discrete dynamics we must have:"
-                             "0 <= min_theta <= theta < max_theta."
-                             "If max_theta > 2pi, max_theta is adjusted to 2pi")
         if max_radius > 1.0:
             warnings.warn("For a stable discrete dynamics set max_radius such that:"
                           "0 <= min_radius <= |lambda| < max_radius <= 1.")
+
+        if min_theta > max_theta or min_theta < 0.0:
+            raise ValueError("For the discrete dynamics we must have:"
+                             "0 <= min_theta <= theta < max_theta.")
+        if max_theta > 2 * torch.pi:
+            warnings.warn("Being max_theta > 2pi, max_theta is clipped to 2pi")
 
         if field == 'complex':
             if n_ssm is None:
