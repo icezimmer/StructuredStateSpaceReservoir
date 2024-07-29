@@ -49,8 +49,6 @@ class StackedNetwork(nn.Module):
         return:
             y: torch tensor of shape (B, d_output) or (B, d_output, L))
         """
-        # y, _ = hilbert_transform(u)
-        # y = self.encoder(torch.cat((u.real, u.imag), dim=-2))  # (B, d_input, L) -> (B, d_model, L)
         y = self.encoder(u)  # (B, d_input, L) -> (B, d_model, L)
 
         for layer, dropout in zip(self.layers, self.dropouts):
@@ -113,7 +111,6 @@ class StackedReservoir(nn.Module):
         :param  u: input sequence, torch tensor of shape (B, d_input, L)
         :return: output sequence, torch tensor of shape (B, d_output, L - w)
         """
-        # y, _ = hilbert_transform(u)
         y = self.encoder(u)  # (B, d_input, L) -> (B, d_model, L)
 
         x_list = []
