@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
-from src.models.lrssm.convolutions.fft_reservoir import FFTConvReservoir
+from src.models.rssm.convolutions.fft_reservoir import FFTConvReservoir
+from src.models.lrssm.realfun_complexvar.complex_to_real import ComplexToReal
 from src.layers.online import ConvolutionSignal
 
 """
@@ -31,6 +32,8 @@ class LRSSM(torch.nn.Module):
         self.layer = FFTConvReservoir(d_input=self.d_model, d_state=self.d_model, kernel=kernel,
                                       **layer_args)
 
+        self.realfun = ComplexToReal()
+
         self.learning_layer = nn.Sequential(nn.Conv1d(in_channels=2 * d_model, out_channels=2 * d_model, kernel_size=1),
                                             nn.GLU(dim=-2))
 
@@ -44,6 +47,7 @@ class LRSSM(torch.nn.Module):
         Returns: y (B, H), state (B, P)
         """
         y, x = self.layer.step(u, x)
+        y = self.realfun(y)
         y = self.learning_layer(y)
         y = self.drop(y)
 
@@ -56,6 +60,7 @@ class LRSSM(torch.nn.Module):
         :return: y: batched output sequence of shape (B,H,L) = (batch_size, d_output, input_length)
         """
         y, _ = self.layer(u)
+        y = self.realfun(y)
         y = self.learning_layer(y)
         y = self.drop(y)
 
