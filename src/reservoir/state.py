@@ -74,7 +74,8 @@ class DiscreteStateReservoir:
                 size = (self.d_state // 2, n_ssm)
             radius = (min_radius + (max_radius - min_radius) *
                       torch.sqrt(torch.rand(size=size, dtype=torch.float32)))
-            theta = torch.pi * torch.rand(size=size, dtype=torch.float32)
+            max_theta = min(torch.pi, max_theta)
+            theta = min_theta + (max_theta - min_theta) * torch.rand(size=size, dtype=torch.float32)
             alpha_tensor = torch.cat(tensors=(radius * torch.cos(theta), radius * torch.cos(theta)), dim=0)
             omega_tensor = torch.cat(tensors=(radius * torch.sin(theta), -radius * torch.sin(theta)), dim=0)
             if self.d_state % 2 == 1:
