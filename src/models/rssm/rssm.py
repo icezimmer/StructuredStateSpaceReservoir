@@ -1,7 +1,7 @@
 import torch
 from src.models.rssm.convolutions.fft_reservoir import FFTConvReservoir
-from src.models.rssm.realfun_complexvar.complex_to_real import (ComplexToReal, ComplexToRealGLU, ComplexToRealABS,
-                                                                ComplexToRealAngle)
+from src.models.rssm.realfun_complexvar.complex_to_real import (ComplexToRealPart, ComplexToRealByGLU, ComplexToABS,
+                                                                ComplexToAngle)
 
 """
 see: https://github.com/i404788/s5-pytorch/tree/74e2fdae00b915a62c914bf3615c0b8a4279eb84
@@ -38,13 +38,13 @@ class RSSM(torch.nn.Module):
                                       **layer_args)
 
         if realfun == 'real':
-            self.realfun = ComplexToReal()
+            self.realfun = ComplexToRealPart()
         elif realfun == 'abs':
-            self.realfun = ComplexToRealABS()
+            self.realfun = ComplexToABS()
         elif realfun == 'angle':
-            self.realfun = ComplexToRealAngle()
+            self.realfun = ComplexToAngle()
         elif realfun == 'glu':
-            self.realfun = ComplexToRealGLU()
+            self.realfun = ComplexToRealByGLU()
 
     # TODO: implement step method for mixing layer
     def step(self, u, x):
