@@ -48,7 +48,8 @@ class Vandermonde(nn.Module):
         if dt is None:
             state_reservoir = DiscreteStateReservoir(self.d_state)
             Lambda = state_reservoir.diagonal_state_space_matrix(
-                min_radius=strong_stability, max_radius=weak_stability, field=field)
+                min_radius=strong_stability, max_radius=weak_stability,
+                min_theta=0.0, max_theta=2*torch.pi, field=field)
         elif dt > 0:
             state_reservoir = ContinuousStateReservoir(self.d_state)
             Lambda = state_reservoir.diagonal_state_space_matrix(

@@ -37,10 +37,9 @@ s4_modes = ['s4d', 'diag', 's4', 'nplr', 'dplr']
 s4_activations = ['tanh', 'relu', 'gelu', 'elu', 'swish', 'silu', 'glu', 'sigmoid', 'softplus']
 
 conv_classes = ['fft', 'fft-freezeD']
-kernel_classes = ['V', 'V-freezeB', 'V-freezeC', 'V-freezeBC', 'V-freezeA', 'V-freezeAB', 'V-freezeAC', 'V-freezeABC',
-                  'miniV', 'miniV-freezeW', 'miniV-freezeA', 'miniV-freezeAW']
+kernel_classes = ['V', 'V-freezeB', 'V-freezeC', 'V-freezeBC', 'V-freezeA', 'V-freezeAB', 'V-freezeAC', 'V-freezeABC']
 
-kernel_classes_reservoir = ['Vr', 'miniVr']
+kernel_classes_reservoir = ['Vr']
 readout_classes = ['ridge', 'mlp', 'ssm']
 
 
@@ -94,12 +93,24 @@ def parse_args():
             parser.add_argument('--weak', type=float, default=0.0, help='Weak Stability for internal dynamics.')
             parser.add_argument('--kernellr', type=float, default=0.001, help='Learning rate for kernel pars.')
             parser.add_argument('--kernelwd', type=float, default=0.0, help='Learning rate for kernel pars.')
+            parser.add_argument('--dt', type=float, default=0.05, help='Sampling rate (only for continuous dynamics).')
+            parser.add_argument('--minscaleB', type=float, default=0.0, help='Min scaling for input2state matrix B.')
+            parser.add_argument('--maxscaleB', type=float, default=1.0, help='Max scaling for input2state matrix B.')
+            parser.add_argument('--minscaleC', type=float, default=0.0, help='Min scaling for state2output matrix C.')
+            parser.add_argument('--maxscaleC', type=float, default=1.0, help='Max scaling for state2output matrix C.')
         elif args.block == 'LRSSM':
             parser.add_argument('--minscaleD', type=float, default=0.0, help='Skip connection matrix D min scaling.')
             parser.add_argument('--maxscaleD', type=float, default=1.0, help='Skip connection matrix D max scaling.')
             parser.add_argument('--kernel', choices=kernel_classes_reservoir, default='Vr', help='Kernel name.')
             parser.add_argument('--strong', type=float, default=0.7, help='Strong Stability for internal dynamics.')
             parser.add_argument('--weak', type=float, default=0.95, help='Weak Stability for internal dynamics.')
+            parser.add_argument('--discrete', action='store_true', help='Discrete SSM modality.')
+            parser.add_argument('--low', type=float, default=0.05, help='Min-Sampling-Rate / Min-Oscillations for internal dynamics.')
+            parser.add_argument('--high', type=float, default=0.05, help='Max-Sampling-Rate / Max-Oscillations for internal dynamics.')
+            parser.add_argument('--minscaleB', type=float, default=0.0, help='Min scaling for input2state matrix B.')
+            parser.add_argument('--maxscaleB', type=float, default=1.0, help='Max scaling for input2state matrix B.')
+            parser.add_argument('--minscaleC', type=float, default=0.0, help='Min scaling for state2output matrix C.')
+            parser.add_argument('--maxscaleC', type=float, default=1.0, help='Max scaling for state2output matrix C.')
     elif args.block in ['ESN', 'RSSM']:
         parser.add_argument('--rbatch', type=int, default=128, help='Batch size for Reservoir Model.')
         parser.add_argument('--readout', choices=readout_classes, default='mlp', help='Type of Readout.')
@@ -118,6 +129,13 @@ def parse_args():
             parser.add_argument('--realfun', default='glu', help='Real function of complex variable.')
             parser.add_argument('--strong', type=float, default=0.98, help='Strong Stability for internal dynamics.')
             parser.add_argument('--weak', type=float, default=1.0, help='Weak Stability for internal dynamics.')
+            parser.add_argument('--discrete', action='store_true', help='Discrete SSM modality.')
+            parser.add_argument('--low', type=float, default=0.05, help='Min-Sampling-Rate / Min-Oscillations for internal dynamics.')
+            parser.add_argument('--high', type=float, default=0.05, help='Max-Sampling-Rate / Max-Oscillations for internal dynamics.')
+            parser.add_argument('--minscaleB', type=float, default=0.0, help='Min scaling for input2state matrix B.')
+            parser.add_argument('--maxscaleB', type=float, default=1.0, help='Max scaling for input2state matrix B.')
+            parser.add_argument('--minscaleC', type=float, default=0.0, help='Min scaling for state2output matrix C.')
+            parser.add_argument('--maxscaleC', type=float, default=1.0, help='Max scaling for state2output matrix C.')
 
     # Update args with the new conditional arguments
     args, unknown = parser.parse_known_args()
@@ -155,19 +173,6 @@ def parse_args():
             parser.add_argument('--plateau', type=float, default=0.2, help='Learning rate decay factor on Plateau.')
             parser.add_argument('--epochs', type=int, default=float('inf'), help='Number of epochs.')
             parser.add_argument('--patience', type=int, default=10, help='Patience for the early stopping.')
-
-    # Conditionally add --dt, --scaleB and --scaleC if kernel starts with 'V'
-    if hasattr(args, 'kernel'):
-        if args.kernel.startswith('V'):
-            parser.add_argument('--dt', type=float, default=0.05, help='Sampling rate (only for continuous dynamics).')
-            parser.add_argument('--minscaleB', type=float, default=0.0, help='Min scaling for input2state matrix B.')
-            parser.add_argument('--maxscaleB', type=float, default=1.0, help='Max scaling for input2state matrix B.')
-            parser.add_argument('--minscaleC', type=float, default=0.0, help='Min scaling for state2output matrix C.')
-            parser.add_argument('--maxscaleC', type=float, default=1.0, help='Max scaling for state2output matrix C.')
-
-        # Conditionally add --scaleW if kernel starts with 'miniV'
-        if hasattr(args, 'kernel') and args.kernel.startswith('miniV'):
-            parser.add_argument('--scaleW', type=float, default=1.0, help='Scaling for the input-output matrix W.')
 
     return parser.parse_args()
 
@@ -224,34 +229,29 @@ def main():
                       'max_scaleD': args.maxscaleD,
                       'drop_kernel': args.kerneldrop, 'dropout': args.dropout,
                       'kernel': args.kernel, 'kernel_size': kernel_size,
-                      'strong_stability': args.strong, 'weak_stability': args.weak}
+                      'strong_stability': args.strong, 'weak_stability': args.weak,
+                      'dt': args.dt,
+                      'min_scaleB': args.minscaleB,
+                      'max_scaleB': args.maxscaleB,
+                      'min_scaleC': args.minscaleC,
+                      'max_scaleC': args.maxscaleC
+        }
 
-        if args.kernel in ['V', 'V-freezeB', 'V-freezeC', 'V-freezeBC', 'V-freezeA', 'V-freezeAB', 'V-freezeAC',
-                           'miniV', 'miniV-freezeW', 'miniV-freezeA']:
+        if args.kernel in ['V', 'V-freezeB', 'V-freezeC', 'V-freezeBC', 'V-freezeA', 'V-freezeAB', 'V-freezeAC']:
             block_args['lr'] = args.kernellr
             block_args['wd'] = args.kernelwd
-        if args.kernel.startswith('V'):
-            block_args['dt'] = args.dt
-            block_args['min_scaleB'] = args.minscaleB
-            block_args['max_scaleB'] = args.maxscaleB
-            block_args['min_scaleC'] = args.minscaleC
-            block_args['max_scaleC'] = args.maxscaleC
-        elif args.kernel.startswith('miniV'):
-            block_args['scaleW'] = args.scaleW
     elif args.block == 'LRSSM':
         block_args = {'min_scaleD': args.minscaleD,
                       'max_scaleD': args.maxscaleD,
                       'dropout': args.dropout,
                       'kernel': args.kernel, 'kernel_size': kernel_size,
-                      'strong_stability': args.strong, 'weak_stability': args.weak}
-        if args.kernel.startswith('V'):
-            block_args['dt'] = args.dt
-            block_args['min_scaleB'] = args.minscaleB
-            block_args['max_scaleB'] = args.maxscaleB
-            block_args['min_scaleC'] = args.minscaleC
-            block_args['max_scaleC'] = args.maxscaleC
-        elif args.kernel.startswith('miniV'):
-            block_args['scaleW'] = args.scaleW
+                      'strong_stability': args.strong, 'weak_stability': args.weak,
+                      'discrete': args.discrete,
+                      'low_oscillation': args.low, 'high_oscillation': args.high,
+                      'min_scaleB': args.minscaleB,
+                      'max_scaleB': args.maxscaleB,
+                      'min_scaleC': args.minscaleC,
+                      'max_scaleC': args.maxscaleC}
     elif args.block == 'ESN':
         block_args = {'input_scaling': args.inputscaling, 'bias_scaling': args.biasscaling,
                       'spectral_radius': args.rho, 'leakage_rate': args.leaky}
@@ -260,16 +260,13 @@ def main():
                       'min_scaleD': args.minscaleD,
                       'max_scaleD': args.maxscaleD,
                       'kernel': args.kernel, 'kernel_size': kernel_size,
-                      'strong_stability': args.strong, 'weak_stability': args.weak}
-        if args.kernel.startswith('V'):
-            block_args['dt'] = args.dt
-            block_args['min_scaleB'] = args.minscaleB
-            block_args['max_scaleB'] = args.maxscaleB
-            block_args['min_scaleC'] = args.minscaleC
-            block_args['max_scaleC'] = args.maxscaleC
-        elif args.kernel.startswith('miniV'):
-            block_args['min_scaleW'] = args.minscaleW
-            block_args['max_scaleW'] = args.maxscaleW
+                      'strong_stability': args.strong, 'weak_stability': args.weak,
+                      'discrete': args.discrete,
+                      'low_oscillation': args.low, 'high_oscillation': args.high,
+                      'min_scaleB': args.minscaleB,
+                      'max_scaleB': args.maxscaleB,
+                      'min_scaleC': args.minscaleC,
+                      'max_scaleC': args.maxscaleC}
     else:
         raise ValueError('Invalid block name')
 

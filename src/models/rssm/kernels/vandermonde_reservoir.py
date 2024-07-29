@@ -1,6 +1,7 @@
 import torch
 from src.reservoir.state import DiscreteStateReservoir, ContinuousStateReservoir
 from src.reservoir.matrices import ReservoirMatrix
+from src.reservoir.vector import ReservoirVector
 import torch.nn as nn
 
 
@@ -10,7 +11,9 @@ class VandermondeReservoir(nn.Module):
     """
 
     def __init__(self, d_input, d_state, kernel_size,
-                 dt, strong_stability, weak_stability,
+                 discrete,
+                 strong_stability, weak_stability,
+                 low_oscillation, high_oscillation,
                  min_scaleB=0.0, max_scaleB=1.0,
                  min_scaleC=0.0, max_scaleC=1.0,
                  field='complex'):
@@ -44,18 +47,20 @@ class VandermondeReservoir(nn.Module):
         B = input2state_reservoir.uniform_ring(min_radius=min_scaleB, max_radius=max_scaleB, field=field)  # (P, H)
         C = state2output_reservoir.uniform_ring(min_radius=min_scaleC, max_radius=max_scaleC, field=field)  # (H, P)
 
-        if dt is None:
+        if discrete:
             state_reservoir = DiscreteStateReservoir(self.d_state)
             Lambda_bar = state_reservoir.diagonal_state_space_matrix(
-                min_radius=strong_stability, max_radius=weak_stability, field=field)
+                         min_radius=strong_stability, max_radius=weak_stability,
+                         min_theta=low_oscillation, max_theta=high_oscillation,
+                         field=field)
             B_bar = B
-        elif dt > 0:
+        else:
             state_reservoir = ContinuousStateReservoir(self.d_state)
             Lambda = state_reservoir.diagonal_state_space_matrix(
-                min_real_part=strong_stability, max_real_part=weak_stability, field=field)
+                     min_real_part=strong_stability, max_real_part=weak_stability, field=field)
+            rate_reservoir = ReservoirVector(self.d_state)
+            dt = torch.abs(rate_reservoir.uniform_ring(min_radius=low_oscillation, max_radius=high_oscillation, field='real'))
             Lambda_bar, B_bar = self._zoh(Lambda, B, dt)
-        else:
-            raise ValueError("Delta time dt must be positive: set dt > 0 or None for 'discrete dynamics'.")
 
         self.register_buffer('A', Lambda_bar)  # (P,)
         self.register_buffer('B', B_bar)  # (P, H)
@@ -86,7 +91,8 @@ class VandermondeReservoir(nn.Module):
         """
         Ones = torch.ones(size=Lambda.shape, dtype=torch.float32)
 
-        Lambda_bar = torch.exp(Lambda * dt)
+        # Lambda_bar = torch.exp(Lambda * dt)
+        Lambda_bar = torch.exp(torch.mul(Lambda, dt))
         B_bar = torch.einsum('p,ph->ph', torch.mul(1 / Lambda, (Lambda_bar - Ones)), B)
 
         return Lambda_bar, B_bar
