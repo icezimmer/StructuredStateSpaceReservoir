@@ -30,7 +30,7 @@ class DiscreteStateReservoir:
             w_hh = torch.zeros(self.d_state, self.d_state, dtype=torch.float32)
         return w_hh
 
-    def diagonal_state_space_matrix(self, min_radius, max_radius, field, n_ssm=None):
+    def diagonal_state_space_matrix(self, min_radius, max_radius, min_theta, max_theta, field, n_ssm=None):
         """
         Create a state matrix Lambda_bar for the discrete dynamics;
         lambda = radius * (cos(theta) + i * sin(theta)):
@@ -44,7 +44,15 @@ class DiscreteStateReservoir:
         if min_radius > max_radius or min_radius < 0:
             raise ValueError("For the discrete dynamics we must have:"
                              "0 <= min_radius <= |lambda| < max_radius.")
-        if max_radius > 1:
+        if max_radius > 1.0:
+            warnings.warn("For a stable discrete dynamics set max_radius such that:"
+                          "0 <= min_radius <= |lambda| < max_radius <= 1.")
+
+        if min_theta > max_theta or min_theta < 0.0:
+            raise ValueError("For the discrete dynamics we must have:"
+                             "0 <= min_theta <= theta < max_theta."
+                             "If max_theta > 2pi, max_theta is adjusted to 2pi")
+        if max_radius > 1.0:
             warnings.warn("For a stable discrete dynamics set max_radius such that:"
                           "0 <= min_radius <= |lambda| < max_radius <= 1.")
 
@@ -55,7 +63,8 @@ class DiscreteStateReservoir:
                 size = (self.d_state, n_ssm)
             radius = (min_radius + (max_radius - min_radius) *
                       torch.sqrt(torch.rand(size=size, dtype=torch.float32)))
-            theta = 2 * torch.pi * torch.rand(size=size, dtype=torch.float32)
+            max_theta = min(2 * torch.pi, max_theta)
+            theta = min_theta + (max_theta - min_theta) * torch.rand(size=size, dtype=torch.float32)
             alpha_tensor = radius * torch.cos(theta)
             omega_tensor = radius * torch.sin(theta)
         elif field == 'real':
@@ -108,7 +117,7 @@ class ContinuousStateReservoir:
         if min_real_part > max_real_part:
             raise ValueError("For the continuous dynamics we must have:"
                              "min_real_part <= Re(lambda) < max_real_part.")
-        if max_real_part > 0:
+        if max_real_part > 0.0:
             warnings.warn("For a stable continuous dynamics set max_real_part such that:"
                           "min_real_part <= Re(lambda) < max_real_part <= 0.")
 
