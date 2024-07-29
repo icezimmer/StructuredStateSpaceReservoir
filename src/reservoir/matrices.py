@@ -21,8 +21,12 @@ class ReservoirMatrix:
         if max_radius < min_radius:
             raise ValueError('The maximum radius must be greater or equal to the minimum radius')
 
-        radius = (min_radius + (max_radius - min_radius) *
-                  torch.sqrt(torch.rand(self.d_out, self.d_in, dtype=torch.float32)))
+        if field == 'real':
+            radius = (min_radius + (max_radius - min_radius) *
+                      torch.rand(self.d_out, self.d_in, dtype=torch.float32))
+        elif field == 'complex':
+            radius = (min_radius + (max_radius - min_radius) *
+                      torch.sqrt(torch.rand(self.d_out, self.d_in, dtype=torch.float32)))
 
         if field == 'real':
             random_signs = torch.sign(torch.randn(self.d_out, self.d_in))  # -1 or 1

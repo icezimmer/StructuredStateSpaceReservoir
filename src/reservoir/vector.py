@@ -20,8 +20,12 @@ class ReservoirVector:
         if max_radius < min_radius:
             raise ValueError('The maximum radius must be greater or equal to the minimum radius')
 
-        radius = (min_radius + (max_radius - min_radius) *
-                  torch.sqrt(torch.rand(self.d, dtype=torch.float32)))
+        if field == 'real':
+            radius = (min_radius + (max_radius - min_radius) *
+                      torch.rand(self.d, dtype=torch.float32))
+        elif field == 'complex':
+            radius = (min_radius + (max_radius - min_radius) *
+                      torch.sqrt(torch.rand(self.d, dtype=torch.float32)))
 
         if field == 'real':
             random_signs = torch.sign(torch.randn(self.d))  # -1 or 1
