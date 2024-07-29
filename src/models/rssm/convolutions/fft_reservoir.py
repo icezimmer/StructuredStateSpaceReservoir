@@ -62,13 +62,6 @@ class FFTConvReservoir(nn.Module):
         :param u: batched input sequence of shape (B,H,L) = (batch_size, d_input, input_length)
         :return: y: batched output sequence of shape (B,H,L) = (batch_size, d_input, input_length)
         """
-        # if u.dtype == torch.complex64:
-        #     u_s = torch.fft.fft(u, dim=-1)  # (B, H, L)
-        # elif u.dtype == torch.float32:
-        #     u, _ = hilbert_transform(u)
-        # else:
-        #     raise ValueError('Input must be real or complex')
-
         u_s = torch.fft.fft(u, dim=-1)  # (B, H, L)
 
         k_s = torch.fft.fft(self.K, dim=-1)  # (H, L)
