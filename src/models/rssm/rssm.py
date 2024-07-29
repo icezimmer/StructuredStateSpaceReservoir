@@ -22,7 +22,7 @@ class RSSM(torch.nn.Module):
         :param field: field for the state 'real' or 'complex' (default: 'complex')
         """
 
-        kernel_classes = ['Vr', 'miniVr']
+        kernel_classes = ['Vr']
         if kernel not in kernel_classes:
             raise ValueError('Kernel must be one of {}'.format(kernel_classes))
 

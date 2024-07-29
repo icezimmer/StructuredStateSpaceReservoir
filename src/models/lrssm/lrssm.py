@@ -21,7 +21,7 @@ class LRSSM(torch.nn.Module):
         :param dt: delta time for continuous dynamics (default: None for discrete dynamics)
         :param field: field for the state 'real' or 'complex' (default: 'complex')
         """
-        kernel_classes = ['Vr', 'miniVr']
+        kernel_classes = ['Vr']
         if kernel not in kernel_classes:
             raise ValueError('Kernel must be one of {}'.format(kernel_classes))
 
