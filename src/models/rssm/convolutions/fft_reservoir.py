@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 from src.reservoir.vector import ReservoirVector
 from src.models.rssm.kernels.vandermonde_reservoir import VandermondeReservoir
-from src.models.rssm.kernels.mini_vandermonde_reservoir import MiniVandermondeReservoir
 
 
 class FFTConvReservoir(nn.Module):
@@ -23,8 +22,7 @@ class FFTConvReservoir(nn.Module):
         :param field: field for the state 'real' or 'complex' (default: 'complex')
         """
         kernel_classes = {
-            'Vr': VandermondeReservoir,
-            'miniVr': MiniVandermondeReservoir,
+            'Vr': VandermondeReservoir
         }
 
         if kernel not in kernel_classes.keys():

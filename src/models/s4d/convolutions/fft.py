@@ -6,9 +6,6 @@ from src.models.s4d.kernels.vandermonde import (Vandermonde, VandermondeFreezeB,
                                                 VandermondeFreezeA,
                                                 VandermondeFreezeAB, VandermondeFreezeAC)
 from src.models.s4d.kernels.vandermonde_reservoir import VandermondeReservoir
-from src.models.s4d.kernels.mini_vandermonde import (MiniVandermonde, MiniVandermondeFreezeW,
-                                                     MiniVandermondeFreezeA)
-from src.models.s4d.kernels.mini_vandermonde_reservoir import MiniVandermondeReservoir
 
 
 class FFTConv(nn.Module):
@@ -36,11 +33,7 @@ class FFTConv(nn.Module):
             'V-freezeA': VandermondeFreezeA,
             'V-freezeAB': VandermondeFreezeAB,
             'V-freezeAC': VandermondeFreezeAC,
-            'V-freezeABC': VandermondeReservoir,
-            'miniV': MiniVandermonde,
-            'miniV-freezeW': MiniVandermondeFreezeW,
-            'miniV-freezeA': MiniVandermondeFreezeA,
-            'miniV-freezeAW': MiniVandermondeReservoir,
+            'V-freezeABC': VandermondeReservoir
         }
 
         if kernel not in kernel_classes.keys():
