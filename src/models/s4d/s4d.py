@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from src.layers.reservoir import LinearReservoir
+from src.layers.reservoir import LinearReservoirRing
 from src.models.s4d.convolutions.fft import FFTConv, FFTConvFreezeD
 
 """
@@ -43,10 +43,10 @@ class S4D(torch.nn.Module):
             self.mixing_layer = nn.Sequential(nn.Conv1d(in_channels=d_model, out_channels=2 * d_model, kernel_size=1),
                                               nn.GLU(dim=-2))
         elif mixing_layer == 'reservoir+tanh':
-            self.mixing_layer = nn.Sequential(LinearReservoir(d_input=d_model, d_output=d_model, field='real'),
+            self.mixing_layer = nn.Sequential(LinearReservoirRing(d_input=d_model, d_output=d_model, field='real'),
                                               nn.Tanh())
         elif mixing_layer == 'reservoir+glu':
-            self.mixing_layer = nn.Sequential(LinearReservoir(d_input=d_model, d_output=2 * d_model, field='real'),
+            self.mixing_layer = nn.Sequential(LinearReservoirRing(d_input=d_model, d_output=2 * d_model, field='real'),
                                               nn.GLU(dim=-2))
         elif mixing_layer == 'identity':
             self.mixing_layer = nn.Identity()

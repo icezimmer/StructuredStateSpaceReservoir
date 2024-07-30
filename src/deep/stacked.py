@@ -1,5 +1,5 @@
 import torch.nn as nn
-from src.layers.reservoir import LinearReservoir
+from src.layers.reservoir import LinearReservoirRing
 from src.models.esn.esn import ESN
 import torch
 
@@ -28,8 +28,9 @@ class StackedNetwork(nn.Module):
         if encoder == 'conv1d':
             self.encoder = nn.Conv1d(in_channels=d_input, out_channels=d_model, kernel_size=1)
         elif encoder == 'reservoir':
-            self.encoder = LinearReservoir(d_input=d_input, d_output=d_model,
-                                           min_radius=min_encoder_scaling, max_radius=max_encoder_scaling, field='real')
+            self.encoder = LinearReservoirRing(d_input=d_input, d_output=d_model,
+                                               min_radius=min_encoder_scaling, max_radius=max_encoder_scaling,
+                                               field='real')
 
         self.layers = nn.ModuleList([block_cls(d_model=d_model, **block_args) for _ in range(n_layers)])
         self.dropouts = nn.ModuleList([nn.Dropout(layer_dropout) if layer_dropout > 0 else nn.Identity()
@@ -39,8 +40,9 @@ class StackedNetwork(nn.Module):
         if decoder == 'conv1d':
             self.decoder = nn.Conv1d(in_channels=d_model, out_channels=d_output, kernel_size=1)
         elif decoder == 'reservoir':
-            self.decoder = LinearReservoir(d_input=d_model, d_output=d_output,
-                                           min_radius=min_decoder_scaling, max_radius=max_decoder_scaling, field='real')
+            self.decoder = LinearReservoirRing(d_input=d_model, d_output=d_output,
+                                               min_radius=min_decoder_scaling, max_radius=max_decoder_scaling,
+                                               field='real')
 
     def forward(self, u):
         """
@@ -79,8 +81,9 @@ class StackedReservoir(nn.Module):
 
         self.d_output = self.n_layers * self.d_state
 
-        self.encoder = LinearReservoir(d_input=d_input, d_output=self.d_state,
-                                       min_radius=min_encoder_scaling, max_radius=max_encoder_scaling, field='real')
+        self.encoder = LinearReservoirRing(d_input=d_input, d_output=self.d_state,
+                                           min_radius=min_encoder_scaling, max_radius=max_encoder_scaling,
+                                           field='real')
 
         self.layers = nn.ModuleList([block_cls(d_model=self.d_state, **block_args) for _ in range(self.n_layers)])
 
@@ -112,6 +115,7 @@ class StackedReservoir(nn.Module):
         :return: output sequence, torch tensor of shape (B, d_output, L - w)
         """
         y = self.encoder(u)  # (B, d_input, L) -> (B, d_model, L)
+        # y = torch.nn.ReLU()(y)
 
         x_list = []
         for layer in self.layers:
