@@ -39,6 +39,8 @@ s4_activations = ['tanh', 'relu', 'gelu', 'elu', 'swish', 'silu', 'glu', 'sigmoi
 conv_classes = ['fft', 'fft-freezeD']
 kernel_classes = ['V', 'V-freezeB', 'V-freezeC', 'V-freezeBC', 'V-freezeA', 'V-freezeAB', 'V-freezeAC', 'V-freezeABC']
 
+lrssm_activations = ['relu', 'tanh', 'glu']
+
 kernel_classes_reservoir = ['Vr']
 readout_classes = ['ridge', 'mlp', 'ssm']
 
@@ -102,9 +104,9 @@ def parse_args():
             parser.add_argument('--minscaleD', type=float, default=0.0, help='Skip connection matrix D min scaling.')
             parser.add_argument('--maxscaleD', type=float, default=1.0, help='Skip connection matrix D max scaling.')
             parser.add_argument('--kernel', choices=kernel_classes_reservoir, default='Vr', help='Kernel name.')
+            parser.add_argument('--act', choices=lrssm_activations, default='relu', help='Kernel name.')
             parser.add_argument('--strong', type=float, default=0.7, help='Strong Stability for internal dynamics.')
             parser.add_argument('--weak', type=float, default=0.95, help='Weak Stability for internal dynamics.')
-            parser.add_argument('--discrete', action='store_true', help='Discrete SSM modality.')
             parser.add_argument('--low', type=float, default=0.05, help='Min-Sampling-Rate / Min-Oscillations for internal dynamics.')
             parser.add_argument('--high', type=float, default=0.05, help='Max-Sampling-Rate / Max-Oscillations for internal dynamics.')
             parser.add_argument('--minscaleB', type=float, default=0.0, help='Min scaling for input2state matrix B.')
@@ -245,8 +247,8 @@ def main():
                       'max_scaleD': args.maxscaleD,
                       'dropout': args.dropout,
                       'kernel': args.kernel, 'kernel_size': kernel_size,
+                      'act': args.act,
                       'strong_stability': args.strong, 'weak_stability': args.weak,
-                      'discrete': args.discrete,
                       'low_oscillation': args.low, 'high_oscillation': args.high,
                       'min_scaleB': args.minscaleB,
                       'max_scaleB': args.maxscaleB,
@@ -275,7 +277,7 @@ def main():
     elif args.block == 'S4D':
         block_name = args.block + '_' + args.conv + '_' + args.kernel + '_' + args.mix
     elif args.block == 'LRSSM':
-        block_name = args.block + '_' + args.kernel + '_conv1d+glu'
+        block_name = args.block + '_' + args.kernel + '_conv1d' + '_' + args.act
     elif args.block == 'RSSM':
         block_name = args.block + '_' + args.kernel + '_' + args.realfun
     else:
