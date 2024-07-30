@@ -2,7 +2,27 @@ import torch
 import torch.nn as nn
 
 
-class ComplexToRealPart(nn.Module):
+class Real(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, x):
+        x = x.real
+        return x
+
+
+class RealReLU(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.activation = nn.ReLU()
+
+    def forward(self, x):
+        x = x.real
+        x = self.activation(x)
+        return x
+
+
+class RealTanh(nn.Module):
     def __init__(self):
         super().__init__()
         self.activation = nn.Tanh()
@@ -13,7 +33,7 @@ class ComplexToRealPart(nn.Module):
         return x
 
 
-class ComplexToRealByGLU(nn.Module):
+class RealImagTanhGLU(nn.Module):
     def __init__(self):
         super().__init__()
         self.activation = nn.Tanh()
@@ -27,7 +47,7 @@ class ComplexToRealByGLU(nn.Module):
         return x
 
 
-class ComplexToABS(nn.Module):
+class ABSTanh(nn.Module):
     def __init__(self):
         super().__init__()
         self.activation = nn.Tanh()
@@ -39,7 +59,7 @@ class ComplexToABS(nn.Module):
         return x
 
 
-class ComplexToAngle(nn.Module):
+class AngleTanh(nn.Module):
     def __init__(self):
         super().__init__()
         self.activation = nn.Tanh()

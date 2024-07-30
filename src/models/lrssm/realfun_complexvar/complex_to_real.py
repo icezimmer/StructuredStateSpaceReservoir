@@ -2,7 +2,16 @@ import torch
 import torch.nn as nn
 
 
-class ComplexToReal(nn.Module):
+class Real(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, x):
+        x = x.real
+        return x
+
+
+class RealImag(nn.Module):
     def __init__(self):
         super().__init__()
 
