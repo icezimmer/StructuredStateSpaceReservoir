@@ -39,7 +39,7 @@ class FFTConvReservoir(nn.Module):
         self.register_buffer('K', K)  # (H, L)
 
         input2output_reservoir = ReservoirVector(d=self.d_input)
-        D = input2output_reservoir.uniform_ring(min_radius=min_scaleD, max_radius=max_scaleD, field='real')
+        D = input2output_reservoir.uniform_interval(min_value=min_scaleD, max_value=max_scaleD)  # (H,)
         self.register_buffer('D', D)  # (H,)
 
     def step(self, u, x=None):
@@ -62,11 +62,17 @@ class FFTConvReservoir(nn.Module):
         :param u: batched input sequence of shape (B,H,L) = (batch_size, d_input, input_length)
         :return: y: batched output sequence of shape (B,H,L) = (batch_size, d_input, input_length)
         """
-        u_s = torch.fft.fft(u, dim=-1)  # (B, H, L)
+        # u_s = torch.fft.fft(u, dim=-1)  # (B, H, L)
+        # k_s = torch.fft.fft(self.K, dim=-1)  # (H, L)
+        # y = torch.fft.ifft(torch.einsum('bhl,hl->bhl', u_s, k_s), dim=-1)  # (B, H, L)
+        # y = y + torch.einsum('h,bhl->bhl', self.D, u)  # (B, H, L)
 
-        k_s = torch.fft.fft(self.K, dim=-1)  # (H, L)
-
-        y = torch.fft.ifft(torch.einsum('bhl,hl->bhl', u_s, k_s), dim=-1)  # (B, H, L)
+        L = u.shape[-1]
+        L_s = 2 * L - 1
+        u_s = torch.fft.fft(u, n=L_s, dim=-1)  # (B, H, L_s)
+        k_s = torch.fft.fft(self.K, n=L_s, dim=-1)  # (H, L_s)
+        y = torch.fft.ifft(torch.einsum('bhs,hs->bhs', u_s, k_s), dim=-1)  # (B, H, L_s)
+        y = y[..., :L]  # (B, H, L)
         y = y + torch.einsum('h,bhl->bhl', self.D, u)  # (B, H, L)
 
         return y, None
