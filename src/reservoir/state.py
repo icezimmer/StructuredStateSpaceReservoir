@@ -56,6 +56,7 @@ class DiscreteStateReservoir:
                              "0 <= min_theta <= theta < max_theta.")
         if max_theta > 2 * torch.pi:
             warnings.warn("Being max_theta > 2pi, max_theta is clipped to 2pi")
+            max_theta = 2 * torch.pi
 
         if field == 'complex':
             if n_ssm is None:
@@ -64,7 +65,6 @@ class DiscreteStateReservoir:
                 size = (self.d_state, n_ssm)
             radius = (min_radius + (max_radius - min_radius) *
                       torch.sqrt(torch.rand(size=size, dtype=torch.float32)))
-            max_theta = min(2 * torch.pi, max_theta)
             theta = min_theta + (max_theta - min_theta) * torch.rand(size=size, dtype=torch.float32)
             alpha_tensor = radius * torch.cos(theta)
             omega_tensor = radius * torch.sin(theta)
