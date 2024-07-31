@@ -58,7 +58,7 @@ class FFTConvReservoir(nn.Module):
 
     def forward(self, u):
         """
-        Apply the convolution to the input sequence (SISO model):
+        Apply the linear convolution to the input sequence (SISO model):
         :param u: batched input sequence of shape (B,H,L) = (batch_size, d_input, input_length)
         :return: y: batched output sequence of shape (B,H,L) = (batch_size, d_input, input_length)
         """
@@ -68,10 +68,10 @@ class FFTConvReservoir(nn.Module):
         # y = y + torch.einsum('h,bhl->bhl', self.D, u)  # (B, H, L)
 
         L = u.shape[-1]
-        L_s = 2 * L - 1
-        u_s = torch.fft.fft(u, n=L_s, dim=-1)  # (B, H, L_s)
-        k_s = torch.fft.fft(self.K, n=L_s, dim=-1)  # (H, L_s)
-        y = torch.fft.ifft(torch.einsum('bhs,hs->bhs', u_s, k_s), dim=-1)  # (B, H, L_s)
+        N = 2 * L - 1
+        u_s = torch.fft.fft(u, n=N, dim=-1)  # (B, H, N)
+        k_s = torch.fft.fft(self.K, n=N, dim=-1)  # (H, N)
+        y = torch.fft.ifft(torch.einsum('bhs,hs->bhs', u_s, k_s), dim=-1)  # (B, H, N)
         y = y[..., :L]  # (B, H, L)
         y = y + torch.einsum('h,bhl->bhl', self.D, u)  # (B, H, L)
 
