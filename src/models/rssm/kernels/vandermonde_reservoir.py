@@ -53,14 +53,13 @@ class VandermondeReservoir(nn.Module):
                          min_radius=strong_stability, max_radius=weak_stability,
                          min_theta=low_oscillation, max_theta=high_oscillation,
                          field=field)
-            B_bar = B
+            B_bar = self._normalization(Lambda_bar, B)
         else:
             state_reservoir = ContinuousStateReservoir(self.d_state)
             Lambda = state_reservoir.diagonal_state_space_matrix(
                      min_real_part=strong_stability, max_real_part=weak_stability, field=field)
             rate_reservoir = ReservoirVector(d=self.d_state)
-            dt = torch.abs(rate_reservoir.uniform_ring(min_radius=low_oscillation, max_radius=high_oscillation,
-                                                       field='real'))
+            dt = rate_reservoir.uniform_interval(min_value=low_oscillation, max_value=high_oscillation)
             Lambda_bar, B_bar = self._zoh(Lambda, B, dt)
 
         self.register_buffer('A', Lambda_bar)  # (P,)
@@ -92,11 +91,31 @@ class VandermondeReservoir(nn.Module):
         """
         Ones = torch.ones(size=Lambda.shape, dtype=torch.float32)
 
-        # Lambda_bar = torch.exp(Lambda * dt)
         Lambda_bar = torch.exp(torch.mul(Lambda, dt))
         B_bar = torch.einsum('p,ph->ph', torch.mul(1 / Lambda, (Lambda_bar - Ones)), B)
 
         return Lambda_bar, B_bar
+
+    @staticmethod
+    def _normalization(Lambda, B):
+        """
+        Normalize the discrete SSM, where A = diag(Lambda):
+            A_bar = A
+            B_bar = gamma * B
+            C_bar = C
+            D_bar = D
+        :param Lambda: State Diagonal Matrix (Discrete System)
+        :param B: Input->State Matrix (Discrete System)
+        :return: Lambda_bar, B_bar (Discrete System)
+        """
+        Ones = torch.ones(size=Lambda.shape, dtype=torch.float32)
+        Zeros = torch.zeros(size=Lambda.shape, dtype=torch.float32)
+
+        gamma = torch.max(Ones - torch.pow(torch.abs(Lambda), 2), Zeros)
+
+        B_bar = torch.einsum('p,ph->ph', gamma, B)
+
+        return B_bar
 
     def step(self, u, x=None):
         """
