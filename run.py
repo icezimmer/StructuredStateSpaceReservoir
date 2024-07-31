@@ -42,6 +42,7 @@ kernel_classes = ['V', 'V-freezeB', 'V-freezeC', 'V-freezeBC', 'V-freezeA', 'V-f
 lrssm_activations = ['relu', 'tanh', 'glu']
 
 kernel_classes_reservoir = ['Vr']
+realfuns = ['real', 'real+relu', 'real+tanh', 'glu', 'abs+tanh', 'angle+tanh']
 readout_classes = ['ridge', 'mlp', 'ssm']
 
 
@@ -128,7 +129,8 @@ def parse_args():
             parser.add_argument('--maxscaleD', type=float, default=1.0, help='Skip connection matrix D max scaling.')
             parser.add_argument('--kernel', choices=kernel_classes_reservoir, default='Vr',
                                 help='Kernel name.')
-            parser.add_argument('--realfun', default='glu', help='Real function of complex variable.')
+            parser.add_argument('--funfwd', choices=realfuns, default='real+relu', help='Real function of complex variable to the Forward Pass.')
+            parser.add_argument('--funfit', choices=realfuns, default='real+tanh', help='Real function of complex variable to Fit the Readout.')
             parser.add_argument('--strong', type=float, default=0.98, help='Strong Stability for internal dynamics.')
             parser.add_argument('--weak', type=float, default=1.0, help='Weak Stability for internal dynamics.')
             parser.add_argument('--discrete', action='store_true', help='Discrete SSM modality.')
@@ -258,7 +260,8 @@ def main():
         block_args = {'input_scaling': args.inputscaling, 'bias_scaling': args.biasscaling,
                       'spectral_radius': args.rho, 'leakage_rate': args.leaky}
     elif args.block == 'RSSM':
-        block_args = {'realfun': args.realfun,
+        block_args = {'fun_forward': args.funfwd,
+                      'fun_fit': args.funfit,
                       'min_scaleD': args.minscaleD,
                       'max_scaleD': args.maxscaleD,
                       'kernel': args.kernel, 'kernel_size': kernel_size,
@@ -279,7 +282,7 @@ def main():
     elif args.block == 'LRSSM':
         block_name = args.block + '_' + args.kernel + '_conv1d' + '_' + args.act
     elif args.block == 'RSSM':
-        block_name = args.block + '_' + args.kernel + '_' + args.realfun
+        block_name = args.block + '_' + args.kernel + '_^' + args.funfwd + '_>' + args.funfit
     else:
         block_name = args.block
 

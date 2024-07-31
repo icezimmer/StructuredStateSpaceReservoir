@@ -10,7 +10,8 @@ see: https://github.com/i404788/s5-pytorch/tree/74e2fdae00b915a62c914bf3615c0b8a
 # TODO: replace mixing layer with only a non-linearity (identity is the best choice for mixing layer)
 class RSSM(torch.nn.Module):
     def __init__(self, d_model,
-                 realfun,
+                 fun_forward,
+                 fun_fit,
                  kernel,
                  **layer_args):
         """
@@ -26,7 +27,7 @@ class RSSM(torch.nn.Module):
             raise ValueError('Kernel must be one of {}'.format(kernel_classes))
 
         realfuns = ['real', 'real+relu', 'real+tanh', 'glu', 'abs+tanh', 'angle+tanh']
-        if realfun not in realfuns:
+        if fun_forward not in realfuns or fun_fit not in realfuns:
             raise ValueError('Real Function of Complex Vars must be one of {}'.format(realfuns))
 
         super().__init__()
@@ -36,20 +37,31 @@ class RSSM(torch.nn.Module):
         self.layer = FFTConvReservoir(d_input=self.d_model, d_state=self.d_model, kernel=kernel,
                                       **layer_args)
 
-        self.postprocess = RealReLU()
+        if fun_forward == 'real':
+            self.fun_forward = Real()
+        elif fun_forward == 'real+relu':
+            self.fun_forward = RealReLU()
+        elif fun_forward == 'real+tanh':
+            self.fun_forward = RealTanh()
+        elif fun_forward == 'glu':
+            self.fun_forward = RealImagTanhGLU()
+        elif fun_forward == 'abs+tanh':
+            self.fun_forward = ABSTanh()
+        elif fun_forward == 'angle+tanh':
+            self.fun_forward = AngleTanh()
 
-        if realfun == 'real':
-            self.realfun = Real()
-        elif realfun == 'real+relu':
-            self.realfun = RealReLU()
-        elif realfun == 'real+tanh':
-            self.realfun = RealTanh()
-        elif realfun == 'glu':
-            self.realfun = RealImagTanhGLU()
-        elif realfun == 'abs+tanh':
-            self.realfun = ABSTanh()
-        elif realfun == 'angle+tanh':
-            self.realfun = AngleTanh()
+        if fun_fit == 'real':
+            self.fun_fit = Real()
+        elif fun_fit == 'real+relu':
+            self.fun_fit = RealReLU()
+        elif fun_fit == 'real+tanh':
+            self.fun_fit = RealTanh()
+        elif fun_fit == 'glu':
+            self.fun_fit = RealImagTanhGLU()
+        elif fun_fit == 'abs+tanh':
+            self.fun_fit = ABSTanh()
+        elif fun_fit == 'angle+tanh':
+            self.fun_fit = AngleTanh()
 
     # TODO: implement step method for mixing layer
     def step(self, u, x):
@@ -60,7 +72,7 @@ class RSSM(torch.nn.Module):
         :return: output step (B, H), new state (B, P)
         """
         y, x = self.layer.step(u, x)
-        y = self.postprocess(y)
+        y = self.fun_forward(y)
 
         return y, x
 
@@ -76,7 +88,7 @@ class RSSM(torch.nn.Module):
         """
         u, _ = self.layer(u)
 
-        y = self.postprocess(u)
-        z = self.realfun(u)
+        y = self.fun_forward(u)
+        z = self.fun_fit(u)
 
         return y, z
