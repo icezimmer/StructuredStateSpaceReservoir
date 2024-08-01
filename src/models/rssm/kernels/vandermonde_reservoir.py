@@ -47,8 +47,8 @@ class VandermondeReservoir(nn.Module):
         input2state_reservoir = ReservoirMatrix(d_in=self.d_input, d_out=self.d_state)
         state2output_reservoir = ReservoirMatrix(d_in=self.d_state, d_out=self.d_output)
 
-        B = input2state_reservoir.uniform_ring(min_radius=min_scaleB, max_radius=max_scaleB, field=field)  # (P, H)
-        C = state2output_reservoir.uniform_ring(min_radius=min_scaleC, max_radius=max_scaleC, field=field)  # (H, P)
+        B = input2state_reservoir.uniform_ring(min_radius=min_scaleB, max_radius=max_scaleB, field='complex')  # (P, H)
+        C = state2output_reservoir.uniform_ring(min_radius=min_scaleC, max_radius=max_scaleC, field='complex')  # (H, P)
 
         if discrete:
             state_reservoir = DiscreteStateReservoir(self.d_state)
