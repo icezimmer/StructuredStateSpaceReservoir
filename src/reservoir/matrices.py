@@ -97,6 +97,46 @@ class ReservoirMatrix:
 
         return W
 
+    def uniform_wings(self, radius, theta, dtheta):
+        """
+        Create the random complex uniform matrix such that each matrix values:
+        0 <= abs(W_ij) <= radius;
+        theta <= angle(W_ij) <= theta + dtheta.
+        :param radius: float, the maximum radius of the matrix values
+        :param theta: float, the starting angle of the matrix values
+        :param dtheta: float, the delta angle of the matrix values
+        """
+        if radius < 0.0:
+            raise ValueError('The radius must be non-negative')
+        if dtheta < 0.0:
+            raise ValueError('The delta theta must be non-negative')
+        if dtheta > torch.pi:
+            warnings.warn("Being delta theta > pi, delta theta is clipped to pi")
+            dtheta = torch.pi
+        if theta < -torch.pi / 2:
+            warnings.warn("Being theta < -pi/2, theta1 is clipped to -pi/2")
+            theta = -torch.pi / 2
+        if theta > torch.pi / 2:
+            warnings.warn("Being theta > pi/2, theta2 is clipped to pi/2")
+            theta = torch.pi / 2
+
+        n1 = self.d_out // 2
+        n2 = self.d_out - n1
+        wing1 = radius * torch.sqrt(torch.rand(n1, self.d_in, dtype=torch.float32))
+        wing2 = -radius * torch.sqrt(torch.rand(n2, self.d_in, dtype=torch.float32))
+
+        radius = torch.cat((wing1, wing2), dim=0)
+        permutation = torch.randperm(self.d_out)
+        radius = radius[permutation, :]
+
+        theta = theta + dtheta * torch.rand(self.d_out, self.d_in, dtype=torch.float32)
+        real_part = radius * torch.cos(theta)
+        imag_part = radius * torch.sin(theta)
+
+        W = torch.complex(real_part, imag_part)
+
+        return W
+
     def convex_combination(self):
         W = torch.rand(self.d_out, self.d_in, dtype=torch.float32)
 
