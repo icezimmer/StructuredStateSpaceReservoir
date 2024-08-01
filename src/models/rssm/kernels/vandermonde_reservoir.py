@@ -33,6 +33,9 @@ class VandermondeReservoir(nn.Module):
         :param dt: delta time for continuous dynamics (default: None for discrete dynamics)
         :param field: field for the state 'real' or 'complex' (default: 'complex')
         """
+        if not discrete:
+            if low_oscillation <= 0.0 or high_oscillation <= 0.0:
+                raise ValueError("For Continuous SSM delta time must be positive.")
         super().__init__()
 
         self.d_input = d_input
