@@ -11,9 +11,10 @@ see: https://github.com/i404788/s5-pytorch/tree/74e2fdae00b915a62c914bf3615c0b8a
 class LRSSM(torch.nn.Module):
     def __init__(self, d_model,
                  kernel,
+                 mlp_layers,
                  act,
                  dropout=0.0,
-                 **layer_args):
+                 **reservoir_layer_args):
         """
         S4D model.
         :param d_input: dimensionality of the input space
@@ -27,26 +28,35 @@ class LRSSM(torch.nn.Module):
 
         activations = ['relu', 'tanh', 'glu']
         if act not in activations:
-            raise ValueError('Real Function of Complex Vars must be one of {}'.format(activations))
+            raise ValueError('Activation function must be one of {}'.format(activations))
 
         super().__init__()
 
         self.d_model = d_model
 
-        self.layer = FFTConvReservoir(d_input=self.d_model, d_state=self.d_model, kernel=kernel, discrete=False,
-                                      **layer_args)
+        self.reservoir_layer = FFTConvReservoir(d_input=self.d_model, d_state=self.d_model,
+                                                kernel=kernel, discrete=False, **reservoir_layer_args)
+
+        self.to_real = Real()
+
         if act == 'glu':
-            self.learning_layer = nn.Sequential(RealImag(),
-                                                nn.Conv1d(in_channels=2 * d_model, out_channels=2 * d_model, kernel_size=1),
-                                                nn.GLU(dim=-2))
+            act_f = nn.GLU(dim=-2)
         elif act == 'tanh':
-            self.learning_layer = nn.Sequential(Real(),
-                                                nn.Conv1d(in_channels=d_model, out_channels=d_model, kernel_size=1),
-                                                nn.Tanh())
+            act_f = nn.Tanh()
         elif act == 'relu':
-            self.learning_layer = nn.Sequential(Real(),
-                                                nn.Conv1d(in_channels=d_model, out_channels=d_model, kernel_size=1),
-                                                nn.ReLU())
+            act_f = nn.ReLU()
+        else:
+            raise ValueError("Activation function not recognized")
+
+        mlp = []
+        for i in range(mlp_layers):
+            if act == 'glu':
+                mlp.append(nn.Conv1d(in_channels=d_model, out_channels=2 * d_model, kernel_size=1))
+            else:
+                mlp.append(nn.Conv1d(in_channels=d_model, out_channels=d_model, kernel_size=1))
+            mlp.append(act_f)
+
+        self.mlp = nn.Sequential(*mlp)
 
         self.drop = nn.Dropout(dropout) if dropout > 0 else nn.Identity()
 
@@ -57,8 +67,9 @@ class LRSSM(torch.nn.Module):
         state: (B, P)
         Returns: y (B, H), state (B, P)
         """
-        y, x = self.layer.step(u, x)
-        y = self.learning_layer(y)
+        y, x = self.reservoir_layer.step(u, x)
+        y = self.to_real(y)
+        y = self.mlp(y)
         y = self.drop(y)
 
         return y, x
@@ -69,8 +80,9 @@ class LRSSM(torch.nn.Module):
         :param u: batched input sequence of shape (B,H,L) = (batch_size, d_input, input_length)
         :return: y: batched output sequence of shape (B,H,L) = (batch_size, d_output, input_length)
         """
-        y, _ = self.layer(u)
-        y = self.learning_layer(y)
+        y, _ = self.reservoir_layer(u)
+        y = self.to_real(y)
+        y = self.mlp(y)
         y = self.drop(y)
 
         # Return a dummy state to satisfy this repo's interface, but this can be modified
