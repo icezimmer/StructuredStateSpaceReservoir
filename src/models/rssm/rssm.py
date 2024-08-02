@@ -1,13 +1,8 @@
 import torch
 from src.models.rssm.convolutions.fft_reservoir import FFTConvReservoir
-from src.models.rssm.realfun_complexvar.complex_to_real import Real, RealReLU, RealTanh, RealImagTanhGLU, ABSTanh, AngleTanh
-
-"""
-see: https://github.com/i404788/s5-pytorch/tree/74e2fdae00b915a62c914bf3615c0b8a4279eb84
-"""
+from src.models.rssm.realfun_complexvar.complex_to_real import Real, RealReLU, RealTanh, RealImagGLU, ABSTanh, AngleTanh
 
 
-# TODO: replace mixing layer with only a non-linearity (identity is the best choice for mixing layer)
 class RSSM(torch.nn.Module):
     def __init__(self, d_model,
                  fun_forward,
@@ -26,7 +21,7 @@ class RSSM(torch.nn.Module):
         if kernel not in kernel_classes:
             raise ValueError('Kernel must be one of {}'.format(kernel_classes))
 
-        realfuns = ['real', 'real+relu', 'real+tanh', 'glu', 'abs+tanh', 'angle+tanh']
+        realfuns = ['real', 'real+relu', 'real+tanh', 'realimag+glu', 'abs+tanh', 'angle+tanh']
         if fun_forward not in realfuns or fun_fit not in realfuns:
             raise ValueError('Real Function of Complex Vars must be one of {}'.format(realfuns))
 
@@ -43,8 +38,8 @@ class RSSM(torch.nn.Module):
             self.fun_forward = RealReLU()
         elif fun_forward == 'real+tanh':
             self.fun_forward = RealTanh()
-        elif fun_forward == 'glu':
-            self.fun_forward = RealImagTanhGLU()
+        elif fun_forward == 'realimag+glu':
+            self.fun_forward = RealImagGLU()
         elif fun_forward == 'abs+tanh':
             self.fun_forward = ABSTanh()
         elif fun_forward == 'angle+tanh':
@@ -56,14 +51,13 @@ class RSSM(torch.nn.Module):
             self.fun_fit = RealReLU()
         elif fun_fit == 'real+tanh':
             self.fun_fit = RealTanh()
-        elif fun_fit == 'glu':
-            self.fun_fit = RealImagTanhGLU()
+        elif fun_fit == 'realimag+glu':
+            self.fun_fit = RealImagGLU()
         elif fun_fit == 'abs+tanh':
             self.fun_fit = ABSTanh()
         elif fun_fit == 'angle+tanh':
             self.fun_fit = AngleTanh()
 
-    # TODO: implement step method for mixing layer
     def step(self, u, x):
         """
         Step one time step as a recurrent model.

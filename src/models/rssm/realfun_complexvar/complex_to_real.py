@@ -33,16 +33,14 @@ class RealTanh(nn.Module):
         return x
 
 
-class RealImagTanhGLU(nn.Module):
+class RealImagGLU(nn.Module):
     def __init__(self):
         super().__init__()
-        self.activation = nn.Tanh()
-        self.glu = nn.GLU(dim=-2)
+        self.activation = nn.GLU(dim=-2)
 
     def forward(self, x):
         x = torch.cat((x.real, x.imag), dim=-2)
         x = self.activation(x)
-        x = self.glu(x)
 
         return x
 
