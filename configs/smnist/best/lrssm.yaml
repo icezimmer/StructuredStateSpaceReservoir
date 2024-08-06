@@ -30,7 +30,7 @@ hyperparameters:
     # LEARNING
     batch: [128]
     mlplayers: [2]
-    act: ["rglu"]
+    act: ["glu"]
     encoder: ["conv1d"]
     decoder: ["conv1d"]
     dropout: [0.0]
