@@ -1,13 +1,15 @@
 import torch
 from torch.utils.data import Dataset
+import tensorflow_datasets as tfds
 
 
 class PathfinderDataset(Dataset):
     def __init__(self, tf_dataset):
         self.data = []
-        for image, label in tf_dataset:
+        for example in tfds.as_numpy(tf_dataset):
+            image, label = example
             # Take only the first channel (grayscale)
-            image, label = image[:, :, 0:1].numpy(), label.numpy()
+            image = image[:, :, 0:1]
 
             # Convert NumPy arrays to PyTorch tensors and ensure the type is float
             image = torch.from_numpy(image)
