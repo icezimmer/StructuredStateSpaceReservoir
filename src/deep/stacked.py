@@ -119,13 +119,10 @@ class StackedReservoir(nn.Module):
 
         x_list = []
         for layer in self.layers:
-            # y_old = y
             y, x = layer(y)  # (B, d_model, L) -> (B, d_model, L)
-            x_list.append(x)
-            # y = y + y_old
+            x_list.append(x[:, :, self.transient:])
 
-        x = torch.cat(tensors=x_list, dim=-2)  # (B, d_model, L) -> (B, num_layers * d_model, L)
-        x = x[:, :, self.transient:]  # (B, num_layers * d_model, L) -> (B, num_layers * d_model, L - w)
+        x = torch.cat(tensors=x_list, dim=-2)  # (B, num_layers * d_model, L - w)
 
         return x
 
@@ -176,9 +173,8 @@ class StackedEchoState(nn.Module):
         x_list = []
         for layer in self.layers:
             x, _ = layer(x)  # (B, d_model, L) -> (B, d_model, L)
-            x_list.append(x)
+            x_list.append(x[:, :, self.transient:])
 
-        x = torch.cat(tensors=x_list, dim=-2)  # (B, d_model, L) -> (B, num_layers * d_model, L)
-        x = x[:, :, self.transient:]  # (B, num_layers * d_model, L) -> (B, num_layers * d_model, L - w)
+        x = torch.cat(tensors=x_list, dim=-2)  # (B, num_layers * d_model, L - w)
 
         return x
