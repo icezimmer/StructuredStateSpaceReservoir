@@ -66,7 +66,7 @@ class StackedNetwork(nn.Module):
 
 
 class StackedReservoir(nn.Module):
-    def __init__(self, block_cls, n_layers, d_input, d_model, transient,
+    def __init__(self, block_cls, n_layers, d_input, d_model, transient, take_last,
                  min_encoder_scaling=0.0, max_encoder_scaling=1.0,
                  **block_args):
         """
@@ -79,7 +79,11 @@ class StackedReservoir(nn.Module):
 
         self.n_layers = n_layers
 
-        self.d_output = self.n_layers * self.d_state
+        self.take_last = take_last
+        if self.take_last:
+            self.d_output = self.d_state  # Take only the last layer output
+        else:
+            self.d_output = self.n_layers * self.d_state  # Take all the layers output concatenating them
 
         self.encoder = LinearReservoirRing(d_input=d_input, d_output=self.d_state,
                                            min_radius=min_encoder_scaling, max_radius=max_encoder_scaling,
@@ -98,15 +102,29 @@ class StackedReservoir(nn.Module):
         """
         y = self.encoder.step(u)
 
-        z_list = []
-        for i, layer in enumerate(self.layers):
-            if x is not None:
-                z = x[:, i * self.d_state: (i+1) * self.d_state]
-            else:
-                z = None
-            y, z = layer.step(y, z)
-            z_list.append(z)
-        x = torch.cat(tensors=z_list, dim=-1)
+        if self.take_last:
+            z_list = []
+            for i, layer in enumerate(self.layers):
+                if x is not None:
+                    z = x[:, i * self.d_state: (i + 1) * self.d_state]
+                else:
+                    z = None
+                y, z = layer.step(y, z)
+                z_list.append(z)
+            x = torch.cat(tensors=z_list, dim=-1)
+        else:
+            z_list = []
+            y_list = []
+            for i, layer in enumerate(self.layers):
+                if x is not None:
+                    z = x[:, i * self.d_state: (i+1) * self.d_state]
+                else:
+                    z = None
+                y, z = layer.step(y, z)
+                z_list.append(z)
+                y_list.append(y)
+            x = torch.cat(tensors=z_list, dim=-1)
+            y = torch.cat(tensors=y_list, dim=-1)
 
         return y, x
 
@@ -117,21 +135,24 @@ class StackedReservoir(nn.Module):
         :return: output sequence, torch tensor of shape (B, d_output, L - w)
         """
         y = self.encoder(u)  # (B, d_input, L) -> (B, d_model, L)
-        # y = torch.nn.ReLU()(y)
 
-        x_list = []
-        for layer in self.layers:
-            y, x = layer(y)  # (B, d_model, L) -> (B, d_model, L)
-            x_list.append(x[:, :, self.transient:])
-
-        x = torch.cat(tensors=x_list, dim=-2)  # (B, num_layers * d_model, L - w)
+        if self.take_last:
+            for layer in self.layers:
+                y, x = layer(y)  # (B, d_model, L) -> (B, d_model, L)
+            x = x[:, :, self.transient:]
+        else:
+            x_list = []
+            for layer in self.layers:
+                y, x = layer(y)  # (B, d_model, L) -> (B, d_model, L)
+                x_list.append(x[:, :, self.transient:])
+            x = torch.cat(tensors=x_list, dim=-2)  # (B, num_layers * d_model, L - w)
 
         return x
 
 
 class StackedEchoState(nn.Module):
     def __init__(self, n_layers, d_input, d_model,
-                 transient,
+                 transient, take_last,
                  **block_args):
         """
         Stack multiple blocks of the same type to form a deep network.
@@ -143,7 +164,11 @@ class StackedEchoState(nn.Module):
 
         self.n_layers = n_layers
 
-        self.d_output = self.n_layers * self.d_state
+        self.take_last = take_last
+        if self.take_last:
+            self.d_output = self.d_state  # Take only the last layer output
+        else:
+            self.d_output = self.n_layers * self.d_state  # Take all the layers output concatenating them
 
         self.layers = nn.ModuleList([ESN(d_input=d_input, d_state=self.d_state, **block_args)] +
                                     [ESN(d_input=self.d_state, d_state=self.d_state, **block_args)
@@ -158,17 +183,31 @@ class StackedEchoState(nn.Module):
         :param x: previous state of shape (B, P)
         :return: None, new state (B, P)
         """
-        z_list = []
-        for i, layer in enumerate(self.layers):
-            if x is not None:
-                z = x[:, i * self.d_state: (i+1) * self.d_state]
-            else:
-                z = None
-            z = layer.step(u, z)
-            z_list.append(z)
-        x = torch.cat(tensors=z_list, dim=-1)
 
-        return None, x
+        if self.take_last:
+            z_list = []
+            for i, layer in enumerate(self.layers):
+                if x is not None:
+                    z = x[:, i * self.d_state: (i + 1) * self.d_state]
+                else:
+                    z = None
+                z = layer.step(u, z)
+                z_list.append(z)
+            x = torch.cat(tensors=z_list, dim=-1)
+            y = z
+        else:
+            z_list = []
+            for i, layer in enumerate(self.layers):
+                if x is not None:
+                    z = x[:, i * self.d_state: (i+1) * self.d_state]
+                else:
+                    z = None
+                z = layer.step(u, z)
+                z_list.append(z)
+            x = torch.cat(tensors=z_list, dim=-1)
+            y = x
+
+        return y, x
 
     def forward(self, x):
         """
@@ -176,11 +215,15 @@ class StackedEchoState(nn.Module):
         :param  x: input sequence, torch tensor of shape (B, d_input, L)
         :return: output sequence, torch tensor of shape (B, d_state, L - w)
         """
-        x_list = []
-        for layer in self.layers:
-            x, _ = layer(x)  # (B, d_model, L) -> (B, d_model, L)
-            x_list.append(x[:, :, self.transient:])
-
-        x = torch.cat(tensors=x_list, dim=-2)  # (B, num_layers * d_model, L - w)
+        if self.take_last:
+            for layer in self.layers:
+                x, _ = layer(x)  # (B, d_model, L) -> (B, d_model, L)
+            x = x[:, :, self.transient:]
+        else:
+            x_list = []
+            for layer in self.layers:
+                x, _ = layer(x)  # (B, d_model, L) -> (B, d_model, L)
+                x_list.append(x[:, :, self.transient:])
+            x = torch.cat(tensors=x_list, dim=-2)  # (B, num_layers * d_model, L - w)
 
         return x
