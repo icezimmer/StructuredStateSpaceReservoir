@@ -19,7 +19,6 @@ import tensorflow as tf
 import tensorflow_datasets as tfds
 
 
-
 class Pathfinder32(tfds.core.BeamBasedBuilder):
   """Pathfinder TFDS builder (where the resolution is 32).
 
