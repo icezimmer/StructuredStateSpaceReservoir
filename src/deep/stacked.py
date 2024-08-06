@@ -96,17 +96,19 @@ class StackedReservoir(nn.Module):
         :param x: previous state of shape (B, P)
         :return: output step (B, H), new state (B, P)
         """
-        u = self.encoder.step(u)
-        u_list = []
-        x_list = []
-        for layer in self.layers:
-            u, x = layer.step(u, x)
-            u_list.append(u)
-            x_list.append(x)
-        u = torch.cat(tensors=u_list, dim=-2)
-        x = torch.cat(tensors=x_list, dim=-2)
+        y = self.encoder.step(u)
 
-        return u, x
+        z_list = []
+        for i, layer in enumerate(self.layers):
+            if x is not None:
+                z = x[:, i * self.d_state: (i+1) * self.d_state]
+            else:
+                z = None
+            y, z = layer.step(y, z)
+            z_list.append(z)
+        x = torch.cat(tensors=z_list, dim=-1)
+
+        return y, x
 
     def forward(self, u):
         """
@@ -156,11 +158,15 @@ class StackedEchoState(nn.Module):
         :param x: previous state of shape (B, P)
         :return: None, new state (B, P)
         """
-        x_list = []
-        for layer in self.layers:
-            x = layer.step(u, x)
-            x_list.append(x)
-        x = torch.cat(tensors=x_list, dim=-2)
+        z_list = []
+        for i, layer in enumerate(self.layers):
+            if x is not None:
+                z = x[:, i * self.d_state: (i+1) * self.d_state]
+            else:
+                z = None
+            z = layer.step(u, z)
+            z_list.append(z)
+        x = torch.cat(tensors=z_list, dim=-1)
 
         return None, x
 
