@@ -30,7 +30,7 @@ hyperparameters:
     maxscaleC: [1.0]
     minscaleD: [1.0]
     maxscaleD: [1.0]
-    # RIDGE CLASSIFIER READOUT
+    # MLP READOUT
     readout: ["mlp"]
     last: [False]
     transient: [-1]
