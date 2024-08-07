@@ -1,6 +1,8 @@
 import argparse
 import logging
 import os
+
+import numpy as np
 import torch
 import matplotlib.pyplot as plt
 
@@ -11,7 +13,35 @@ from src.utils.saving import load_data
 from src.utils.check_device import check_model_device
 
 
-def plot_time_series(develop_dataset, label_selected, reservoir_model, kernel_size, save_path):
+def compute_entropy(tensor):
+    if tensor.dim() == 0:
+        raise ValueError("Tensor must be of shape (L,) or (*, L)")
+
+    # Apply softmax to create a probability distribution
+    tensor = torch.nn.functional.softmax(tensor, dim=-1)
+    entropy = -torch.sum(tensor * torch.log(tensor + 1e-9), dim=-1)
+
+    return entropy
+
+
+def compute_total_entropy(tensor):
+    if tensor.numel() == 0:
+        raise ValueError("Tensor must not be empty")
+
+    # Flatten the tensor to create a one-dimensional tensor
+    flattened_tensor = tensor.flatten()
+
+    # Apply softmax to create a probability distribution
+    normalized_tensor = torch.nn.functional.softmax(flattened_tensor, dim=0)
+
+    # Compute the entropy
+    entropy = -torch.sum(
+        normalized_tensor * torch.log(normalized_tensor + 1e-9))  # Adding a small value to avoid log(0)
+
+    return entropy
+
+
+def get_data(develop_dataset, label_selected, reservoir_model):
     # Scan through the time series while find a time series with the specified label
     i = 0
     u, label = develop_dataset[i]
@@ -19,37 +49,98 @@ def plot_time_series(develop_dataset, label_selected, reservoir_model, kernel_si
         i = i + 1
         u, label = develop_dataset[i]  # u has shape (H=1, L)
 
-    fig = plt.figure(figsize=(14, 4*(reservoir_model.n_layers+1)))
+    u_t = u.squeeze(0)  # (L,)
 
-    fig_input = fig.add_subplot(reservoir_model.n_layers+1, 2, 2*(reservoir_model.n_layers+1)-1)
-    fig_input.plot(range(kernel_size), u.squeeze(0).cpu().numpy())
+    y = reservoir_model(u.unsqueeze(0).to(device=check_model_device(reservoir_model)))  # (B=1, H=num_layers, L)
+    y_t = y.squeeze(0)  # (H=num_layers, L)
+
+    return u_t, y_t, label
+
+
+def plot_entropy(u_t, y_t, label, save_path):
+
+    n_layers = y_t.shape[0]
+
+    fig = plt.figure(figsize=(14, 4))
+    fig_ts = fig.add_subplot(1, 2, 1)
+    fig_x = fig.add_subplot(1, 2, 2)
+
+    entropy_cumulative = np.array([0])
+    entropy_cumulative_x = np.array([])
+    for i in range(n_layers):
+        h_t = y_t[0:(i + 1), :]  # h has shape (H=i+1, L)
+        entropy = compute_total_entropy(h_t)
+        entropy_np = entropy.unsqueeze(0).cpu().numpy()
+        entropy_cumulative = np.concatenate((entropy_cumulative, entropy_np))
+        x = h_t[:, -1]
+        entropy = compute_total_entropy(x)
+        entropy_np = entropy.unsqueeze(0).cpu().numpy()
+        entropy_cumulative_x = np.concatenate((entropy_cumulative_x, entropy_np))
+
+    entropy_u = compute_entropy(u_t)
+    entropy_u_np = entropy_u.unsqueeze(0).cpu().numpy()
+    entropy_single = compute_entropy(y_t)
+    entropy_single_np = entropy_single.cpu().numpy()
+    entropy_single = np.concatenate((entropy_u_np, entropy_single_np))
+
+    width = 0.4  # Width of the bars
+    k = np.arange(n_layers)
+    k_ts = np.arange(n_layers + 1)
+    fig_ts.bar(k_ts - width / 2, entropy_single, width, label='Single', color='red')
+    fig_ts.bar(k_ts + width / 2, entropy_cumulative, width, label='Aggregated', color='green')
+    fig_x.bar(k, entropy_cumulative_x, width, label='Aggregated', color='green')
+
+    fig_ts.set_xlabel('Layer')
+    fig_ts.set_ylabel('Entropy')
+    fig_ts.set_title(f'Entropy of Hidden Signals (Label: {label})')
+    fig_ts.legend()
+
+    fig_x.set_xlabel('Layer')
+    fig_x.set_ylabel('Entropy')
+    fig_x.set_title(f'Entropy of Hidden State (Label: {label})')
+    fig_x.legend()
+
+    # Save plot to the specified path
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)  # Create directories if not exist
+    plt.savefig(save_path)
+    plt.close()  # Close the figure to free memory
+
+
+def plot_time_series(u_t, y_t, label, save_path):
+    n_layers = y_t.shape[0]
+    length = u_t.shape[-1]
+
+    fig = plt.figure(figsize=(14, 4*(n_layers+1)))
+
+    fig_input = fig.add_subplot(n_layers+1, 2, 2*(n_layers+1)-1)
+
+    u_np = u_t.cpu().numpy()
+    fig_input.plot(range(length), u_np)
     fig_input.set_title(f'Input Time Series (Label: {label})')
 
     # Compute the DFT of the time series
-    u_s = torch.fft.rfft(u.squeeze(0), n=2*kernel_size-1, dim=-1)
-    freq = torch.fft.rfftfreq(n=2*kernel_size-1)
+    u_s = torch.fft.rfft(u_t, n=2*length-1, dim=-1)
+    freq = torch.fft.rfftfreq(n=2*length-1)
     # Compute the amplitude of the DFT
     amplitude = torch.abs(u_s).numpy()
-    fig_input_s = fig.add_subplot(reservoir_model.n_layers + 1, 2, 2*(reservoir_model.n_layers+1))
+    fig_input_s = fig.add_subplot(n_layers + 1, 2, 2*(n_layers+1))
     fig_input_s.bar(freq, amplitude, width=0.01)
 
-    y = reservoir_model(u.unsqueeze(0).to(device=check_model_device(reservoir_model)))  # (B=1, H=num_layers, L)
-
-    for i in range(reservoir_model.n_layers):
-        fig_h = fig.add_subplot(reservoir_model.n_layers+1, 2, 2*(reservoir_model.n_layers-i)-1)
-        h = y[:, i: (i + 1), :]  # h has shape (B=1, H=1, L)
-        fig_h.plot(range(kernel_size), h.squeeze().cpu().numpy())
+    for i in range(n_layers):
+        fig_h = fig.add_subplot(n_layers+1, 2, 2*(n_layers-i)-1)
+        h_t = y_t[i, :]  # h has shape (L,)
+        h_np = h_t.cpu().numpy()
+        fig_h.plot(range(length), h_np)
         fig_h.set_title(f'{i+1} Hidden Time Series (Label: {label})')
 
         # Compute the DFT of the time series
-        h_s = torch.fft.rfft(h.squeeze(), n=2*kernel_size - 1, dim=-1)
-        freq = torch.fft.rfftfreq(n=2 * kernel_size - 1)
+        h_s = torch.fft.rfft(h_t, n=2*length - 1, dim=-1)
+        freq = torch.fft.rfftfreq(n=2 * length - 1)
         # Compute the amplitude of the DFT
         amplitude = torch.abs(h_s).cpu().numpy()
-        fig_h_s = fig.add_subplot(reservoir_model.n_layers + 1, 2, 2*(reservoir_model.n_layers-i))
+        fig_h_s = fig.add_subplot(n_layers + 1, 2, 2*(n_layers-i))
         fig_h_s.bar(freq, amplitude, width=0.01)
         fig_h_s.set_title(f'{i+1} Hidden Frequency Amplitude (Label: {label})')
-
 
     # Save plot to the specified path
     os.makedirs(os.path.dirname(save_path), exist_ok=True)  # Create directories if not exist
@@ -158,7 +249,8 @@ def main():
     else:
         raise ValueError('Invalid block name')
 
-    save_path = os.path.join('./checkpoint', 'dynamics', args.task, args.block, 'deep.png')
+    save_path_ts = os.path.join('./checkpoint', 'dynamics', args.task, args.block, 'deep.png')
+    save_path_en = os.path.join('./checkpoint', 'dynamics', args.task, args.block, 'entropy.png')
 
     logging.info('Loading develop dataset.')
     develop_dataset = load_data(os.path.join('./checkpoint', 'datasets', args.task, 'develop_dataset'))
@@ -188,8 +280,12 @@ def main():
     else:
         raise ValueError('Invalid block name')
 
+    logging.info('Retrieve data.')
+    u_t, y_t, label = get_data(develop_dataset, args.label, reservoir_model)  # (L,), (H=num_layers, L), int
+
     logging.info('Plotting.')
-    plot_time_series(develop_dataset, args.label, reservoir_model, kernel_size, save_path)
+    plot_time_series(u_t, y_t, label, save_path_ts)
+    plot_entropy(u_t, y_t, label, save_path_en)
 
 
 if __name__ == '__main__':
