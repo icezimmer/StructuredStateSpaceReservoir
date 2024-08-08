@@ -13,13 +13,19 @@ from tqdm import tqdm
 from src.utils.check_device import check_model_device
 
 
-def plot_time_series(develop_dataset, label_selected, reservoir_model, kernel_size, save_path):
+def get_data(develop_dataset, label_selected):
     # Scan through the time series while find a time series with the specified label
     i = 0
     u, label = develop_dataset[i]
     while label != label_selected:
         i = i + 1
         u, label = develop_dataset[i]  # u has shape (H=1, L)
+
+    return u, label
+
+
+def plot_time_series(u, label, reservoir_model, save_path):
+    length = u.shape[-1]
 
     fig = plt.figure(figsize=(12, 10))
 
@@ -28,23 +34,23 @@ def plot_time_series(develop_dataset, label_selected, reservoir_model, kernel_si
 
     x = None
 
-    fig1.plot(range(kernel_size), u.squeeze(0).cpu().numpy())
+    fig1.plot(range(length), u.squeeze(0).cpu().numpy())
     fig1.set_title(f'Input Time Series (Label: {label})')
 
     first_output = None
     last_output = None
 
-    for k in tqdm(range(kernel_size)):
+    for k in tqdm(range(length)):
         y, x = reservoir_model.step(u[:, k].unsqueeze(0).to(device=check_model_device(reservoir_model)), x)
 
         output = y.cpu().numpy()
         if k == 0:
             first_output = output
-        if k == kernel_size - 1:
+        if k == length - 1:
             last_output = output
 
-        fig2.scatter(output[:, 0], output[:, 1], alpha=(kernel_size - k) / kernel_size,
-                     color=cm.viridis(k / kernel_size))
+        fig2.scatter(output[:, 0], output[:, 1], alpha=(length - k) / length,
+                     color=cm.viridis(k / length))
         fig2.set_title('Output Scatter Plot')
 
         # Emphasize the first and last points
@@ -191,8 +197,11 @@ def main():
     else:
         raise ValueError('Invalid block name')
 
+    logging.info('Retrieve data.')
+    u, label = get_data(develop_dataset, args.label)  # (H=1, L), int
+
     logging.info('Plotting.')
-    plot_time_series(develop_dataset, args.label, reservoir_model, kernel_size, save_path)
+    plot_time_series(u, label, reservoir_model, save_path)
 
 
 if __name__ == '__main__':
