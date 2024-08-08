@@ -1,6 +1,8 @@
 import argparse
 import logging
 import os
+
+import numpy as np
 import torch
 import matplotlib.pyplot as plt
 
@@ -9,6 +11,7 @@ from src.models.rssm.rssm import RSSM
 from src.utils.experiments import set_seed
 from src.utils.saving import load_data
 from src.utils.check_device import check_model_device
+from src.utils.signals import total_entropy, pca_analysis
 
 
 def get_data(develop_dataset, label_selected, reservoir_model):
@@ -27,41 +30,55 @@ def get_data(develop_dataset, label_selected, reservoir_model):
     return u_t, y_t, label  # (L,), (H=num_layers, L), int
 
 
-def plot_time_series(u_t, y_t, label, save_path):
+def plot_entropy(u_t, y_t, label, save_path):
+
     n_layers = y_t.shape[0]
-    length = u_t.shape[-1]
 
-    fig = plt.figure(figsize=(14, 4*(n_layers+1)))
+    fig = plt.figure(figsize=(14, 4))
+    fig_ts = fig.add_subplot(1, 2, 1)
+    fig_x = fig.add_subplot(1, 2, 2)
 
-    fig_input = fig.add_subplot(n_layers+1, 2, 2*(n_layers+1)-1)
-
-    u_np = u_t.cpu().numpy()
-    fig_input.plot(range(length), u_np)
-    fig_input.set_title(f'Input Time Series (Label: {label})')
-
-    # Compute the DFT of the time series
-    u_s = torch.fft.rfft(u_t, n=2*length-1, dim=-1)
-    freq = torch.fft.rfftfreq(n=2*length-1)
-    # Compute the amplitude of the DFT
-    amplitude = torch.abs(u_s).numpy()
-    fig_input_s = fig.add_subplot(n_layers + 1, 2, 2*(n_layers+1))
-    fig_input_s.bar(freq, amplitude, width=0.01)
-
+    entropy_cumulative = np.array([0])
+    entropy_cumulative_x = np.array([0])
     for i in range(n_layers):
-        fig_h = fig.add_subplot(n_layers+1, 2, 2*(n_layers-i)-1)
-        h_t = y_t[i, :]  # h has shape (L,)
-        h_np = h_t.cpu().numpy()
-        fig_h.plot(range(length), h_np)
-        fig_h.set_title(f'{i+1} Hidden Time Series (Label: {label})')
+        h_t = y_t[0:(i + 1), :]  # h has shape (H=i+1, L)
+        entropy = total_entropy(h_t, dim=h_t.shape[0])
+        entropy_np = entropy.unsqueeze(0).cpu().numpy()
+        entropy_cumulative = np.concatenate((entropy_cumulative, entropy_np))
+        x = h_t[:, -1]
+        entropy_x = total_entropy(x, dim=x.shape[0])
+        entropy_x_np = entropy_x.unsqueeze(0).cpu().numpy()
+        entropy_cumulative_x = np.concatenate((entropy_cumulative_x, entropy_x_np))
 
-        # Compute the DFT of the time series
-        h_s = torch.fft.rfft(h_t, n=2*length - 1, dim=-1)
-        freq = torch.fft.rfftfreq(n=2 * length - 1)
-        # Compute the amplitude of the DFT
-        amplitude = torch.abs(h_s).cpu().numpy()
-        fig_h_s = fig.add_subplot(n_layers + 1, 2, 2*(n_layers-i))
-        fig_h_s.bar(freq, amplitude, width=0.01)
-        fig_h_s.set_title(f'{i+1} Hidden Frequency Amplitude (Label: {label})')
+    entropy_u = total_entropy(u_t, dim=1)
+    entropy_single = entropy_u.unsqueeze(0).cpu().numpy()
+    for i in range(n_layers):
+        h_t = y_t[i:(i + 1), :]  # h has shape (H=1, L)
+        entropy = total_entropy(h_t, dim=1)
+        entropy_np = entropy.unsqueeze(0).cpu().numpy()
+        entropy_single = np.concatenate((entropy_single, entropy_np))
+
+    width = 0.4  # Width of the bars
+    k = np.arange(n_layers + 1)
+    fig_ts.bar(k - width / 2, entropy_single, width, label='Single', color='red')
+    fig_ts.bar(k + width / 2, entropy_cumulative, width, label='Aggregated', color='green')
+    fig_x.bar(k, entropy_cumulative_x, width, label='Aggregated', color='green')
+
+    # Set custom x-axis labels
+    fig_ts.set_xticks(k)
+    fig_ts.set_xticklabels(k)
+    fig_x.set_xticks(k)
+    fig_x.set_xticklabels(k)
+
+    fig_ts.set_xlabel('Layer')
+    fig_ts.set_ylabel('Entropy')
+    fig_ts.set_title(f'Entropy of Hidden Signals (Label: {label})')
+    fig_ts.legend()
+
+    fig_x.set_xlabel('Layer')
+    fig_x.set_ylabel('Entropy')
+    fig_x.set_title(f'Entropy of Hidden State (Label: {label})')
+    fig_x.legend()
 
     # Save plot to the specified path
     os.makedirs(os.path.dirname(save_path), exist_ok=True)  # Create directories if not exist
@@ -95,9 +112,9 @@ def parse_args():
         parser.add_argument('--maxscaleD', type=float, default=1.0, help='Skip connection matrix D max scaling.')
         parser.add_argument('--kernel', choices=['Vr', 'miniVr'], default='Vr',
                             help='Kernel name.')
-        parser.add_argument('--funfwd', default='real+relu',
+        parser.add_argument('--funfwd', default='real',
                             help='Real function of complex variable to the Forward Pass.')
-        parser.add_argument('--funfit', default='real+tanh',
+        parser.add_argument('--funfit', default='real',
                             help='Real function of complex variable to Fit the Readout.')
         parser.add_argument('--strong', type=float, default=-1.0, help='Strong Stability for internal dynamics.')
         parser.add_argument('--weak', type=float, default=0.0, help='Weak Stability for internal dynamics.')
@@ -170,7 +187,7 @@ def main():
     else:
         raise ValueError('Invalid block name')
 
-    save_path = os.path.join('./checkpoint', 'dynamics', args.task, args.block, 'deep.png')
+    save_path = os.path.join('./checkpoint', 'dynamics', args.task, args.block, 'entropy.png')
 
     logging.info('Loading develop dataset.')
     develop_dataset = load_data(os.path.join('./checkpoint', 'datasets', args.task, 'develop_dataset'))
@@ -204,7 +221,7 @@ def main():
     u_t, y_t, label = get_data(develop_dataset, args.label, reservoir_model)  # (L,), (H=num_layers, L), int
 
     logging.info('Plotting.')
-    plot_time_series(u_t, y_t, label, save_path)
+    plot_entropy(u_t, y_t, label, save_path)
 
 
 if __name__ == '__main__':

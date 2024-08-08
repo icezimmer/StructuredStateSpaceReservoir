@@ -1,6 +1,8 @@
 import argparse
 import logging
 import os
+
+import numpy as np
 import torch
 import matplotlib.pyplot as plt
 
@@ -9,6 +11,7 @@ from src.models.rssm.rssm import RSSM
 from src.utils.experiments import set_seed
 from src.utils.saving import load_data
 from src.utils.check_device import check_model_device
+from src.utils.signals import total_entropy, pca_analysis
 
 
 def get_data(develop_dataset, label_selected, reservoir_model):
@@ -27,41 +30,27 @@ def get_data(develop_dataset, label_selected, reservoir_model):
     return u_t, y_t, label  # (L,), (H=num_layers, L), int
 
 
-def plot_time_series(u_t, y_t, label, save_path):
-    n_layers = y_t.shape[0]
-    length = u_t.shape[-1]
+def plot_pca(y_t, label, save_path):
+    n_layers = y_t.shape[0]  # Use the number of features
 
-    fig = plt.figure(figsize=(14, 4*(n_layers+1)))
+    fig, ax = plt.subplots(figsize=(14, 4))
 
-    fig_input = fig.add_subplot(n_layers+1, 2, 2*(n_layers+1)-1)
+    loadings = pca_analysis(y_t.t())  # take (num_samples=L, num_features=n_layers)
 
-    u_np = u_t.cpu().numpy()
-    fig_input.plot(range(length), u_np)
-    fig_input.set_title(f'Input Time Series (Label: {label})')
+    width = 0.4  # Width of the bars
+    k = np.arange(start=1, stop=n_layers+1)
 
-    # Compute the DFT of the time series
-    u_s = torch.fft.rfft(u_t, n=2*length-1, dim=-1)
-    freq = torch.fft.rfftfreq(n=2*length-1)
-    # Compute the amplitude of the DFT
-    amplitude = torch.abs(u_s).numpy()
-    fig_input_s = fig.add_subplot(n_layers + 1, 2, 2*(n_layers+1))
-    fig_input_s.bar(freq, amplitude, width=0.01)
+    # Plotting the loadings for the first principal component
+    ax.bar(k, loadings[0], width, label='PCA Loadings', color='green')
 
-    for i in range(n_layers):
-        fig_h = fig.add_subplot(n_layers+1, 2, 2*(n_layers-i)-1)
-        h_t = y_t[i, :]  # h has shape (L,)
-        h_np = h_t.cpu().numpy()
-        fig_h.plot(range(length), h_np)
-        fig_h.set_title(f'{i+1} Hidden Time Series (Label: {label})')
+    # Set custom x-axis labels
+    ax.set_xticks(k)
+    ax.set_xticklabels(k)
 
-        # Compute the DFT of the time series
-        h_s = torch.fft.rfft(h_t, n=2*length - 1, dim=-1)
-        freq = torch.fft.rfftfreq(n=2 * length - 1)
-        # Compute the amplitude of the DFT
-        amplitude = torch.abs(h_s).cpu().numpy()
-        fig_h_s = fig.add_subplot(n_layers + 1, 2, 2*(n_layers-i))
-        fig_h_s.bar(freq, amplitude, width=0.01)
-        fig_h_s.set_title(f'{i+1} Hidden Frequency Amplitude (Label: {label})')
+    ax.set_xlabel('Layer')
+    ax.set_ylabel('Loading')
+    ax.set_title(f'PCA Loadings of Output Signals (Label: {label})')
+    ax.legend()
 
     # Save plot to the specified path
     os.makedirs(os.path.dirname(save_path), exist_ok=True)  # Create directories if not exist
@@ -170,7 +159,7 @@ def main():
     else:
         raise ValueError('Invalid block name')
 
-    save_path = os.path.join('./checkpoint', 'dynamics', args.task, args.block, 'deep.png')
+    save_path = os.path.join('./checkpoint', 'dynamics', args.task, args.block, 'pca.png')
 
     logging.info('Loading develop dataset.')
     develop_dataset = load_data(os.path.join('./checkpoint', 'datasets', args.task, 'develop_dataset'))
@@ -204,7 +193,7 @@ def main():
     u_t, y_t, label = get_data(develop_dataset, args.label, reservoir_model)  # (L,), (H=num_layers, L), int
 
     logging.info('Plotting.')
-    plot_time_series(u_t, y_t, label, save_path)
+    plot_pca(y_t, label, save_path)
 
 
 if __name__ == '__main__':
