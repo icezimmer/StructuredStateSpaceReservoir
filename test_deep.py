@@ -1,8 +1,6 @@
 import argparse
 import logging
 import os
-
-import numpy as np
 import torch
 import matplotlib.pyplot as plt
 
@@ -11,34 +9,6 @@ from src.models.rssm.rssm import RSSM
 from src.utils.experiments import set_seed
 from src.utils.saving import load_data
 from src.utils.check_device import check_model_device
-
-
-def compute_entropy(tensor):
-    if tensor.dim() == 0:
-        raise ValueError("Tensor must be of shape (L,) or (*, L)")
-
-    # Apply softmax to create a probability distribution
-    tensor = torch.nn.functional.softmax(tensor, dim=-1)
-    entropy = -torch.sum(tensor * torch.log(tensor + 1e-9), dim=-1)
-
-    return entropy
-
-
-def compute_total_entropy(tensor):
-    if tensor.numel() == 0:
-        raise ValueError("Tensor must not be empty")
-
-    # Flatten the tensor to create a one-dimensional tensor
-    flattened_tensor = tensor.flatten()
-
-    # Apply softmax to create a probability distribution
-    normalized_tensor = torch.nn.functional.softmax(flattened_tensor, dim=0)
-
-    # Compute the entropy
-    entropy = -torch.sum(
-        normalized_tensor * torch.log(normalized_tensor + 1e-9))  # Adding a small value to avoid log(0)
-
-    return entropy
 
 
 def get_data(develop_dataset, label_selected, reservoir_model):
@@ -54,56 +24,7 @@ def get_data(develop_dataset, label_selected, reservoir_model):
     y = reservoir_model(u.unsqueeze(0).to(device=check_model_device(reservoir_model)))  # (B=1, H=num_layers, L)
     y_t = y.squeeze(0)  # (H=num_layers, L)
 
-    return u_t, y_t, label
-
-
-def plot_entropy(u_t, y_t, label, save_path):
-
-    n_layers = y_t.shape[0]
-
-    fig = plt.figure(figsize=(14, 4))
-    fig_ts = fig.add_subplot(1, 2, 1)
-    fig_x = fig.add_subplot(1, 2, 2)
-
-    entropy_cumulative = np.array([0])
-    entropy_cumulative_x = np.array([])
-    for i in range(n_layers):
-        h_t = y_t[0:(i + 1), :]  # h has shape (H=i+1, L)
-        entropy = compute_total_entropy(h_t)
-        entropy_np = entropy.unsqueeze(0).cpu().numpy()
-        entropy_cumulative = np.concatenate((entropy_cumulative, entropy_np))
-        x = h_t[:, -1]
-        entropy = compute_total_entropy(x)
-        entropy_np = entropy.unsqueeze(0).cpu().numpy()
-        entropy_cumulative_x = np.concatenate((entropy_cumulative_x, entropy_np))
-
-    entropy_u = compute_entropy(u_t)
-    entropy_u_np = entropy_u.unsqueeze(0).cpu().numpy()
-    entropy_single = compute_entropy(y_t)
-    entropy_single_np = entropy_single.cpu().numpy()
-    entropy_single = np.concatenate((entropy_u_np, entropy_single_np))
-
-    width = 0.4  # Width of the bars
-    k = np.arange(n_layers)
-    k_ts = np.arange(n_layers + 1)
-    fig_ts.bar(k_ts - width / 2, entropy_single, width, label='Single', color='red')
-    fig_ts.bar(k_ts + width / 2, entropy_cumulative, width, label='Aggregated', color='green')
-    fig_x.bar(k, entropy_cumulative_x, width, label='Aggregated', color='green')
-
-    fig_ts.set_xlabel('Layer')
-    fig_ts.set_ylabel('Entropy')
-    fig_ts.set_title(f'Entropy of Hidden Signals (Label: {label})')
-    fig_ts.legend()
-
-    fig_x.set_xlabel('Layer')
-    fig_x.set_ylabel('Entropy')
-    fig_x.set_title(f'Entropy of Hidden State (Label: {label})')
-    fig_x.legend()
-
-    # Save plot to the specified path
-    os.makedirs(os.path.dirname(save_path), exist_ok=True)  # Create directories if not exist
-    plt.savefig(save_path)
-    plt.close()  # Close the figure to free memory
+    return u_t, y_t, label  # (L,), (H=num_layers, L), int
 
 
 def plot_time_series(u_t, y_t, label, save_path):
@@ -156,7 +77,7 @@ def parse_args():
     parser.add_argument('--label', type=int, default=0, help='Label to highlight in the time series plot.')
     parser.add_argument('--block', choices=['RSSM', 'ESN'], default='RSSM',
                         help='Block class to use for the model.')
-    parser.add_argument('--layers', type=int, default=2, help='Number of layers.')
+    parser.add_argument('--layers', type=int, default=16, help='Number of layers.')
 
     # First parse known arguments to decide on adding additional arguments based on the block type
     args, unknown = parser.parse_known_args()
@@ -170,20 +91,20 @@ def parse_args():
     elif args.block == 'RSSM':
         parser.add_argument('--minscaleencoder', type=float, default=0.0, help='Min encoder model scaling factor.')
         parser.add_argument('--maxscaleencoder', type=float, default=1.0, help='Max encoder model scaling factor.')
-        parser.add_argument('--minscaleD', type=float, default=0.0, help='Skip connection matrix D min scaling.')
+        parser.add_argument('--minscaleD', type=float, default=1.0, help='Skip connection matrix D min scaling.')
         parser.add_argument('--maxscaleD', type=float, default=1.0, help='Skip connection matrix D max scaling.')
         parser.add_argument('--kernel', choices=['Vr', 'miniVr'], default='Vr',
                             help='Kernel name.')
-        parser.add_argument('--funfwd', default='real',
+        parser.add_argument('--funfwd', default='real+relu',
                             help='Real function of complex variable to the Forward Pass.')
-        parser.add_argument('--funfit', default='real',
+        parser.add_argument('--funfit', default='real+tanh',
                             help='Real function of complex variable to Fit the Readout.')
         parser.add_argument('--strong', type=float, default=-1.0, help='Strong Stability for internal dynamics.')
         parser.add_argument('--weak', type=float, default=0.0, help='Weak Stability for internal dynamics.')
         parser.add_argument('--discrete', action='store_true', help='Discrete SSM modality.')
-        parser.add_argument('--low', type=float, default=0.05,
+        parser.add_argument('--low', type=float, default=0.001,
                             help='Min-Sampling-Rate / Min-Oscillations for internal dynamics.')
-        parser.add_argument('--high', type=float, default=0.05,
+        parser.add_argument('--high', type=float, default=0.1,
                             help='Max-Sampling-Rate / Max-Oscillations for internal dynamics.')
         parser.add_argument('--minscaleB', type=float, default=0.0, help='Min scaling for input2state matrix B.')
         parser.add_argument('--maxscaleB', type=float, default=1.0, help='Max scaling for input2state matrix B.')
@@ -249,8 +170,7 @@ def main():
     else:
         raise ValueError('Invalid block name')
 
-    save_path_ts = os.path.join('./checkpoint', 'dynamics', args.task, args.block, 'deep.png')
-    save_path_en = os.path.join('./checkpoint', 'dynamics', args.task, args.block, 'entropy.png')
+    save_path = os.path.join('./checkpoint', 'dynamics', args.task, args.block, 'deep.png')
 
     logging.info('Loading develop dataset.')
     develop_dataset = load_data(os.path.join('./checkpoint', 'datasets', args.task, 'develop_dataset'))
@@ -284,8 +204,7 @@ def main():
     u_t, y_t, label = get_data(develop_dataset, args.label, reservoir_model)  # (L,), (H=num_layers, L), int
 
     logging.info('Plotting.')
-    plot_time_series(u_t, y_t, label, save_path_ts)
-    plot_entropy(u_t, y_t, label, save_path_en)
+    plot_time_series(u_t, y_t, label, save_path)
 
 
 if __name__ == '__main__':
