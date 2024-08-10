@@ -1,6 +1,7 @@
 import torch.nn as nn
 from src.layers.reservoir import LinearReservoirRing
 from src.models.esn.esn import ESN
+from src.models.embedding.embedding import EmbeddingModel
 import torch
 
 
@@ -14,7 +15,7 @@ class StackedNetwork(nn.Module):
         """
         Stack multiple blocks of the same type to form a deep network.
         """
-        encoder_models = ['conv1d', 'reservoir']
+        encoder_models = ['conv1d', 'reservoir', 'embedding']
         decoder_models = ['conv1d', 'reservoir']
 
         if encoder not in encoder_models:
@@ -31,6 +32,8 @@ class StackedNetwork(nn.Module):
             self.encoder = LinearReservoirRing(d_input=d_input, d_output=d_model,
                                                min_radius=min_encoder_scaling, max_radius=max_encoder_scaling,
                                                field='real')
+        elif encoder == 'embedding':
+            self.encoder = EmbeddingModel(vocab_size=d_input, d_model=d_model)
 
         self.layers = nn.ModuleList([block_cls(d_model=d_model, **block_args) for _ in range(n_layers)])
         self.dropouts = nn.ModuleList([nn.Dropout(layer_dropout) if layer_dropout > 0 else nn.Identity()
