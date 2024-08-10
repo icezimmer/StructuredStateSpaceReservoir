@@ -1,20 +1,20 @@
-import pickle
 import json
 import os
 import csv
+import torch
 
 
 def save_data(data, file_path):
     # Ensure the directory exists
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
 
-    with open(file_path, 'wb') as file:
-        pickle.dump(data, file)
+    # Save the data using torch.save
+    torch.save(data, file_path)
 
 
-def load_data(file_path):
-    with open(file_path, 'rb') as file:
-        loaded_data = pickle.load(file)
+def load_data(file_path, device='cpu'):
+    # Load the data and move it to the specified device
+    loaded_data = torch.load(file_path, map_location=device)
     return loaded_data
 
 
