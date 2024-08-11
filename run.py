@@ -42,7 +42,7 @@ kernel_classes = ['V', 'V-freezeB', 'V-freezeC', 'V-freezeBC', 'V-freezeA', 'V-f
 lrssm_activations = ['relu', 'tanh', 'glu']
 
 kernel_classes_reservoir = ['Vr']
-realfuns = ['real', 'real+relu', 'real+tanh', 'glu', 'abs+tanh', 'angle+tanh']
+realfuns = ['real', 'real+relu', 'real+tanh', 'realimag+glu', 'abs+tanh', 'angle+tanh']
 readout_classes = ['ridge', 'mlp', 'ssm']
 
 
@@ -69,8 +69,8 @@ def parse_args():
         parser.add_argument('--decoder', default='conv1d', help='Decoder model.')
         parser.add_argument('--dropout', type=float, default=0.0, help='Dropout the preactivation inside the block.')
         parser.add_argument('--layerdrop', type=float, default=0.0, help='Dropout the output of each layer.')
-        parser.add_argument('--lr', type=float, default=0.002, help='Learning rate for NON-kernel parameters.')
-        parser.add_argument('--wd', type=float, default=0.1, help='Weight decay for NON-kernel parameters.')
+        parser.add_argument('--lr', type=float, default=0.005, help='Learning rate for NON-kernel parameters.')
+        parser.add_argument('--wd', type=float, default=0.01, help='Weight decay for NON-kernel parameters.')
         parser.add_argument('--plateau', type=float, default=0.2, help='Learning rate decay factor on Plateau.')
         parser.add_argument('--epochs', type=int, default=float('inf'), help='Number of epochs.')
         parser.add_argument('--patience', type=int, default=10, help='Patience for the early stopping.')
@@ -105,18 +105,20 @@ def parse_args():
             parser.add_argument('--minscaleD', type=float, default=0.0, help='Skip connection matrix D min scaling.')
             parser.add_argument('--maxscaleD', type=float, default=1.0, help='Skip connection matrix D max scaling.')
             parser.add_argument('--kernel', choices=kernel_classes_reservoir, default='Vr', help='Kernel name.')
-            parser.add_argument('--act', choices=lrssm_activations, default='relu', help='Kernel name.')
-            parser.add_argument('--strong', type=float, default=0.7, help='Strong Stability for internal dynamics.')
-            parser.add_argument('--weak', type=float, default=0.95, help='Weak Stability for internal dynamics.')
-            parser.add_argument('--low', type=float, default=0.05, help='Min-Sampling-Rate / Min-Oscillations for internal dynamics.')
-            parser.add_argument('--high', type=float, default=0.05, help='Max-Sampling-Rate / Max-Oscillations for internal dynamics.')
+            parser.add_argument('--act', choices=lrssm_activations, default='glu', help='Kernel name.')
+            parser.add_argument('--strong', type=float, default=-1.0, help='Strong Stability for internal dynamics.')
+            parser.add_argument('--weak', type=float, default=0.0, help='Weak Stability for internal dynamics.')
+            parser.add_argument('--low', type=float, default=0.001, help='Min-Sampling-Rate / Min-Oscillations for internal dynamics.')
+            parser.add_argument('--high', type=float, default=0.1, help='Max-Sampling-Rate / Max-Oscillations for internal dynamics.')
             parser.add_argument('--minscaleB', type=float, default=0.0, help='Min scaling for input2state matrix B.')
             parser.add_argument('--maxscaleB', type=float, default=1.0, help='Max scaling for input2state matrix B.')
             parser.add_argument('--minscaleC', type=float, default=0.0, help='Min scaling for state2output matrix C.')
             parser.add_argument('--maxscaleC', type=float, default=1.0, help='Max scaling for state2output matrix C.')
+            parser.add_argument('--mlplayers', type=int, default=1, help='Number of MLP layers.')
     elif args.block in ['ESN', 'RSSM']:
         parser.add_argument('--rbatch', type=int, default=128, help='Batch size for Reservoir Model.')
-        parser.add_argument('--readout', choices=readout_classes, default='mlp', help='Type of Readout.')
+        parser.add_argument('--last', action='store_true', help='Take only the last layer output.')
+        parser.add_argument('--readout', choices=readout_classes, default='ridge', help='Type of Readout.')
         if args.block == 'ESN':
             parser.add_argument('--inputscaling', type=float, default=1.0, help='Scaling of input matrix.')
             parser.add_argument('--biasscaling', type=float, default=0.0, help='Scaling of input matrix.')
@@ -131,11 +133,11 @@ def parse_args():
                                 help='Kernel name.')
             parser.add_argument('--funfwd', choices=realfuns, default='real+relu', help='Real function of complex variable to the Forward Pass.')
             parser.add_argument('--funfit', choices=realfuns, default='real+tanh', help='Real function of complex variable to Fit the Readout.')
-            parser.add_argument('--strong', type=float, default=0.98, help='Strong Stability for internal dynamics.')
-            parser.add_argument('--weak', type=float, default=1.0, help='Weak Stability for internal dynamics.')
+            parser.add_argument('--strong', type=float, default=-1.0, help='Strong Stability for internal dynamics.')
+            parser.add_argument('--weak', type=float, default=0.0, help='Weak Stability for internal dynamics.')
             parser.add_argument('--discrete', action='store_true', help='Discrete SSM modality.')
-            parser.add_argument('--low', type=float, default=0.05, help='Min-Sampling-Rate / Min-Oscillations for internal dynamics.')
-            parser.add_argument('--high', type=float, default=0.05, help='Max-Sampling-Rate / Max-Oscillations for internal dynamics.')
+            parser.add_argument('--low', type=float, default=0.001, help='Min-Sampling-Rate / Min-Oscillations for internal dynamics.')
+            parser.add_argument('--high', type=float, default=0.01, help='Max-Sampling-Rate / Max-Oscillations for internal dynamics.')
             parser.add_argument('--minscaleB', type=float, default=0.0, help='Min scaling for input2state matrix B.')
             parser.add_argument('--maxscaleB', type=float, default=1.0, help='Max scaling for input2state matrix B.')
             parser.add_argument('--minscaleC', type=float, default=0.0, help='Min scaling for state2output matrix C.')
@@ -155,15 +157,15 @@ def parse_args():
     if hasattr(args, 'readout'):
         if args.readout == 'ridge':
             parser.add_argument('--transient', type=int, default=-1, help='Number of first time steps to discard.')
-            parser.add_argument('--regul', type=float, default=1.0, help='Regularization for Ridge Regression.')
+            parser.add_argument('--regul', type=float, default=0.8, help='Regularization for Ridge Regression.')
 
         if args.readout == 'mlp':
             parser.add_argument('--batch', type=int, default=128, help='Batch size')
             parser.add_argument('--transient', type=int, default=-1, choices=[-1],
                                 help='Number of first time steps to discard.')
             parser.add_argument('--mlplayers', type=int, default=2, help='Number of MLP layers.')
-            parser.add_argument('--lr', type=float, default=0.004, help='Learning rate for MLP parameters.')
-            parser.add_argument('--wd', type=float, default=0.1, help='Weight decay for MLP parameters.')
+            parser.add_argument('--lr', type=float, default=0.005, help='Learning rate for MLP parameters.')
+            parser.add_argument('--wd', type=float, default=0.01, help='Weight decay for MLP parameters.')
             parser.add_argument('--plateau', type=float, default=0.2, help='Learning rate decay factor on Plateau.')
             parser.add_argument('--epochs', type=int, default=float('inf'), help='Number of epochs.')
             parser.add_argument('--patience', type=int, default=10, help='Patience for the early stopping.')
@@ -186,7 +188,13 @@ def main():
     args = parse_args()
 
     # Check if cuDNN is enabled
+    logging.info(f"CUDA available: {torch.cuda.is_available()}")
     logging.info(f"cuDNN enabled: {torch.backends.cudnn.enabled}")
+    torch.cuda.empty_cache()
+    # smaller -> less memory, slower process | larger -> more memory, faster process
+    # os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:128'
+
+    args = parse_args()
 
     logging.info(f"Setting seed: {args.seed}")
     set_seed(args.seed)
@@ -238,9 +246,7 @@ def main():
                       'min_scaleB': args.minscaleB,
                       'max_scaleB': args.maxscaleB,
                       'min_scaleC': args.minscaleC,
-                      'max_scaleC': args.maxscaleC
-        }
-
+                      'max_scaleC': args.maxscaleC}
         if args.kernel in ['V', 'V-freezeB', 'V-freezeC', 'V-freezeBC', 'V-freezeA', 'V-freezeAB', 'V-freezeAC']:
             block_args['lr'] = args.kernellr
             block_args['wd'] = args.kernelwd
@@ -255,7 +261,8 @@ def main():
                       'min_scaleB': args.minscaleB,
                       'max_scaleB': args.maxscaleB,
                       'min_scaleC': args.minscaleC,
-                      'max_scaleC': args.maxscaleC}
+                      'max_scaleC': args.maxscaleC,
+                      'mlp_layers': args.mlplayers}
     elif args.block == 'ESN':
         block_args = {'input_scaling': args.inputscaling, 'bias_scaling': args.biasscaling,
                       'spectral_radius': args.rho, 'leakage_rate': args.leaky}
@@ -301,12 +308,16 @@ def main():
     output_dir = os.path.join('./checkpoint', 'results', args.task)
     os.makedirs(output_dir, exist_ok=True)
 
+    logging.info(f'Loading develop and test datasets in {args.device}.')
+    try:
+        develop_dataset = load_data(os.path.join('./checkpoint', 'datasets', args.task, 'develop_dataset'), device=args.device)
+        test_dataset = load_data(os.path.join('./checkpoint', 'datasets', args.task, 'test_dataset'), device=args.device)
+    except FileNotFoundError:
+        logging.error(f"Dataset not found for task {args.task}. Run build.py first.")
+
     if args.block in ['RNN', 'GRU', 'LSTM', 'S4', 'S4D', 'LRSSM']:
         log_file_name = args.block
 
-        logging.info('Loading develop and test datasets.')
-        develop_dataset = load_data(os.path.join('./checkpoint', 'datasets', args.task, 'develop_dataset'))
-        test_dataset = load_data(os.path.join('./checkpoint', 'datasets', args.task, 'test_dataset'))
         develop_dataloader = DataLoader(develop_dataset,
                                         batch_size=args.batch,
                                         shuffle=False)
@@ -387,9 +398,6 @@ def main():
     elif args.block in ['ESN', 'RSSM']:
         log_file_name = args.block + '-' + args.readout
 
-        logging.info('Loading develop and test datasets.')
-        develop_dataset = load_data(os.path.join('./checkpoint', 'datasets', args.task, 'develop_dataset'))
-        test_dataset = load_data(os.path.join('./checkpoint', 'datasets', args.task, 'test_dataset'))
         develop_dataloader = DataLoader(develop_dataset,
                                         batch_size=args.rbatch,
                                         shuffle=False)
@@ -403,6 +411,7 @@ def main():
                                                n_layers=args.layers,
                                                d_input=d_input, d_model=args.neurons,
                                                transient=args.transient,
+                                               take_last=args.last,
                                                min_encoder_scaling=args.minscaleencoder,
                                                max_encoder_scaling=args.maxscaleencoder,
                                                **block_args)
@@ -413,6 +422,7 @@ def main():
             reservoir_model = StackedEchoState(n_layers=args.layers,
                                                d_input=d_input, d_model=args.neurons,
                                                transient=args.transient,
+                                               take_last=args.last,
                                                **block_args)
             logging.info(f'Moving reservoir model to {args.device}.')
             reservoir_model.to(device=torch.device(args.device))
