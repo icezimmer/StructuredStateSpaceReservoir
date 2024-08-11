@@ -3,12 +3,7 @@ import itertools
 import subprocess
 import random
 import numpy as np
-import yaml
-
-
-def read_yaml_to_dict(file_path):
-    with open(file_path, 'r') as file:
-        return yaml.safe_load(file)
+from src.utils.experiments import read_yaml_to_dict
 
 
 def main():
