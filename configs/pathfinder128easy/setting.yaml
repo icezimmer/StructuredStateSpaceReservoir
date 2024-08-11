@@ -5,5 +5,5 @@ architecture:
     criterion: 'cross_entropy'
     to_vec: True
     d_input: 1
-    kernel_size: 128 * 128
+    kernel_size: 16384  # 128 * 128
     d_output: 2
