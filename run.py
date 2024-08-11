@@ -20,6 +20,7 @@ from src.ml.training import TrainModel
 from src.ml.evaluation import EvaluateClassifier
 from src.utils.saving import load_data, save_hyperparameters, update_results, update_hyperparameters
 from src.utils.check_device import check_model_device
+from src.utils.experiments import read_yaml_to_dict
 from codecarbon import EmissionsTracker
 
 block_factories = {
@@ -31,6 +32,10 @@ block_factories = {
     'LRSSM': LRSSM,
     'ESN': ESN,
     'RSSM': RSSM
+}
+
+loss = {
+    'cross_entropy': torch.nn.CrossEntropyLoss()
 }
 
 s4_modes = ['s4d', 'diag', 's4', 'nplr', 'dplr']
@@ -185,7 +190,6 @@ def parse_args():
 
 def main():
     logging.basicConfig(level=logging.INFO)
-    args = parse_args()
 
     # Check if cuDNN is enabled
     logging.info(f"CUDA available: {torch.cuda.is_available()}")
@@ -199,33 +203,14 @@ def main():
     logging.info(f"Setting seed: {args.seed}")
     set_seed(args.seed)
 
-    classification_task = ['smnist', 'pmnist', 'pathfinder', 'scifar10', 'scifar10gs']
-    if args.task in ['smnist', 'pmnist']:
-        criterion = torch.nn.CrossEntropyLoss()  # classification task
-        to_vec = True  # classification task (take last time as output)
-        d_input = 1  # number of input features
-        kernel_size = 28 * 28  # max length of input sequence
-        d_output = 10  # number of classes
-    elif args.task == 'pathfinder':
-        criterion = torch.nn.CrossEntropyLoss()
-        to_vec = True
-        d_input = 1
-        kernel_size = 32 * 32
-        d_output = 2
-    elif args.task == 'scifar10':
-        criterion = torch.nn.CrossEntropyLoss()
-        to_vec = True
-        d_input = 3
-        kernel_size = 32 * 32
-        d_output = 10
-    elif args.task == 'scifar10gs':
-        criterion = torch.nn.CrossEntropyLoss()
-        to_vec = True
-        d_input = 1
-        kernel_size = 32 * 32
-        d_output = 10
-    else:
-        raise ValueError('Invalid task name')
+    setting = read_yaml_to_dict(os.path.join('configs', args.task, 'setting.yaml'))
+    architecture = setting.get('architecture', {})
+    criterion = loss[architecture['criterion']]
+    to_vec = architecture['to_vec']
+    d_input = architecture['d_input']  # dim of input space or vocab size for text embedding
+    kernel_size = architecture['kernel_size']
+    d_output = architecture['d_output']
+    mode = setting.get('mode', "")
 
     if args.block in ['RNN', 'GRU', 'LSTM']:
         block_args = {}
@@ -382,7 +367,7 @@ def main():
             logging.info('Saving model.')
             torch.save(model.state_dict(), model_path)
 
-        if args.task in classification_task:
+        if mode == 'classification':
             if args.tr:
                 logging.info('Evaluating model on develop set.')
                 eval_dev = EvaluateClassifier(model=model, num_classes=d_output, dataloader=develop_dataloader)
@@ -463,7 +448,7 @@ def main():
                 logging.info('Saving reservoir model.')
                 torch.save(reservoir_model.state_dict(), reservoir_model_path)
 
-            if args.task in classification_task:
+            if mode == 'classification':
                 if args.tr:
                     logging.info('Evaluating model on develop set.')
                     readout.evaluate_(saving_path=develop_path)
@@ -531,7 +516,7 @@ def main():
                 logging.info('Saving model.')
                 torch.save(model.state_dict(), model_path)
 
-            if args.task in classification_task:
+            if mode == 'classification':
                 if args.tr:
                     logging.info('Evaluating model on develop set.')
                     eval_dev = EvaluateClassifier(model=model, num_classes=d_output, dataloader=develop_dataloader)
@@ -615,7 +600,7 @@ def main():
                 logging.info('Saving model.')
                 torch.save(model.state_dict(), model_path)
 
-            if args.task in classification_task:
+            if mode == 'classification':
                 if args.tr:
                     logging.info('Evaluating model on develop set.')
                     eval_dev = EvaluateClassifier(model=model, num_classes=d_output, dataloader=develop_dataloader)
