@@ -19,7 +19,7 @@ class Reservoir2NN(Dataset):
 
             for input_batch, label_batch in tqdm(self.dataloader):
                 input_batch = input_batch.to(device=self.device)
-                label_batch = label_batch.to(device=self.device)  # (B, ?)
+                label_batch = label_batch.to(device=self.device)  # (B, *)
                 output_batch = self.reservoir_model(input_batch)  # (B, P, L)
                 output_list.append(output_batch.to(device='cpu'))
                 label_list.append(label_batch.to(device='cpu'))
