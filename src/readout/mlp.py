@@ -26,9 +26,9 @@ class MLP(nn.Module):
             x: torch tensor of shape (B, d_output)
         """
 
-        for layer in self.mlp_layers:  # (B, d_input, 1) - > (B, d_output, 1)
+        for layer in self.mlp_layers:  # (B, d_input, L-w) - > (B, d_output, L-w)
             x = layer(x)
 
-        x = x.squeeze(-1)  # (B, d_output, 1) -> (B, d_output)
+        x = x.mean(dim=-1, keepdim=False)  # (B, d_output, L-w) -> (B, d_output)
 
         return x

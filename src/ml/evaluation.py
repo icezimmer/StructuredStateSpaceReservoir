@@ -4,6 +4,7 @@ import json
 import torch
 from torchmetrics import Accuracy, Precision, Recall, F1Score, ConfusionMatrix, AUROC
 from src.utils.check_device import check_model_device
+from sklearn.metrics import accuracy_score, confusion_matrix
 
 
 class EvaluateClassifier:
@@ -105,6 +106,53 @@ class EvaluateClassifier:
         # Plotting the confusion matrix
         fig, ax = plt.subplots()
         cax = ax.matshow(self.confusion_matrix_value.cpu().numpy(), cmap=plt.cm.Purples)
+        plt.title('Confusion Matrix')
+        fig.colorbar(cax)
+        plt.xlabel('Predicted')
+        plt.ylabel('True')
+        plt.savefig(confusion_matrix_path)
+        plt.close()
+
+class EvaluateOfflineClassifier:
+    def __init__(self):
+        self.accuracy_value = None
+        self.precision_value = None
+        self.recall_value = None
+        self.f1_value = None
+        self.roc_auc_value = None
+        self.confusion_matrix_value = None
+
+    # TODO: compute the rest of metrics
+    def evaluate(self, y_true, y_pred, saving_path=None):
+        self.accuracy_value = accuracy_score(y_true=y_true, y_pred=y_pred)
+        self.confusion_matrix_value = confusion_matrix(y_true=y_true, y_pred=y_pred)
+
+        print(f"Accuracy: {self.accuracy_value}")
+        print("Confusion Matrix:\n", self.confusion_matrix_value)
+
+        if saving_path is not None:
+            self._plot(saving_path)
+
+    def _plot(self, saving_path):
+        metrics_path = os.path.join(saving_path, 'metrics.json')
+        confusion_matrix_path = os.path.join(saving_path, 'confusion_matrix.png')
+
+        metrics = {
+            "Accuracy": self.accuracy_value,
+            "Precision": self.precision_value,
+            "Recall": self.recall_value,
+            "F1-Score": self.f1_value,
+            "ROC-AUC": self.roc_auc_value
+        }
+
+        os.makedirs(os.path.dirname(metrics_path), exist_ok=True)
+        with open(metrics_path, 'w') as f:
+            # Convert args namespace to dictionary and save as JSON
+            json.dump(metrics, f, indent=4)
+
+        # Plotting the confusion matrix
+        fig, ax = plt.subplots()
+        cax = ax.matshow(self.confusion_matrix_value, cmap=plt.cm.Purples)
         plt.title('Confusion Matrix')
         fig.colorbar(cax)
         plt.xlabel('Predicted')
