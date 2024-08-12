@@ -99,10 +99,7 @@ def parse_args():
         parser.add_argument('--strong', type=float, default=-1.0, help='Strong Stability for internal dynamics.')
         parser.add_argument('--weak', type=float, default=0.0, help='Weak Stability for internal dynamics.')
         parser.add_argument('--discrete', action='store_true', help='Discrete SSM modality.')
-        parser.add_argument('--low', type=float, default=0.05,
-                            help='Min-Sampling-Rate / Min-Oscillations for internal dynamics.')
-        parser.add_argument('--high', type=float, default=0.05,
-                            help='Max-Sampling-Rate / Max-Oscillations for internal dynamics.')
+        parser.add_argument('--dt', type=float, default=0.01, help='Sampling-Rate / Oscillations for internal dynamics.')
         parser.add_argument('--minscaleB', type=float, default=0.0, help='Min scaling for input2state matrix B.')
         parser.add_argument('--maxscaleB', type=float, default=1.0, help='Max scaling for input2state matrix B.')
         parser.add_argument('--minscaleC', type=float, default=0.0, help='Min scaling for state2output matrix C.')
@@ -159,7 +156,7 @@ def main():
                       'kernel': args.kernel, 'kernel_size': kernel_size,
                       'strong_stability': args.strong, 'weak_stability': args.weak,
                       'discrete': args.discrete,
-                      'low_oscillation': args.low, 'high_oscillation': args.high,
+                      'low_oscillation': args.dt, 'high_oscillation': args.dt,
                       'min_scaleB': args.minscaleB,
                       'max_scaleB': args.maxscaleB,
                       'min_scaleC': args.minscaleC,
