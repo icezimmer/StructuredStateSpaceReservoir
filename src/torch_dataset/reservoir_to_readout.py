@@ -49,6 +49,6 @@ class Reservoir2ReadOut(Dataset):
     
     def to_evaluate_offline_classifier(self):
         X, y = self[:]  # (N, P, L-w), (N,)
-        X = X[..., -1]
+        X = X[..., -1]  # (N, P) = (num_samples, features)
 
         return X, y
