@@ -21,19 +21,22 @@ def get_data(develop_dataset, label_selected, reservoir_model):
 
     u_t = u.squeeze(0)  # (L,)
 
+    v = reservoir_model.encoder(u.unsqueeze(0).to(device=check_model_device(reservoir_model)))  # (B=1, P, L)
+    v_t = v.squeeze()  # (L,)
+
     y = reservoir_model(u.unsqueeze(0).to(device=check_model_device(reservoir_model)))  # (B=1, H=num_layers, L)
     y_t = y.squeeze(0)  # (H=num_layers, L)
 
-    return u_t, y_t, label  # (L,), (H=num_layers, L), int
+    return u_t, v_t, y_t, label  # (L,), (H=num_layers, L), int
 
 
-def plot_time_series(u_t, y_t, label, save_path):
+def plot_time_series(u_t, v_t, y_t, label, save_path):
     n_layers = y_t.shape[0]
     length = u_t.shape[-1]
 
     fig = plt.figure(figsize=(14, 4*(n_layers+1)))
 
-    fig_input = fig.add_subplot(n_layers+1, 2, 2*(n_layers+1)-1)
+    fig_input = fig.add_subplot(n_layers+2, 2, 2*(n_layers+2)-1)
 
     u_np = u_t.cpu().numpy()
     fig_input.plot(range(length), u_np)
@@ -44,11 +47,24 @@ def plot_time_series(u_t, y_t, label, save_path):
     freq = torch.fft.rfftfreq(n=2*length-1)
     # Compute the amplitude of the DFT
     amplitude = torch.abs(u_s).numpy()
-    fig_input_s = fig.add_subplot(n_layers + 1, 2, 2*(n_layers+1))
+    fig_input_s = fig.add_subplot(n_layers + 2, 2, 2*(n_layers+2))
     fig_input_s.bar(freq, amplitude, width=0.01)
 
+    fig_v = fig.add_subplot(n_layers+2, 2, 2*(n_layers+1)-1)
+    v_np = v_t.cpu().numpy()
+    fig_v.plot(range(length), v_np)
+    fig_v.set_title(f'Encoded Time Series (Label: {label})')
+
+    # Compute the DFT of the time series
+    v_s = torch.fft.rfft(v_t, n=2*length-1, dim=-1)
+    freq = torch.fft.rfftfreq(n=2*length-1)
+    # Compute the amplitude of the DFT
+    amplitude = torch.abs(v_s).cpu().numpy()
+    fig_v_s = fig.add_subplot(n_layers + 2, 2, 2*(n_layers+1))
+    fig_v_s.bar(freq, amplitude, width=0.01)
+
     for i in range(n_layers):
-        fig_h = fig.add_subplot(n_layers+1, 2, 2*(n_layers-i)-1)
+        fig_h = fig.add_subplot(n_layers+2, 2, 2*(n_layers-i)-1)
         h_t = y_t[i, :]  # h has shape (L,)
         h_np = h_t.cpu().numpy()
         fig_h.plot(range(length), h_np)
@@ -59,7 +75,7 @@ def plot_time_series(u_t, y_t, label, save_path):
         freq = torch.fft.rfftfreq(n=2 * length - 1)
         # Compute the amplitude of the DFT
         amplitude = torch.abs(h_s).cpu().numpy()
-        fig_h_s = fig.add_subplot(n_layers + 1, 2, 2*(n_layers-i))
+        fig_h_s = fig.add_subplot(n_layers + 2, 2, 2*(n_layers-i))
         fig_h_s.bar(freq, amplitude, width=0.01)
         fig_h_s.set_title(f'{i+1} Hidden Frequency Amplitude (Label: {label})')
 
@@ -198,10 +214,10 @@ def main():
         raise ValueError('Invalid block name')
 
     logging.info('Retrieve data.')
-    u_t, y_t, label = get_data(develop_dataset, args.label, reservoir_model)  # (L,), (H=num_layers, L), int
+    u_t, v_t, y_t, label = get_data(develop_dataset, args.label, reservoir_model)  # (L,), (H=num_layers, L), int
 
     logging.info('Plotting.')
-    plot_time_series(u_t, y_t, label, save_path)
+    plot_time_series(u_t, v_t, y_t, label, save_path)
 
 
 if __name__ == '__main__':
