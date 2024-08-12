@@ -38,9 +38,9 @@ python train.py --device cuda:0 --task smnist --batch 128 --block S4 --layers 2 
 
 This command runs the task in the selected device, setting the data in batch. You can select the block of the layer, the number of layers, the number of neurons for each layer, and specify the learning rate, the number of epochs, and the patience for early stopping.
 
-### File configs usage
+### Configuration Files
 
-To simplify the model configuration and the hyperparameter settings, you can take a file config relative to a specific task and a specific model and run it by the `run.py` script.
+To streamline model configuration and hyperparameter tuning, you can use a `*.yaml` configuration file tailored to a specific task and model. The `run.py` script will execute the configurations defined within the file. If the file includes multiple values for any hyperparameters, the script will automatically select a subset of possible configurations to run. The maximum number of configurations executed is determined by the max_configs parameter specified in the `*.yaml` file.
 
 ```
 python run.py --config=configs/smnist/best/rssm_r.yaml
