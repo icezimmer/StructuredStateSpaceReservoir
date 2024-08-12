@@ -8,7 +8,7 @@ hyperparameters:
     # DEVICE
     device: ["cuda:3"]
     # TASK
-    task: ["scifar10gs"]
+    task: ["pathfinder"]
     # ARCHITECTURE
     block: ["RSSM"]
     layers: [1, 2, 3, 4, 5, 6]
@@ -31,7 +31,7 @@ hyperparameters:
     maxscaleC: [1.0]
     minscaleD: [1.0]
     maxscaleD: [1.0]
-    # MLP READOUT
+    # RIDGE CLASSIFIER READOUT
     readout: ["mlp"]
     last: [False]
     transient: [-1]

@@ -9,10 +9,11 @@ hyperparameters:
     device: ["cuda:3"]
     # TASK
     task: ["scifar10gs"]
-    # BLOCK
+    # ARCHITECTURE
     block: ["RSSM"]
-    layers: [1, 2, 3, 4, 5, 6]
+    layers: [8]
     neurons: [64]
+    # BLOCK
     rbatch: [512]
     kernel: ["Vr"]
     funfwd: ["real+relu"]
@@ -20,16 +21,16 @@ hyperparameters:
     minscaleencoder: [0.0]
     maxscaleencoder: [1.0]
     discrete: [False]
-    strong: [-4.0]
-    weak: [-0.025]
+    strong: [-1.0]
+    weak: [0.0]
     low: [0.001]
     high: [0.1]
-    minscaleB: [0.0]
-    maxscaleB: [0.25]
-    minscaleC: [0.0]
+    minscaleB: [0.5]
+    maxscaleB: [0.0]
+    minscaleC: [1.0]
     maxscaleC: [1.0]
-    minscaleD: [1.0]
-    maxscaleD: [1.0]
+    minscaleD: [0.0]
+    maxscaleD: [0.0]
     # MLP READOUT
     readout: ["mlp"]
     last: [False]

@@ -9,10 +9,15 @@ hyperparameters:
     device: ["cuda:3"]
     # TASK
     task: ["pmnist"]
-    # BLOCK
+    # ARCHITECTURE
     block: ["LRSSM"]
     layers: [8]
-    neurons: [32]
+    neurons: [64]
+    encoder: ["conv1d"]
+    decoder: ["conv1d"]
+    layerdrop: [0.0]
+    # BLOCK
+    dropout: [0.0]
     kernel: ["Vr"]
     minscaleencoder: [0.0]
     maxscaleencoder: [1.0]
@@ -27,16 +32,12 @@ hyperparameters:
     maxscaleC: [1.0]
     minscaleD: [1.0]
     maxscaleD: [1.0]
-    # LEARNING
-    batch: [128]
     mlplayers: [1]
     act: ["glu"]
-    encoder: ["conv1d"]
-    decoder: ["conv1d"]
-    dropout: [0.0]
-    layerdrop: [0.0]
-    lr: [0.005]
-    wd: [0.1]
+    # LEARNING
+    batch: [64]
+    lr: [0.01]
+    wd: [0.05]
     plateau: [0.2]
     epochs: [200]
     patience: [10]

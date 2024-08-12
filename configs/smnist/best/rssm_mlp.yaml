@@ -9,10 +9,11 @@ hyperparameters:
     device: ["cuda:3"]
     # TASK
     task: ["smnist"]
-    # BLOCK
+    # ARCHITECTURE
     block: ["RSSM"]
     layers: [1, 2, 3, 4, 5, 6]
     neurons: [64]
+    # BLOCK
     rbatch: [512]
     kernel: ["Vr"]
     funfwd: ["real+relu"]

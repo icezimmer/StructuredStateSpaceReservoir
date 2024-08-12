@@ -8,7 +8,7 @@ hyperparameters:
     # DEVICE
     device: ["cuda:3"]
     # TASK
-    task: ["scifar10gs"]
+    task: ["pathx"]
     # ARCHITECTURE
     block: ["RSSM"]
     layers: [1, 2, 3, 4, 5, 6]

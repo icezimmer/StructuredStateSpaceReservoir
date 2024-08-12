@@ -7,3 +7,7 @@ architecture:
     d_input: 1
     kernel_size: 784  # 28 * 28
     d_output: 10
+
+learning:
+    val_split: 0.1
+    

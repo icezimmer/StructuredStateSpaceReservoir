@@ -9,10 +9,11 @@ hyperparameters:
     device: ["cuda:3"]
     # TASK
     task: ["listops"]
-    # BLOCK
+    # ARCHITECTURE
     block: ["LRSSM"]
     layers: [8]
     neurons: [64]
+    # BLOCK
     kernel: ["Vr"]
     minscaleencoder: [0.0]
     maxscaleencoder: [1.0]

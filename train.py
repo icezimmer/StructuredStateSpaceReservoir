@@ -5,7 +5,7 @@ from sklearn.linear_model import RidgeClassifierCV
 import torch
 from src.utils.experiments import set_seed
 from torch.utils.data import DataLoader
-from src.utils.split_data import random_split_dataset
+from src.utils.split_data import stratified_split_dataset
 from src.models.s4.s4 import S4Block
 from src.models.rnn.vanilla import VanillaRNN, VanillaGRU, VanillaLSTM
 from src.models.esn.esn import ESN
@@ -73,7 +73,6 @@ def parse_args():
         parser.add_argument('--batch', type=int, default=128, help='Batch size')
         parser.add_argument('--encoder', default='conv1d', help='Encoder model.')
         parser.add_argument('--decoder', default='conv1d', help='Decoder model.')
-        parser.add_argument('--dropout', type=float, default=0.0, help='Dropout the preactivation inside the block.')
         parser.add_argument('--layerdrop', type=float, default=0.0, help='Dropout the output of each layer.')
         parser.add_argument('--lr', type=float, default=0.005, help='Learning rate for NON-kernel parameters.')
         parser.add_argument('--wd', type=float, default=0.01, help='Weight decay for NON-kernel parameters.')
@@ -83,15 +82,18 @@ def parse_args():
         if args.block in ['RNN', 'GRU', 'LSTM']:
             pass
         elif args.block == 'S4':
+            parser.add_argument('--dropout', type=float, default=0.0, help='Dropout the preactivation inside the block.')
             parser.add_argument('--tiedropout', action='store_true', help='Tie dropout.')
+            parser.add_argument('--kernel', choices=s4_modes, default='dplr', help='Kernel name.')
+            parser.add_argument('--kernellr', type=float, default=0.001, help='Learning rate for kernel pars.')
+            parser.add_argument('--low', type=float, default=0.001, help='Min-Sampling-Rate for internal dynamics.')
+            parser.add_argument('--high', type=float, default=0.1, help='Max-Sampling-Rate for internal dynamics.')
+            parser.add_argument('--init', default='hippo', help='Choices for initialization of A')
             parser.add_argument('--bidirectional', action='store_true', help='Bidirectional.')
             parser.add_argument('--finalact', choices=s4_activations, default='glu', help='Activation.')
-            parser.add_argument('--nssm', type=int, default=1, help='Kernel name.')
-            parser.add_argument('--kernel', choices=s4_modes, default='dplr', help='Kernel name.')
-            parser.add_argument('--kerneldrop', type=float, default=0.0, help='Dropout the kernel inside the block.')
-            parser.add_argument('--kernellr', type=float, default=0.001, help='Learning rate for kernel pars.')
-            parser.add_argument('--kernelwd', type=float, default=0.0, help='Learning rate for kernel pars.')
+            parser.add_argument('--nssm', type=int, default=1, help='Kernel name.')            
         elif args.block == 'S4D':
+            parser.add_argument('--dropout', type=float, default=0.0, help='Dropout the preactivation inside the block.')
             parser.add_argument('--conv', choices=conv_classes, default='fft', help='Skip connection matrix D.')
             parser.add_argument('--minscaleD', type=float, default=0.0, help='Skip connection matrix D min scaling.')
             parser.add_argument('--maxscaleD', type=float, default=1.0, help='Skip connection matrix D max scaling.')
@@ -108,6 +110,7 @@ def parse_args():
             parser.add_argument('--minscaleC', type=float, default=0.0, help='Min scaling for state2output matrix C.')
             parser.add_argument('--maxscaleC', type=float, default=1.0, help='Max scaling for state2output matrix C.')
         elif args.block == 'LRSSM':
+            parser.add_argument('--dropout', type=float, default=0.0, help='Dropout the preactivation inside the block.')
             parser.add_argument('--minscaleD', type=float, default=0.0, help='Skip connection matrix D min scaling.')
             parser.add_argument('--maxscaleD', type=float, default=1.0, help='Skip connection matrix D max scaling.')
             parser.add_argument('--kernel', choices=kernel_classes_reservoir, default='Vr', help='Kernel name.')
@@ -212,13 +215,15 @@ def main():
     d_output = architecture['d_output']
     mode = setting.get('mode', "")
 
+    learning = setting.get('learning', {})
+    val_split = learning.get('val_split')
+
     if args.block in ['RNN', 'GRU', 'LSTM']:
         block_args = {}
     elif args.block == 'S4':
-        block_args = {'tie_dropout': args.tiedropout, 'bidirectional': args.bidirectional,
-                      'final_act': args.finalact, 'n_ssm': args.nssm,
-                      'mode': args.kernel, 'drop_kernel': args.kerneldrop, 'dropout': args.dropout,
-                      'lr': args.kernellr, 'wd': args.kernelwd}
+        block_args = {'dropout': args.dropout, 'tie_dropout': args.tiedropout,
+                      'mode': args.kernel, 'lr': args.kernellr, 'dt_min': args.low, 'dt_max': args.high, 'init': args.init,
+                      'bidirectional': args.bidirectional, 'final_act': args.finalact, 'n_ssm': args.nssm}
     elif args.block == 'S4D':
         block_args = {'mixing_layer': args.mix,
                       'convolution': args.conv,
@@ -293,7 +298,7 @@ def main():
     output_dir = os.path.join('./checkpoint', 'results', args.task)
     os.makedirs(output_dir, exist_ok=True)
 
-    logging.info(f'Loading develop and test datasets in {args.device}.')
+    logging.info(f'Loading {args.task} develop and test datasets in {args.device}.')
     try:
         develop_dataset = load_data(os.path.join('./checkpoint', 'datasets', args.task, 'develop_dataset'), device=args.device)
         test_dataset = load_data(os.path.join('./checkpoint', 'datasets', args.task, 'test_dataset'), device=args.device)
@@ -310,7 +315,7 @@ def main():
                                      batch_size=args.batch,
                                      shuffle=False)
 
-        logging.info('Initializing model.')
+        logging.info(f'Initializing {args.block} model.')
         model = StackedNetwork(block_cls=block_factories[args.block], n_layers=args.layers,
                                d_input=d_input, d_model=args.neurons, d_output=d_output,
                                encoder=args.encoder, decoder=args.decoder,
@@ -320,11 +325,11 @@ def main():
                                layer_dropout=args.layerdrop,
                                **block_args)
 
-        logging.info(f'Moving model to {args.device}.')
+        logging.info(f'Moving {args.block} model to {args.device}.')
         model.to(device=torch.device(args.device))
 
         logging.info('Splitting develop data into training and validation data.')
-        train_dataset, val_dataset = random_split_dataset(develop_dataset)
+        train_dataset, val_dataset = stratified_split_dataset(dataset=develop_dataset, val_split=val_split)
         train_dataloader = DataLoader(train_dataset, batch_size=args.batch, shuffle=True)
         val_dataloader = DataLoader(val_dataset, batch_size=args.batch, shuffle=False)
 
@@ -353,7 +358,7 @@ def main():
             develop_path = None
             test_path = None
 
-        logging.info('[Tracking] Fitting model.')
+        logging.info(f'[Tracking] Fitting {args.block} model for {args.task}.')
         tracker.start()
         trainer.early_stopping(train_dataloader=train_dataloader, val_dataloader=val_dataloader,
                                patience=args.patience, reduce_plateau=args.plateau, num_epochs=args.epochs,
@@ -390,7 +395,7 @@ def main():
                                      batch_size=args.rbatch,
                                      shuffle=False)
 
-        logging.info('Initializing model.')
+        logging.info(f'Initializing {args.block} model.')
         if args.block == 'RSSM':
             reservoir_model = StackedReservoir(block_cls=block_factories[args.block],
                                                n_layers=args.layers,
@@ -400,7 +405,7 @@ def main():
                                                min_encoder_scaling=args.minscaleencoder,
                                                max_encoder_scaling=args.maxscaleencoder,
                                                **block_args)
-            logging.info(f'Moving reservoir model to {args.device}.')
+            logging.info(f'Moving {args.block} model to {args.device}.')
             reservoir_model.to(device=torch.device(args.device))
 
         elif args.block == 'ESN':
@@ -409,7 +414,7 @@ def main():
                                                transient=args.transient,
                                                take_last=args.last,
                                                **block_args)
-            logging.info(f'Moving reservoir model to {args.device}.')
+            logging.info(f'Moving {args.block} model to {args.device}.')
             reservoir_model.to(device=torch.device(args.device))
 
         else:
@@ -436,7 +441,7 @@ def main():
                 develop_path = None
                 test_path = None
 
-            logging.info('[Tracking] Fitting model.')
+            logging.info(f'[Tracking] Fitting {args.block} model for {args.task}.')
             tracker.start()
             develop_dataset = Reservoir2ReadOut(reservoir_model=reservoir_model, dataloader=develop_dataloader)
             X, y = develop_dataset.to_fit_offline_readout()
@@ -473,7 +478,7 @@ def main():
         elif args.readout == 'mlp':
             model = MLP(n_layers=args.mlplayers, d_input=reservoir_model.d_output, d_output=d_output)
 
-            logging.info(f'Moving model to {args.device}.')
+            logging.info(f'Moving {args.block} model to {args.device}.')
             model.to(device=torch.device(args.device))
 
             logging.info('Setting optimizer.')
@@ -501,12 +506,12 @@ def main():
                 develop_path = None
                 test_path = None
 
-            logging.info('[Tracking] Fitting model.')
+            logging.info(f'[Tracking] Fitting {args.block} model for {args.task}.')
             tracker.start()
             develop_dataset = Reservoir2ReadOut(reservoir_model=reservoir_model, dataloader=develop_dataloader)
             develop_dataloader = DataLoader(develop_dataset, batch_size=args.batch, shuffle=False)
 
-            train_dataset, val_dataset = random_split_dataset(develop_dataset)
+            train_dataset, val_dataset = stratified_split_dataset(dataset=develop_dataset, val_split=val_split)
             train_dataloader = DataLoader(train_dataset, batch_size=args.batch, shuffle=True)
             val_dataloader = DataLoader(val_dataset, batch_size=args.batch, shuffle=False)
 
@@ -551,7 +556,7 @@ def main():
                                    encoder='conv1d', decoder='conv1d',
                                    to_vec=to_vec)
 
-            logging.info(f'Moving model to {args.device}.')
+            logging.info(f'Moving {args.block} model to {args.device}.')
             model.to(device=torch.device(args.device))
 
             logging.info('Setting optimizer.')
@@ -579,12 +584,12 @@ def main():
                 develop_path = None
                 test_path = None
 
-            logging.info('[Tracking] Fitting model.')
+            logging.info(f'[Tracking] Fitting {args.block} model for {args.task}.')
             tracker.start()
             develop_dataset = Reservoir2ReadOut(reservoir_model=reservoir_model, dataloader=develop_dataloader)
             develop_dataloader = DataLoader(develop_dataset, batch_size=args.batch, shuffle=False)
 
-            train_dataset, val_dataset = random_split_dataset(develop_dataset)
+            train_dataset, val_dataset = stratified_split_dataset(dataset=develop_dataset, val_split=val_split)
             train_dataloader = DataLoader(train_dataset, batch_size=args.batch, shuffle=True)
             val_dataloader = DataLoader(val_dataset, batch_size=args.batch, shuffle=False)
 
