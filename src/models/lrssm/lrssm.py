@@ -48,6 +48,8 @@ class LRSSM(torch.nn.Module):
         else:
             raise ValueError("Activation function not recognized")
 
+        self.drop = nn.Dropout(dropout) if dropout > 0 else nn.Identity()
+
         mlp = []
         for i in range(mlp_layers):
             if act == 'glu':
@@ -58,8 +60,6 @@ class LRSSM(torch.nn.Module):
 
         self.mlp = nn.Sequential(*mlp)
 
-        self.drop = nn.Dropout(dropout) if dropout > 0 else nn.Identity()
-
     def step(self, u, x):
         """
         Step one time step as a recurrent model. Intended to be used during validation.
@@ -69,8 +69,8 @@ class LRSSM(torch.nn.Module):
         """
         y, x = self.reservoir_layer.step(u, x)
         y = self.to_real(y)
-        y = self.mlp(y)
         y = self.drop(y)
+        y = self.mlp(y)
 
         return y, x
 
@@ -82,8 +82,8 @@ class LRSSM(torch.nn.Module):
         """
         y, _ = self.reservoir_layer(u)
         y = self.to_real(y)
-        y = self.mlp(y)
         y = self.drop(y)
+        y = self.mlp(y)
 
         # Return a dummy state to satisfy this repo's interface, but this can be modified
         return y, None
