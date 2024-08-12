@@ -10,17 +10,13 @@ from src.utils.saving import save_data
 from lra_benchmarks.data.pathfinder import Pathfinder32, Pathfinder64, Pathfinder128, Pathfinder256
 from src.torch_dataset.torch_pathfinder import PathfinderDataset
 from src.torch_dataset.torch_listops import ListOpsDataset
-from torch.utils.data import DataLoader
-from src.utils.split_data import random_split_dataset
-from src.models.embedding.embedding import EmbeddingModel
 from lra_benchmarks.data.listops import listops
 from lra_benchmarks.listops import input_pipeline
 import tensorflow_datasets as tfds
-from src.ml.optimization import setup_optimizer
-from src.ml.training import TrainModel
-from src.utils.saving import load_data
+from torchtext.datasets import IMDB
+from src.torch_dataset.torch_text import TextDataset
 
-tasks = ['smnist', 'pmnist', 'scifar10gs', 'scifar10', 'pathfinder', 'listops']
+tasks = ['smnist', 'pmnist', 'scifar10gs', 'scifar10', 'pathfinder', 'listops', 'imdb']
 
 parser = argparse.ArgumentParser(description='Build Classification task.')
 parser.add_argument('--seed', type=int, default=42, help='Random seed.')
@@ -165,6 +161,13 @@ elif args.task == 'listops':
     # Convert TensorFlow dataset to PyTorch dataset
     develop_dataset = ListOpsDataset(develop_dataset)
     test_dataset = ListOpsDataset(test_dataset)
+
+elif args.task == 'imdb':
+    # Download and load IMDB dataset
+    develop_dataset, test_dataset = IMDB(root='./checkpoint/')
+
+    develop_dataset = TextDataset(dataset=develop_dataset, max_length=4000)
+    test_dataset = TextDataset(dataset=test_dataset, max_length=4000)
 else:
     raise ValueError('Task not found')
 
