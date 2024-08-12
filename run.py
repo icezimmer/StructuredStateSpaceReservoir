@@ -1,6 +1,7 @@
 import argparse
 import logging
 import os
+from sklearn.linear_model import RidgeClassifierCV
 import torch
 from src.utils.experiments import set_seed
 from torch.utils.data import DataLoader
@@ -13,11 +14,11 @@ from src.models.lrssm.lrssm import LRSSM
 from src.models.rssm.rssm import RSSM
 from src.deep.stacked import StackedNetwork, StackedReservoir, StackedEchoState
 from src.readout.mlp import MLP
-from src.torch_dataset.reservoir_to_nn import Reservoir2NN
-from src.readout.ridge import Ridge
+from src.readout.ridge import RidgeRegression
+from src.torch_dataset.reservoir_to_readout import Reservoir2ReadOut
 from src.ml.optimization import setup_optimizer
 from src.ml.training import TrainModel
-from src.ml.evaluation import EvaluateClassifier
+from src.ml.evaluation import EvaluateClassifier, EvaluateOfflineClassifier
 from src.utils.saving import load_data, save_hyperparameters, update_results, update_hyperparameters
 from src.utils.check_device import check_model_device
 from src.utils.experiments import read_yaml_to_dict
@@ -166,8 +167,7 @@ def parse_args():
 
         if args.readout == 'mlp':
             parser.add_argument('--batch', type=int, default=128, help='Batch size')
-            parser.add_argument('--transient', type=int, default=-1, choices=[-1],
-                                help='Number of first time steps to discard.')
+            parser.add_argument('--transient', type=int, default=-1, help='Number of first time steps to discard.')
             parser.add_argument('--mlplayers', type=int, default=2, help='Number of MLP layers.')
             parser.add_argument('--lr', type=float, default=0.005, help='Learning rate for MLP parameters.')
             parser.add_argument('--wd', type=float, default=0.01, help='Weight decay for MLP parameters.')
@@ -416,6 +416,8 @@ def main():
             raise ValueError('Invalid block name')
 
         if args.readout == 'ridge':
+            model = RidgeRegression(d_input=reservoir_model.d_output, d_output=d_output, alpha=args.regul, to_vec=to_vec)
+
             logging.info('Setting tracker.')
             tracker = EmissionsTracker(output_dir=output_dir, project_name=project_name,
                                        log_level="ERROR",
@@ -436,9 +438,13 @@ def main():
 
             logging.info('[Tracking] Fitting model.')
             tracker.start()
-            readout = Ridge(reservoir_model=reservoir_model, develop_dataloader=develop_dataloader,
-                            d_output=d_output, to_vec=to_vec, bias=True, lambda_=args.regul)
-            readout.fit_()
+            develop_dataset = Reservoir2ReadOut(reservoir_model=reservoir_model, dataloader=develop_dataloader)
+            X, y = develop_dataset.to_fit_offline_readout()
+            _ = model(X, y)
+
+            # clf = RidgeClassifierCV(alphas=[1e-3, 1e-2, 1e-1, 1]).fit(X.numpy(), y.numpy())
+            # print(clf.score(X.numpy(), y.numpy()))
+
             emissions = tracker.stop()
             logging.info(f"Estimated CO2 emissions for this fit: {emissions} kg")
 
@@ -451,11 +457,16 @@ def main():
             if mode == 'classification':
                 if args.tr:
                     logging.info('Evaluating model on develop set.')
-                    readout.evaluate_(saving_path=develop_path)
+                    X, y = develop_dataset.to_evaluate_offline_classifier()
+                    eval_dev = EvaluateOfflineClassifier()
+                    eval_dev.evaluate(y_true=y.numpy(), y_pred=model(X).numpy())
 
                 logging.info('Evaluating model on test set.')
-                readout.evaluate_(dataloader=test_dataloader, saving_path=test_path)
-                scores = {'test_accuracy': readout.accuracy_value}
+                test_dataset = Reservoir2ReadOut(reservoir_model=reservoir_model, dataloader=test_dataloader)
+                X, y = test_dataset.to_evaluate_offline_classifier()
+                eval_test = EvaluateOfflineClassifier()
+                eval_test.evaluate(y_true=y.numpy(), y_pred=model(X).numpy())
+                scores = {'test_accuracy': eval_test.accuracy_value}
             else:
                 scores = {}
 
@@ -492,7 +503,7 @@ def main():
 
             logging.info('[Tracking] Fitting model.')
             tracker.start()
-            develop_dataset = Reservoir2NN(reservoir_model=reservoir_model, dataloader=develop_dataloader)
+            develop_dataset = Reservoir2ReadOut(reservoir_model=reservoir_model, dataloader=develop_dataloader)
             develop_dataloader = DataLoader(develop_dataset, batch_size=args.batch, shuffle=False)
 
             train_dataset, val_dataset = random_split_dataset(develop_dataset)
@@ -523,7 +534,7 @@ def main():
                     eval_dev.evaluate(saving_path=develop_path)
 
                 logging.info(f'Computing reservoir test set.')
-                test_dataset = Reservoir2NN(reservoir_model=reservoir_model, dataloader=test_dataloader)
+                test_dataset = Reservoir2ReadOut(reservoir_model=reservoir_model, dataloader=test_dataloader)
                 test_dataloader = DataLoader(test_dataset, batch_size=args.batch, shuffle=False)
 
                 logging.info('Evaluating model on test set.')
@@ -534,17 +545,11 @@ def main():
                 scores = {}
 
         elif args.readout == 'ssm':
-            model = StackedNetwork(block_cls=S4D, n_layers=args.ssmlayers,
+            model = StackedNetwork(block_cls=S4Block, n_layers=args.ssmlayers,
                                    d_input=reservoir_model.d_output, d_model=reservoir_model.d_output,
                                    d_output=d_output,
                                    encoder='conv1d', decoder='conv1d',
-                                   to_vec=to_vec,
-                                   mixing_layer='conv1d+glu',
-                                   convolution='fft',
-                                   kernel='miniV',
-                                   strong_stability=0.7,
-                                   weak_stability=0.95,
-                                   kernel_size=-args.transient if args.transient < 0 else kernel_size - args.transient)
+                                   to_vec=to_vec)
 
             logging.info(f'Moving model to {args.device}.')
             model.to(device=torch.device(args.device))
@@ -576,7 +581,7 @@ def main():
 
             logging.info('[Tracking] Fitting model.')
             tracker.start()
-            develop_dataset = Reservoir2NN(reservoir_model=reservoir_model, dataloader=develop_dataloader)
+            develop_dataset = Reservoir2ReadOut(reservoir_model=reservoir_model, dataloader=develop_dataloader)
             develop_dataloader = DataLoader(develop_dataset, batch_size=args.batch, shuffle=False)
 
             train_dataset, val_dataset = random_split_dataset(develop_dataset)
@@ -607,7 +612,7 @@ def main():
                     eval_dev.evaluate(saving_path=develop_path)
 
                 logging.info(f'Computing reservoir test set.')
-                test_dataset = Reservoir2NN(reservoir_model=reservoir_model, dataloader=test_dataloader)
+                test_dataset = Reservoir2ReadOut(reservoir_model=reservoir_model, dataloader=test_dataloader)
                 test_dataloader = DataLoader(test_dataset, batch_size=args.batch, shuffle=False)
 
                 logging.info('Evaluating model on test set.')
