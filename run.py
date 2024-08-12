@@ -40,7 +40,7 @@ def main():
                     args.append(f"--{key}={value}")
 
             # Prepare the command
-            command = ["python", "run.py"] + args
+            command = ["python", "train.py"] + args
 
             # Print the command for manual execution
             command_str = " ".join(command)
