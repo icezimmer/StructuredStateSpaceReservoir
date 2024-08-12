@@ -6,11 +6,9 @@ This repository houses a machine learning framework designed for ease of use in 
 
 These instructions will help you get a copy of the project up and running on your local machine for development and testing purposes.
 
-
 ## Building Tasks
 
-The `build.py` script in the main directory is used to download and prepare the dataset relative to the task selected.
-Here's how you can build different tasks:
+The `build.py` script in the main directory is used to download and prepare the dataset relative to the task selected. Here's how you can build different tasks:
 
 ### Sequential MNIST
 
@@ -19,8 +17,6 @@ To set up a Sequential MNIST classification task, navigate to the main directory
 ```
 python build.py --task smnist
 ```
-
-This command configures the task for Sequential MNIST.
 
 ### Pathfinder Task
 
@@ -34,16 +30,20 @@ Here, `--level` and `--resolution` are additional arguments unique to the Pathfi
 
 ## Running Tasks
 
-After building your task, you can run it with the `run.py` script.
-This allows you to specify the device, the task, the batch size, the model configuration and training parameters.
+After building your task, you can run it with the `train.py` script. This allows you to specify the device, the task, the batch size, the model configuration, and training hyperparameters.
 
 ### Example: Sequential MNIST with S4 block
 
+python train.py --device cuda:0 --task smnist --batch 128 --block S4 --layers 2 --neurons 64 --lr 0.001 --epochs 100 --patience 10
+
+This command runs the task in the selected device, setting the data in batch. You can select the block of the layer, the number of layers, the number of neurons for each layer, and specify the learning rate, the number of epochs, and the patience for early stopping.
+
+### File configs usage
+
+To simplify the model configuration and the hyperparameter settings, you can take a file config relative to a specific task and a specific model and run it by the `run.py` script.
+
 ```
-python run.py --device cuda:0 --task smnist --batch 128 --block S4 --layers 2 --neurons 64 --lr 0.001 --epochs 100 --patience 10
+python run.py --config=configs/smnist/best/rssm_r.yaml
 ```
 
-This command runs the task in the selected device setting the data in batch.
-You can select the block of the layer, the number of layers, the number of neurons for each layer, and specifies the learning rate,
-the number of epochs and the patience for early stopping.
-
+This command trains the RSSM model with the Ridge readout for the Sequential MNIST task with all the configuration and hyperparameters set in the config file.
