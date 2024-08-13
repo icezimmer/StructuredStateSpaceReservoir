@@ -39,9 +39,6 @@ loss = {
     'cross_entropy': torch.nn.CrossEntropyLoss()
 }
 
-s4_modes = ['s4d', 'diag', 's4', 'nplr', 'dplr']
-s4_activations = ['tanh', 'relu', 'gelu', 'elu', 'swish', 'silu', 'glu', 'sigmoid', 'softplus']
-
 conv_classes = ['fft', 'fft-freezeD']
 kernel_classes = ['V', 'V-freezeB', 'V-freezeC', 'V-freezeBC', 'V-freezeA', 'V-freezeAB', 'V-freezeAC', 'V-freezeABC']
 
@@ -84,13 +81,13 @@ def parse_args():
         elif args.block == 'S4':
             parser.add_argument('--dropout', type=float, default=0.0, help='Dropout the preactivation inside the block.')
             parser.add_argument('--tiedropout', action='store_true', help='Tie dropout.')
-            parser.add_argument('--kernel', choices=s4_modes, default='dplr', help='Kernel name.')
+            parser.add_argument('--dstate', type=int, default=64, help='State size.')
             parser.add_argument('--kernellr', type=float, default=0.001, help='Learning rate for kernel pars.')
             parser.add_argument('--low', type=float, default=0.001, help='Min-Sampling-Rate for internal dynamics.')
             parser.add_argument('--high', type=float, default=0.1, help='Max-Sampling-Rate for internal dynamics.')
-            parser.add_argument('--init', default='hippo', help='Choices for initialization of A')
+            parser.add_argument('--init', default='legs', help='Choices for initialization of A')
             parser.add_argument('--bidirectional', action='store_true', help='Bidirectional.')
-            parser.add_argument('--finalact', choices=s4_activations, default='glu', help='Activation.')
+            parser.add_argument('--finalact', default='glu', help='Activation.')
             parser.add_argument('--nssm', type=int, default=1, help='Kernel name.')            
         elif args.block == 'S4D':
             parser.add_argument('--dropout', type=float, default=0.0, help='Dropout the preactivation inside the block.')
@@ -222,7 +219,7 @@ def main():
         block_args = {}
     elif args.block == 'S4':
         block_args = {'dropout': args.dropout, 'tie_dropout': args.tiedropout,
-                      'mode': args.kernel, 'lr': args.kernellr, 'dt_min': args.low, 'dt_max': args.high, 'init': args.init,
+                      'd_state': args.dstate, 'lr': args.kernellr, 'dt_min': args.low, 'dt_max': args.high, 'init': args.init,
                       'bidirectional': args.bidirectional, 'final_act': args.finalact, 'n_ssm': args.nssm}
     elif args.block == 'S4D':
         block_args = {'mixing_layer': args.mix,
@@ -272,9 +269,7 @@ def main():
     else:
         raise ValueError('Invalid block name')
 
-    if args.block == 'S4':
-        block_name = args.block + '_' + args.kernel
-    elif args.block == 'S4D':
+    if args.block == 'S4D':
         block_name = args.block + '_' + args.conv + '_' + args.kernel + '_' + args.mix
     elif args.block == 'LRSSM':
         block_name = args.block + '_' + args.kernel + '_conv1d' + '_' + args.act

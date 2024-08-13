@@ -19,7 +19,7 @@ hyperparameters:
     # BLOCK
     dropout: [0.0]
     tiedropout: [False]
-    kernel: ['hippo']
+    dstate: [4]
     kernellr: [0.001]
     low: [0.001]
     high: [0.1]
