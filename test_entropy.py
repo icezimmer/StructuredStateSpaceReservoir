@@ -106,6 +106,7 @@ def parse_args():
         parser.add_argument('--rho', type=float, default=1.0, help='Spectral Radius of hidden state matrix.')
         parser.add_argument('--leaky', type=float, default=1.0, help='Leakage Rate for leaky integrator.')
     elif args.block == 'RSSM':
+        parser.add_argument('--dstate', type=int, default=64, help='State size.')
         parser.add_argument('--minscaleencoder', type=float, default=0.0, help='Min encoder model scaling factor.')
         parser.add_argument('--maxscaleencoder', type=float, default=1.0, help='Max encoder model scaling factor.')
         parser.add_argument('--minscaleD', type=float, default=0.0, help='Skip connection matrix D min scaling.')
@@ -139,21 +140,13 @@ def main():
         d_input = 1  # number of input features
         kernel_size = 28 * 28  # max length of input sequence
         label_list = list(range(10))
-    elif args.task in ['pathfinder32easy', 'pathfinder32intermediate', 'pathfinder32hard']:
+    elif args.task == 'pathfinder':
         d_input = 1
         kernel_size = 32 * 32
         label_list = list(range(2))
-    elif args.task in ['pathfinder64easy', 'pathfinder64intermediate', 'pathfinder64hard']:
-        d_input = 1
-        kernel_size = 64 * 64
-        label_list = list(range(2))
-    elif args.task in ['pathfinder128easy', 'pathfinder128intermediate', 'pathfinder128hard']:
+    elif args.task == 'pathx':
         d_input = 1
         kernel_size = 128 * 128
-        label_list = list(range(2))
-    elif args.task in ['pathfinder256easy', 'pathfinder256intermediate', 'pathfinder256hard']:
-        d_input = 1
-        kernel_size = 256 * 256
         label_list = list(range(2))
     elif args.task == 'scifar10gs':
         d_input = 1
@@ -204,7 +197,7 @@ def main():
 
     elif args.block == 'ESN':
         reservoir_model = StackedEchoState(n_layers=args.layers,
-                                           d_input=d_input, d_model=1,
+                                           d_input=d_input, d_model=1, d_state=args.dstate,
                                            transient=0,
                                            take_last=False,
                                            **block_args)

@@ -60,7 +60,7 @@ def parse_args():
                         help='Block class to use for the model.')
 
     parser.add_argument('--layers', type=int, default=2, help='Number of layers.')
-    parser.add_argument('--neurons', type=int, default=64, help='Number of hidden neurons (hidden state size).')
+    parser.add_argument('--dmodel', type=int, default=64, help='Dimension of each hidden layer.')
 
     # First parse known arguments to decide on adding additional arguments based on the block type
     args, unknown = parser.parse_known_args()
@@ -107,6 +107,7 @@ def parse_args():
             parser.add_argument('--minscaleC', type=float, default=0.0, help='Min scaling for state2output matrix C.')
             parser.add_argument('--maxscaleC', type=float, default=1.0, help='Max scaling for state2output matrix C.')
         elif args.block == 'LRSSM':
+            parser.add_argument('--dstate', type=int, default=64, help='State size.')
             parser.add_argument('--dropout', type=float, default=0.0, help='Dropout the preactivation inside the block.')
             parser.add_argument('--minscaleD', type=float, default=0.0, help='Skip connection matrix D min scaling.')
             parser.add_argument('--maxscaleD', type=float, default=1.0, help='Skip connection matrix D max scaling.')
@@ -131,6 +132,7 @@ def parse_args():
             parser.add_argument('--rho', type=float, default=1.0, help='Spectral Radius of hidden state matrix.')
             parser.add_argument('--leaky', type=float, default=1.0, help='Leakage Rate for leaky integrator.')
         elif args.block == 'RSSM':
+            parser.add_argument('--dstate', type=int, default=64, help='State size.')
             parser.add_argument('--minscaleencoder', type=float, default=0.0, help='Min encoder model scaling factor.')
             parser.add_argument('--maxscaleencoder', type=float, default=1.0, help='Max encoder model scaling factor.')
             parser.add_argument('--minscaleD', type=float, default=0.0, help='Skip connection matrix D min scaling.')
@@ -238,7 +240,8 @@ def main():
             block_args['lr'] = args.kernellr
             block_args['wd'] = args.kernelwd
     elif args.block == 'LRSSM':
-        block_args = {'min_scaleD': args.minscaleD,
+        block_args = {'d_state': args.dstate,
+                      'min_scaleD': args.minscaleD,
                       'max_scaleD': args.maxscaleD,
                       'dropout': args.dropout,
                       'kernel': args.kernel, 'kernel_size': kernel_size,
@@ -279,13 +282,13 @@ def main():
         block_name = args.block
 
     if args.block not in ['ESN', 'RSSM']:
-        project_name = (args.encoder + '_[{' + block_name + '}_' + str(args.layers) + 'x' + str(args.neurons) + ']_' +
+        project_name = (args.encoder + '_[{' + block_name + '}_' + str(args.layers) + 'x' + str(args.dmodel) + ']_' +
                         args.decoder)
     elif args.block == 'RSSM':
-        project_name = ('reservoir_[{' + block_name + '}_' + str(args.layers) + 'x' + str(args.neurons) + ']_' +
+        project_name = ('reservoir_[{' + block_name + '}_' + str(args.layers) + 'x' + str(args.dmodel) + ']_' +
                         args.readout)
     elif args.block == 'ESN':
-        project_name = ('[{' + block_name + '}_' + str(args.layers) + 'x' + str(args.neurons) + ']_' +
+        project_name = ('[{' + block_name + '}_' + str(args.layers) + 'x' + str(args.dmodel) + ']_' +
                         args.readout)
     else:
         raise ValueError('Invalid block name')
@@ -312,7 +315,7 @@ def main():
 
         logging.info(f'Initializing {args.block} model.')
         model = StackedNetwork(block_cls=block_factories[args.block], n_layers=args.layers,
-                               d_input=d_input, d_model=args.neurons, d_output=d_output,
+                               d_input=d_input, d_model=args.dmodel, d_output=d_output,
                                encoder=args.encoder, decoder=args.decoder,
                                to_vec=to_vec,
                                min_encoder_scaling=args.minscaleencoder, max_encoder_scaling=args.maxscaleencoder,
@@ -394,7 +397,7 @@ def main():
         if args.block == 'RSSM':
             reservoir_model = StackedReservoir(block_cls=block_factories[args.block],
                                                n_layers=args.layers,
-                                               d_input=d_input, d_model=args.neurons,
+                                               d_input=d_input, d_model=args.dmodel, d_state=args.dstate,
                                                transient=args.transient,
                                                take_last=args.last,
                                                min_encoder_scaling=args.minscaleencoder,
@@ -405,7 +408,7 @@ def main():
 
         elif args.block == 'ESN':
             reservoir_model = StackedEchoState(n_layers=args.layers,
-                                               d_input=d_input, d_model=args.neurons,
+                                               d_input=d_input, d_model=args.dmodel,
                                                transient=args.transient,
                                                take_last=args.last,
                                                **block_args)
