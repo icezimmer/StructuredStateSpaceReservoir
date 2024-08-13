@@ -12,8 +12,9 @@ hyperparameters:
     # ARCHITECTURE
     block: ["RSSM"]
     layers: [8]
-    neurons: [512]
+    dmodel: [512]
     # BLOCK
+    dstate: [64]
     rbatch: [128]
     kernel: ["Vr"]
     funfwd: ["real+relu"]

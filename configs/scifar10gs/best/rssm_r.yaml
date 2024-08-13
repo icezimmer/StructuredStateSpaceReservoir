@@ -11,9 +11,10 @@ hyperparameters:
     task: ["scifar10gs"]
     # ARCHITECTURE
     block: ["RSSM"]
-    layers: [1, 2, 3, 4, 5, 6]
-    neurons: [64]
+    layers: [8]
+    dmodel: [64]
     # BLOCK
+    dstate: [64]
     rbatch: [512]
     kernel: ["Vr"]
     funfwd: ["real+relu"]

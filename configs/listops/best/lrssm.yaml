@@ -12,8 +12,9 @@ hyperparameters:
     # ARCHITECTURE
     block: ["LRSSM"]
     layers: [8]
-    neurons: [64]
+    dmodel: [64]
     # BLOCK
+    dstate: [64]
     kernel: ["Vr"]
     minscaleencoder: [0.0]
     maxscaleencoder: [1.0]

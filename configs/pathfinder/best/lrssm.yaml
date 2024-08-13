@@ -12,7 +12,7 @@ hyperparameters:
     # ARCHITECTURE
     block: ["LRSSM"]
     layers: [8]
-    neurons: [64]
+    dmodel: [64]
     encoder: ["conv1d"]
     decoder: ["conv1d"]
     layerdrop: [0.0]
