@@ -69,7 +69,7 @@ class StackedNetwork(nn.Module):
 
 
 class StackedReservoir(nn.Module):
-    def __init__(self, block_cls, n_layers, d_input, d_model, transient, take_last,
+    def __init__(self, block_cls, n_layers, d_input, d_model, d_state, transient, take_last,
                  min_encoder_scaling=0.0, max_encoder_scaling=1.0,
                  **block_args):
         """
@@ -78,21 +78,23 @@ class StackedReservoir(nn.Module):
 
         super().__init__()
 
-        self.d_state = d_model
+        self.d_model = d_model
+        self.d_state = d_state
 
         self.n_layers = n_layers
 
         self.take_last = take_last
         if self.take_last:
-            self.d_output = self.d_state  # Take only the last layer output
+            self.d_output = self.d_model  # Take only the last layer output
         else:
-            self.d_output = self.n_layers * self.d_state  # Take all the layers output concatenating them
+            self.d_output = self.n_layers * self.d_model  # Take all the layers output concatenating them
 
-        self.encoder = LinearReservoirRing(d_input=d_input, d_output=self.d_state,
+        self.encoder = LinearReservoirRing(d_input=d_input, d_output=self.d_model,
                                            min_radius=min_encoder_scaling, max_radius=max_encoder_scaling,
                                            field='real')
 
-        self.layers = nn.ModuleList([block_cls(d_model=self.d_state, **block_args) for _ in range(self.n_layers)])
+        self.layers = nn.ModuleList([block_cls(d_model=self.d_model, d_state=self.d_state, **block_args)
+                                     for _ in range(self.n_layers)])
 
         self.transient = transient
 

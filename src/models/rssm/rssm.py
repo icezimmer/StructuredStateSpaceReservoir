@@ -4,7 +4,7 @@ from src.models.rssm.realfun_complexvar.complex_to_real import Real, RealReLU, R
 
 
 class RSSM(torch.nn.Module):
-    def __init__(self, d_model,
+    def __init__(self, d_model, d_state,
                  fun_forward,
                  fun_fit,
                  kernel,
@@ -27,9 +27,10 @@ class RSSM(torch.nn.Module):
 
         super().__init__()
 
-        self.d_model = d_model
+        self.d_model = d_model  # d_input = d_output = d_model = H
+        self.d_state = d_state  # d_state = P
 
-        self.layer = FFTConvReservoir(d_input=self.d_model, d_state=self.d_model, kernel=kernel,
+        self.layer = FFTConvReservoir(d_input=self.d_model, d_state=self.d_state, kernel=kernel,
                                       **layer_args)
 
         if fun_forward == 'real':

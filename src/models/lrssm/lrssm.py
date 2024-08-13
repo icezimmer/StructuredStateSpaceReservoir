@@ -9,7 +9,7 @@ see: https://github.com/i404788/s5-pytorch/tree/74e2fdae00b915a62c914bf3615c0b8a
 
 
 class LRSSM(torch.nn.Module):
-    def __init__(self, d_model,
+    def __init__(self, d_model, d_state,
                  kernel,
                  mlp_layers,
                  act,
@@ -32,9 +32,10 @@ class LRSSM(torch.nn.Module):
 
         super().__init__()
 
-        self.d_model = d_model
+        self.d_model = d_model  # d_input = d_output = d_model = H
+        self.d_state = d_state  # d_state = P
 
-        self.reservoir_layer = FFTConvReservoir(d_input=self.d_model, d_state=self.d_model,
+        self.reservoir_layer = FFTConvReservoir(d_input=self.d_model, d_state=self.d_state,
                                                 kernel=kernel, discrete=False, **reservoir_layer_args)
 
         self.to_real = Real()

@@ -31,8 +31,8 @@ class FFTConvReservoir(nn.Module):
         super().__init__()
 
         self.d_input = d_input
-        self.d_state = d_state
-        self.d_output = self.d_input  # SISO model
+        self.d_state = d_state  # d_state = P
+        self.d_output = self.d_input  # SISO model (d_input = d_output = d_model = H)
 
         self.kernel_cls = kernel_classes[kernel](d_input=self.d_input, d_state=self.d_state, **kernel_args)
         K, _ = self.kernel_cls()
