@@ -62,11 +62,6 @@ class FFTConvReservoir(nn.Module):
         :param u: batched input sequence of shape (B,H,L) = (batch_size, d_input, input_length)
         :return: y: batched output sequence of shape (B,H,L) = (batch_size, d_input, input_length)
         """
-        # u_s = torch.fft.fft(u, dim=-1)  # (B, H, L)
-        # k_s = torch.fft.fft(self.K, dim=-1)  # (H, L)
-        # y = torch.fft.ifft(torch.einsum('bhl,hl->bhl', u_s, k_s), dim=-1)  # (B, H, L)
-        # y = y + torch.einsum('h,bhl->bhl', self.D, u)  # (B, H, L)
-
         L = u.shape[-1]
         N = 2 * L - 1
         u_s = torch.fft.fft(u, n=N, dim=-1)  # (B, H, N)
