@@ -35,9 +35,12 @@ def plot_time_series(develop_dataset, label_list, num, reservoir_model, kernel_s
             first_output = None
             last_output = None
 
-            x = None
+            # x = None
+            # for k in range(kernel_size):
+            #     y, x = reservoir_model.step(u[:, k].unsqueeze(0).to(device=check_model_device(reservoir_model)), x)
+            z = reservoir_model(u.unsqueeze(0).to(device=check_model_device(reservoir_model)))
             for k in range(kernel_size):
-                y, x = reservoir_model.step(u[:, k].unsqueeze(0).to(device=check_model_device(reservoir_model)), x)
+                y = z[..., k]
 
                 if k == 0:
                     first_output = y.cpu().numpy()
