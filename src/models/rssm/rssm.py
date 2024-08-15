@@ -66,10 +66,11 @@ class RSSM(torch.nn.Module):
         :param x: previous state of shape (B, P)
         :return: output step (B, H), new state (B, P)
         """
-        y, x = self.layer.step(u, x)
-        y = self.fun_forward(y)
+        u, x = self.layer.step(u, x)
+        y = self.fun_forward(u)
+        z = self.fun_fit(u)
 
-        return y, x
+        return y, z, x
 
     def forward(self, u):
         """

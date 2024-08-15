@@ -42,7 +42,7 @@ class VandermondeReservoir(nn.Module):
         self.d_state = d_state
         self.d_output = self.d_input  # Necessary condition for the Vandermonde kernel (SISO)
 
-        self.register_buffer('x0', torch.zeros(self.d_state, dtype=torch.complex64))
+        self.register_buffer('x0', torch.zeros(self.d_state, self.d_input, dtype=torch.complex64))
 
         input2state_reservoir = ReservoirMatrix(d_in=self.d_input, d_out=self.d_state)
         state2output_reservoir = ReservoirMatrix(d_in=self.d_state, d_out=self.d_output)
@@ -65,14 +65,14 @@ class VandermondeReservoir(nn.Module):
             dt = rate_reservoir.uniform_interval(min_value=low_oscillation, max_value=high_oscillation)
             Lambda_bar, B_bar = self._zoh(Lambda, B, dt)
 
-        self.register_buffer('A', Lambda_bar)  # (P,)
-        self.register_buffer('B', B_bar)  # (P, H)
-        self.register_buffer('C', C)  # (H, P)
+        self.register_buffer('A_bar', Lambda_bar)  # (P,)
+        self.register_buffer('B_bar', B_bar)  # (P, H)
+        self.register_buffer('C_bar', C)  # (H, P)
 
-        W = torch.einsum('hp,ph -> hp', self.C, self.B)  # (H, P)
+        W = torch.einsum('hp,ph -> hp', self.C_bar, self.B_bar)  # (B^t .* C) (H, P)
 
         powers = torch.arange(kernel_size, dtype=torch.float32)  # (L,)
-        V = self.A.unsqueeze(-1) ** powers    # (P, L)
+        V = self.A_bar.unsqueeze(-1) ** powers   # (P, L)
 
         kernel = torch.einsum('hp,pl->hl', W, V)  # (H, L)
         self.register_buffer('K', kernel)  # (H, L)
@@ -122,20 +122,21 @@ class VandermondeReservoir(nn.Module):
 
     def step(self, u, x=None):
         """
-        Step one time step as a recurrent model. Intended to be used during validation.
-            x_new = A * x_old + B * u_new
-            y_new = C * x_new
+        Compute one time step using H independent recurrent models. Intended to be used during validation.
+        Assuming that for each feature H, the diagonal discrete SSM (recurren model) is:
+            x_new = A_bar * x_old + B_bar * u_new
+            y_new = C_bar * x_new, if H=1
         :param u: time step input of shape (B, H)
-        :param x: time step state of shape (B, P)
-        :return: y: time step output of shape (B, H), x: time step state of shape (B, P)
+        :param x: time step state of shape (B, P, H)
+        :return: y: time step output of shape (B, H), x: time step state of shape (B, P, H)
         """
-        u = u.to(dtype=torch.complex64)
+        u = u.to(dtype=torch.complex64)  # (B, H)
         if x is None:
-            x = self.x0.unsqueeze(0).expand(u.shape[0], -1)
-        x = torch.einsum('p,bp->bp', self.A, x) + torch.einsum('ph,bh->bp', self.B, u)  # (B,P)
-        y = torch.einsum('hp,bp->bh', self.C, x)  # (B,H)
+            x = self.x0.unsqueeze(0).expand(u.shape[0], self.B_bar.shape[0], self.B_bar.shape[1])  # (B, P, H)
+        x = torch.mul(self.A_bar.unsqueeze(0).unsqueeze(-1), x) + torch.mul(self.B_bar.unsqueeze(0), u.unsqueeze(-2))  # (B, P, H)
+        y = torch.sum(torch.mul(self.C_bar.unsqueeze(0), x.transpose(1, 2)), dim=-1)  # (B, H)
 
-        return y, x
+        return y, x  # (B, H), (B, P, H)
 
     def forward(self):
         """

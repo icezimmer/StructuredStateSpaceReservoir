@@ -40,7 +40,7 @@ class FFTConvReservoir(nn.Module):
 
         input2output_reservoir = ReservoirVector(d=self.d_input)
         D = input2output_reservoir.uniform_interval(min_value=min_scaleD, max_value=max_scaleD)  # (H,)
-        self.register_buffer('D', D)  # (H,)
+        self.register_buffer('D_bar', D)  # (H,)
 
     def step(self, u, x=None):
         """
@@ -52,7 +52,7 @@ class FFTConvReservoir(nn.Module):
         :return: y: time step output of shape (B, H), x: time step state of shape (B, P)
         """
         y, x = self.kernel_cls.step(u, x)
-        y = y + torch.einsum('h,bh->bh', self.D, u)  # (B, H)
+        y = y + torch.einsum('h,bh->bh', self.D_bar, u)  # (B, H)
 
         return y, x
 
@@ -73,6 +73,6 @@ class FFTConvReservoir(nn.Module):
         k_s = torch.fft.fft(self.K, n=N, dim=-1)  # (H, N)
         y = torch.fft.ifft(torch.einsum('bhs,hs->bhs', u_s, k_s), n=N, dim=-1)  # (B, H, N)
         y = y[..., :L]  # (B, H, L)
-        y = y + torch.einsum('h,bhl->bhl', self.D, u)  # (B, H, L)
+        y = y + torch.einsum('h,bhl->bhl', self.D_bar, u)  # (B, H, L)
 
         return y, None

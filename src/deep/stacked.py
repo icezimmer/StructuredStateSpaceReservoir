@@ -102,36 +102,36 @@ class StackedReservoir(nn.Module):
         """
         Step one time step as a recurrent model.
         :param u: input step of shape (B, H)
-        :param x: previous state of shape (B, P)
+        :param x: previous state of shape (B, P, H)
         :return: output step (B, H), new state (B, P)
         """
         y = self.encoder.step(u)
 
         if self.take_last:
-            z_list = []
+            x_list = []
             for i, layer in enumerate(self.layers):
                 if x is not None:
-                    z = x[:, i * self.d_state: (i + 1) * self.d_state]
+                    x_i = x[:, i * self.d_state: (i + 1) * self.d_state, :]  # (B, P, H)
                 else:
-                    z = None
-                y, z = layer.step(y, z)
-                z_list.append(z)
-            x = torch.cat(tensors=z_list, dim=-1)
+                    x_i = None
+                y, z, x_i = layer.step(y, x_i)  # (B, H), (B, H), (B, P, H)
+                x_list.append(x_i)
+            x = torch.cat(tensors=x_list, dim=-2)  # (B, num_layers*P, H)
         else:
+            x_list = []
             z_list = []
-            y_list = []
             for i, layer in enumerate(self.layers):
                 if x is not None:
-                    z = x[:, i * self.d_state: (i+1) * self.d_state]
+                    x_i = x[:, i * self.d_state: (i+1) * self.d_state, :]  # (B, P, H)
                 else:
-                    z = None
-                y, z = layer.step(y, z)
+                    x_i = None
+                y, z, x_i = layer.step(y, x_i)  # (B, H), (B, H), (B, P, H)
+                x_list.append(x_i)
                 z_list.append(z)
-                y_list.append(y)
-            x = torch.cat(tensors=z_list, dim=-1)
-            y = torch.cat(tensors=y_list, dim=-1)
+            x = torch.cat(tensors=x_list, dim=-2)  # (B, num_layers*P, H)
+            z = torch.cat(tensors=z_list, dim=-1)  # (B, num_layers*H)
 
-        return y, x
+        return z, x
 
     def forward(self, u):
         """
@@ -143,16 +143,16 @@ class StackedReservoir(nn.Module):
 
         if self.take_last:
             for layer in self.layers:
-                y, x = layer(y)  # (B, d_model, L) -> (B, d_model, L)
-            x = x[:, :, self.transient:]
+                y, z = layer(y)  # (B, d_model, L) -> (B, d_model, L)
+            z = z[:, :, self.transient:]
         else:
-            x_list = []
+            z_list = []
             for layer in self.layers:
-                y, x = layer(y)  # (B, d_model, L) -> (B, d_model, L)
-                x_list.append(x[:, :, self.transient:])
-            x = torch.cat(tensors=x_list, dim=-2)  # (B, num_layers * d_model, L - w)
+                y, z = layer(y)  # (B, d_model, L) -> (B, d_model, L)
+                z_list.append(z[:, :, self.transient:])
+            z = torch.cat(tensors=z_list, dim=-2)  # (B, num_layers * d_model, L - w)
 
-        return x
+        return z
 
 
 class StackedEchoState(nn.Module):
