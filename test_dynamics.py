@@ -102,7 +102,7 @@ def parse_args():
         parser.add_argument('--weak', type=float, default=0.0, help='Weak Stability for internal dynamics.')
         parser.add_argument('--discrete', action='store_true', help='Discrete SSM modality.')
         parser.add_argument('--low', type=float, default=0.001, help='Min-Sampling-Rate / Min-Oscillations for internal dynamics.')
-            parser.add_argument('--high', type=float, default=0.1, help='Max-Sampling-Rate / Max-Oscillations for internal dynamics.')
+        parser.add_argument('--high', type=float, default=0.1, help='Max-Sampling-Rate / Max-Oscillations for internal dynamics.')
         parser.add_argument('--minscaleB', type=float, default=0.0, help='Min scaling for input2state matrix B.')
         parser.add_argument('--maxscaleB', type=float, default=1.0, help='Max scaling for input2state matrix B.')
         parser.add_argument('--minscaleC', type=float, default=0.0, help='Min scaling for state2output matrix C.')
