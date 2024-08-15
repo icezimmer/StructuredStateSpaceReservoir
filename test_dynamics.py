@@ -32,16 +32,18 @@ def plot_time_series(u, label, reservoir_model, save_path):
     fig1 = fig.add_subplot(2, 1, 1)
     fig2 = fig.add_subplot(2, 1, 2)
 
-    x = None
-
     fig1.plot(range(length), u.squeeze(0).cpu().numpy())
     fig1.set_title(f'Input Time Series (Label: {label})')
 
     first_output = None
     last_output = None
 
+    x = None
     for k in tqdm(range(length)):
         y, x = reservoir_model.step(u[:, k].unsqueeze(0).to(device=check_model_device(reservoir_model)), x)
+    # z = reservoir_model(u.unsqueeze(0).to(device=check_model_device(reservoir_model)))
+    # for k in range(length):
+    #     y = z[..., k]
 
         output = y.cpu().numpy()
         if k == 0:
@@ -49,8 +51,7 @@ def plot_time_series(u, label, reservoir_model, save_path):
         if k == length - 1:
             last_output = output
 
-        fig2.scatter(output[:, 0], output[:, 1], alpha=(length - k) / length,
-                     color=cm.viridis(k / length))
+        fig2.scatter(output[:, 0], output[:, 1], color=cm.viridis(k / length))
         fig2.set_title('Output Scatter Plot')
 
         # Emphasize the first and last points
