@@ -8,18 +8,18 @@ hyperparameters:
     # DEVICE
     device: ["cuda:3"]
     # TASK
-    task: ["imdb"]
+    task: ["smnist"]
     # ARCHITECTURE
     block: ["S4"]
     layers: [6]
-    dmodel: [256]
-    encoder: ["embedding"]
+    dmodel: [512]
+    encoder: ["conv1d"]
     decoder: ["conv1d"]
     layerdrop: [0.0]
     # BLOCK
-    dropout: [0.0]
-    tiedropout: [False]
-    dstate: [4]
+    dropout: [0.1]
+    tiedropout: [True]
+    dstate: [64]
     kernellr: [0.001]
     low: [0.001]
     high: [0.1]
@@ -28,9 +28,9 @@ hyperparameters:
     finalact: ["glu"]
     nssm: [1]
     # LEARNING
-    batch: [16]
+    batch: [50]
     lr: [0.01]
     wd: [0.05]
     plateau: [0.2]
-    epochs: [32]
+    epochs: [200]
     patience: [10]

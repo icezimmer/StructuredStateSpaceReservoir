@@ -8,7 +8,7 @@ hyperparameters:
     # DEVICE
     device: ["cuda:3"]
     # TASK
-    task: ["imdb"]
+    task: ["listops"]
     # ARCHITECTURE
     block: ["S4"]
     layers: [6]
@@ -28,9 +28,9 @@ hyperparameters:
     finalact: ["glu"]
     nssm: [1]
     # LEARNING
-    batch: [16]
+    batch: [32]
     lr: [0.01]
     wd: [0.05]
     plateau: [0.2]
-    epochs: [32]
+    epochs: [40]
     patience: [10]
