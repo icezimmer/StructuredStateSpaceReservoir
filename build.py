@@ -142,10 +142,6 @@ elif args.task in ['pathfinder', 'pathx']:
 elif args.task == 'listops':
     setting = read_yaml_to_dict(os.path.join('configs', args.task, 'setting.yaml'))
 
-    architecture = setting.get('architecture', {})
-    vocab_size = architecture['d_input']
-    max_length = architecture['kernel_size']
-
     data = setting.get('data', {})
     num_dev_samples = data['num_dev_samples']
     num_test_samples = data['num_test_samples']
@@ -164,7 +160,7 @@ elif args.task == 'listops':
                                                                 n_devices=4,
                                                                 task_name=args.task,
                                                                 data_dir=os.path.join('./checkpoint', 'datasets', args.task),
-                                                                max_length=args.max_length)
+                                                                max_length=max_length)
 
     # Convert TensorFlow dataset to PyTorch dataset
     develop_dataset = ListOpsDataset(develop_dataset)
@@ -172,16 +168,24 @@ elif args.task == 'listops':
 
 elif args.task == 'imdb':
     setting = read_yaml_to_dict(os.path.join('configs', args.task, 'setting.yaml'))
-    
-    architecture = setting.get('architecture', {})
-    vocab_size = architecture['d_input']
-    max_length = architecture['kernel_size']
+
+    data = setting.get('data', {})
+    max_length = data['max_length']
+    level = data['level']
+    min_freq = data['min_freq']
+    append_bos = data['append_bos']
+    append_eos = data['append_eos']
 
     # Download and load IMDB dataset
     develop_dataset, test_dataset = IMDB(root='./checkpoint/')
 
-    develop_dataset = TextDataset(dataset=develop_dataset, max_length=max_length)
-    test_dataset = TextDataset(dataset=test_dataset, max_length=max_length)
+    # for label, text in develop_dataset:
+    #     print(label, text)
+
+    develop_dataset = TextDataset(dataset=develop_dataset, max_length=max_length, level=level, min_freq=min_freq,
+                                  append_bos=append_bos, append_eos=append_eos)
+    test_dataset = TextDataset(dataset=test_dataset, max_length=max_length, level=level, min_freq=min_freq,
+                                  append_bos=append_bos, append_eos=append_eos)
 else:
     raise ValueError('Task not found')
 
