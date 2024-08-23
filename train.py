@@ -296,12 +296,18 @@ def main():
     output_dir = os.path.join('./checkpoint', 'results', args.task)
     os.makedirs(output_dir, exist_ok=True)
 
-    logging.info(f'Loading {args.task} develop and test datasets in {args.device}.')
+    logging.info(f'Loading {args.task} develop and test datasets.')
     try:
-        develop_dataset = load_data(os.path.join('./checkpoint', 'datasets', args.task, 'develop_dataset'), device=args.device)
-        test_dataset = load_data(os.path.join('./checkpoint', 'datasets', args.task, 'test_dataset'), device=args.device)
+        develop_dataset = load_data(os.path.join('./checkpoint', 'datasets', args.task, 'develop_dataset'))
+        test_dataset = load_data(os.path.join('./checkpoint', 'datasets', args.task, 'test_dataset'))
     except FileNotFoundError:
         logging.error(f"Dataset not found for task {args.task}. Run build.py first.")
+
+    # print all values in the first item of the dataset
+    # t = develop_dataset[0][0]
+    # for i in range(520):
+    #     print(t[i+1000], " ")
+
 
     if args.block in ['RNN', 'GRU', 'LSTM', 'S4', 'S4D', 'LRSSM']:
         log_file_name = args.block
