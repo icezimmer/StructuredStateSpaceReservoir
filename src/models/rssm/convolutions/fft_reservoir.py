@@ -37,6 +37,7 @@ class FFTConvReservoir(nn.Module):
         self.kernel_cls = kernel_classes[kernel](d_input=self.d_input, d_state=self.d_state, **kernel_args)
         K, _ = self.kernel_cls()
         self.register_buffer('K', K)  # (H, L)
+        self.L_k = K.shape[-1]
 
         input2output_reservoir = ReservoirVector(d=self.d_input)
         D = input2output_reservoir.uniform_interval(min_value=min_scaleD, max_value=max_scaleD)  # (H,)
@@ -62,12 +63,12 @@ class FFTConvReservoir(nn.Module):
         :param u: batched input sequence of shape (B,H,L) = (batch_size, d_input, input_length)
         :return: y: batched output sequence of shape (B,H,L) = (batch_size, d_input, input_length)
         """
-        L = u.shape[-1]
-        N = 2 * L - 1
+        L_u = u.shape[-1]
+        N = L_u + self.L_k - 1
         u_s = torch.fft.fft(u, n=N, dim=-1)  # (B, H, N)
         k_s = torch.fft.fft(self.K, n=N, dim=-1)  # (H, N)
         y = torch.fft.ifft(torch.einsum('bhs,hs->bhs', u_s, k_s), n=N, dim=-1)  # (B, H, N)
-        y = y[..., :L]  # (B, H, L)
+        y = y[..., :L_u]  # (B, H, L)
         y = y + torch.einsum('h,bhl->bhl', self.D_bar, u)  # (B, H, L)
 
         return y, None
