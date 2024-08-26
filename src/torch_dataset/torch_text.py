@@ -62,22 +62,23 @@ class TextDataset(Dataset):
         return self.data[idx]
 
     def preprocess_function(self, tokens, label):
-        # Optionally add special tokens
-        if self.append_bos:
-            tokens = ['<bos>'] + tokens
-        if self.append_eos:
-            tokens = tokens + ['<eos>']
-        
         # Numericalize tokens
         token_ids = self.vocab(tokens)
+        new_length = self.max_length - int(self.append_bos) - int(self.append_eos)
 
         # Truncate or pad to max_length
-        if len(token_ids) > self.max_length:
-            token_ids = token_ids[:self.max_length]
-        else:
+        if len(token_ids) > new_length:
+            token_ids = token_ids[:new_length]
+
+        # Append <bos> and <eos> if required
+        if self.append_bos:
+            token_ids = [self.vocab['<bos>']] + token_ids
+        if self.append_eos:
+            token_ids = token_ids + [self.vocab['<eos>']]
+
+        if len(token_ids) < self.max_length:
             token_ids = token_ids + [self.vocab['<pad>']] * (self.max_length - len(token_ids))
+
         
         # Convert to tensor and return with label
         return torch.tensor(token_ids), torch.tensor(0 if label == 'neg' else 1)
-
-
