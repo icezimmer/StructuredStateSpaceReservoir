@@ -303,12 +303,6 @@ def main():
     except FileNotFoundError:
         logging.error(f"Dataset not found for task {args.task}. Run build.py first.")
 
-    # print all values in the first item of the dataset
-    # t = develop_dataset[0][0]
-    # for i in range(520):
-    #     print(t[i+1000], " ")
-
-
     if args.block in ['RNN', 'GRU', 'LSTM', 'S4', 'S4D', 'LRSSM']:
         log_file_name = args.block
 
