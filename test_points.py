@@ -10,6 +10,7 @@ from src.models.rssm.rssm import RSSM
 from src.utils.experiments import set_seed
 from src.utils.saving import load_data
 from src.utils.check_device import check_model_device
+from src.utils.experiments import read_yaml_to_dict
 
 
 def plot_time_series(develop_dataset, label_list, num, reservoir_model, kernel_size, block, save_path):
@@ -92,6 +93,7 @@ def parse_args():
     parser.add_argument('--num', type=int, default=1, help='Number of inputs per class.')
     parser.add_argument('--block', choices=['RSSM', 'ESN'], default='RSSM',
                         help='Block class to use for the model.')
+    parser.add_argument('--layers', type=int, default=1, help='Number of layers.')
 
     # First parse known arguments to decide on adding additional arguments based on the block type
     args, unknown = parser.parse_known_args()
@@ -134,24 +136,11 @@ def main():
     logging.info(f"Setting seed: {args.seed}")
     set_seed(args.seed)
 
-    if args.task in ['smnist', 'pmnist']:
-        d_input = 1  # number of input features
-        kernel_size = 28 * 28  # max length of input sequence
-        label_list = list(range(10))
-    elif args.task == 'pathfinder':
-        d_input = 1
-        kernel_size = 32 * 32
-        label_list = list(range(2))
-    elif args.task == 'pathx':
-        d_input = 1
-        kernel_size = 128 * 128
-        label_list = list(range(2))
-    elif args.task == 'scifar10gs':
-        d_input = 1
-        kernel_size = 32 * 32
-        label_list = list(range(10))
-    else:
-        raise ValueError('Invalid task name')
+    setting = read_yaml_to_dict(os.path.join('configs', args.task, 'setting.yaml'))
+    architecture = setting.get('architecture', {})
+    d_input = architecture['d_input']  # dim of input space or vocab size for text embedding
+    kernel_size = architecture['kernel_size']
+    label_list = list(range(architecture['d_output']))
 
     if args.block == 'ESN':
         block_args = {'input_scaling': args.inputscaling, 'bias_scaling': args.biasscaling,
@@ -180,10 +169,10 @@ def main():
     logging.info('Initializing model.')
     if args.block == 'RSSM':
         reservoir_model = StackedReservoir(block_cls=RSSM,
-                                           n_layers=1,
+                                           n_layers=args.layers,
                                            d_input=d_input, d_model=2, d_state=args.dstate,
                                            transient=0,
-                                           take_last=False,
+                                           take_last=True,
                                            min_encoder_scaling=args.minscaleencoder,
                                            max_encoder_scaling=args.maxscaleencoder,
                                            **block_args)
@@ -191,10 +180,10 @@ def main():
         reservoir_model.to(device=torch.device(args.device))
 
     elif args.block == 'ESN':
-        reservoir_model = StackedEchoState(n_layers=1,
+        reservoir_model = StackedEchoState(n_layers=args.layers,
                                            d_input=d_input, d_model=2, d_state=args.dstate,
                                            transient=0,
-                                           take_last=False,
+                                           take_last=True,
                                            **block_args)
         logging.info(f'Moving reservoir model to {args.device}.')
         reservoir_model.to(device=torch.device(args.device))

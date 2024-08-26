@@ -11,7 +11,8 @@ from src.models.rssm.rssm import RSSM
 from src.utils.experiments import set_seed
 from src.utils.saving import load_data
 from src.utils.check_device import check_model_device
-from src.utils.signals import total_entropy, pca_analysis
+from src.utils.signals import pca_analysis
+from src.utils.experiments import read_yaml_to_dict
 
 
 def get_data(develop_dataset, label_selected, reservoir_model):
@@ -111,24 +112,11 @@ def main():
     logging.info(f"Setting seed: {args.seed}")
     set_seed(args.seed)
 
-    if args.task in ['smnist', 'pmnist']:
-        d_input = 1  # number of input features
-        kernel_size = 28 * 28  # max length of input sequence
-        label_list = list(range(10))
-    elif args.task == 'pathfinder':
-        d_input = 1
-        kernel_size = 32 * 32
-        label_list = list(range(2))
-    elif args.task == 'pathx':
-        d_input = 1
-        kernel_size = 128 * 128
-        label_list = list(range(2))
-    elif args.task == 'scifar10gs':
-        d_input = 1
-        kernel_size = 32 * 32
-        label_list = list(range(10))
-    else:
-        raise ValueError('Invalid task name')
+    setting = read_yaml_to_dict(os.path.join('configs', args.task, 'setting.yaml'))
+    architecture = setting.get('architecture', {})
+    d_input = architecture['d_input']  # dim of input space or vocab size for text embedding
+    kernel_size = architecture['kernel_size']
+    label_list = list(range(architecture['d_output']))
 
     if args.label not in label_list:
         raise ValueError(f'Invalid label: {args.label} for task: {args.task}. Possible labels: {label_list}')

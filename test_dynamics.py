@@ -11,6 +11,7 @@ from src.utils.experiments import set_seed
 from src.utils.saving import load_data
 from tqdm import tqdm
 from src.utils.check_device import check_model_device
+from src.utils.experiments import read_yaml_to_dict
 
 
 def get_data(develop_dataset, label_selected):
@@ -27,13 +28,19 @@ def get_data(develop_dataset, label_selected):
 def plot_time_series(u, label, reservoir_model, save_path):
     length = u.shape[-1]
 
-    fig = plt.figure(figsize=(12, 10))
+    fig = plt.figure(figsize=(14, 10))
 
-    fig1 = fig.add_subplot(2, 1, 1)
-    fig2 = fig.add_subplot(2, 1, 2)
+    fig1 = fig.add_subplot(3, 1, 1)
+    fig2 = fig.add_subplot(3, 1, 2)
+    fig3 = fig.add_subplot(3, 1, 3)
 
-    fig1.plot(range(length), u.squeeze(0).cpu().numpy())
-    fig1.set_title(f'Input Time Series (Label: {label})')
+    v = reservoir_model.encoder(u.unsqueeze(0).to(device=check_model_device(reservoir_model)))  # (B=1, H=2, L)
+    v_t = v.squeeze()  # (H=2,L)
+
+    fig1.plot(range(length), v_t[0,:].cpu().numpy())
+    fig1.set_title(f'Feature 1 Encoded Time Series (Label: {label})')
+    fig2.plot(range(length), v_t[1,:].cpu().numpy())
+    fig2.set_title(f'Feature 2 Encoded Time Series (Label: {label})')
 
     first_output = None
     last_output = None
@@ -51,16 +58,16 @@ def plot_time_series(u, label, reservoir_model, save_path):
         if k == length - 1:
             last_output = output
 
-        fig2.scatter(output[:, 0], output[:, 1], color=cm.viridis(k / length))
-        fig2.set_title('Output Scatter Plot')
+        fig3.scatter(output[:, 0], output[:, 1], color=cm.viridis(k / length))
+        fig3.set_title('Output Scatter Plot')
 
         # Emphasize the first and last points
         if first_output is not None and last_output is not None:
-            fig2.scatter(first_output[:, 0], first_output[:, 1], color='black', s=100, edgecolors='black',
+            fig3.scatter(first_output[:, 0], first_output[:, 1], color='black', s=100, edgecolors='black',
                          label='First Point')
-            fig2.scatter(last_output[:, 0], last_output[:, 1], color='yellow', s=100, edgecolors='black',
+            fig3.scatter(last_output[:, 0], last_output[:, 1], color='yellow', s=100, edgecolors='black',
                          label='Last Point')
-            fig2.legend()
+            fig3.legend()
 
     # Save plot to the specified path
     os.makedirs(os.path.dirname(save_path), exist_ok=True)  # Create directories if not exist
@@ -76,6 +83,7 @@ def parse_args():
     parser.add_argument('--label', type=int, default=0, help='Label to highlight in the time series plot.')
     parser.add_argument('--block', choices=['RSSM', 'ESN'], default='RSSM',
                         help='Block class to use for the model.')
+    parser.add_argument('--layers', type=int, default=1, help='Number of layers.')
 
     # First parse known arguments to decide on adding additional arguments based on the block type
     args, unknown = parser.parse_known_args()
@@ -118,24 +126,11 @@ def main():
     logging.info(f"Setting seed: {args.seed}")
     set_seed(args.seed)
 
-    if args.task in ['smnist', 'pmnist']:
-        d_input = 1  # number of input features
-        kernel_size = 28 * 28  # max length of input sequence
-        label_list = list(range(10))
-    elif args.task == 'pathfinder':
-        d_input = 1
-        kernel_size = 32 * 32
-        label_list = list(range(2))
-    elif args.task == 'pathx':
-        d_input = 1
-        kernel_size = 128 * 128
-        label_list = list(range(2))
-    elif args.task == 'scifar10gs':
-        d_input = 1
-        kernel_size = 32 * 32
-        label_list = list(range(10))
-    else:
-        raise ValueError('Invalid task name')
+    setting = read_yaml_to_dict(os.path.join('configs', args.task, 'setting.yaml'))
+    architecture = setting.get('architecture', {})
+    d_input = architecture['d_input']  # dim of input space or vocab size for text embedding
+    kernel_size = architecture['kernel_size']
+    label_list = list(range(architecture['d_output']))
 
     if args.label not in label_list:
         raise ValueError(f'Invalid label: {args.label} for task: {args.task}. Possible labels: {label_list}')
@@ -167,10 +162,10 @@ def main():
     logging.info('Initializing model.')
     if args.block == 'RSSM':
         reservoir_model = StackedReservoir(block_cls=RSSM,
-                                           n_layers=1,
+                                           n_layers=args.layers,
                                            d_input=d_input, d_model=2, d_state=args.dstate,
                                            transient=0,
-                                           take_last=False,
+                                           take_last=True,
                                            min_encoder_scaling=args.minscaleencoder,
                                            max_encoder_scaling=args.maxscaleencoder,
                                            **block_args)
@@ -178,10 +173,10 @@ def main():
         reservoir_model.to(device=torch.device(args.device))
 
     elif args.block == 'ESN':
-        reservoir_model = StackedEchoState(n_layers=1,
+        reservoir_model = StackedEchoState(n_layers=args.layers,
                                            d_input=d_input, d_model=2,
                                            transient=0,
-                                           take_last=False,
+                                           take_last=True,
                                            **block_args)
         logging.info(f'Moving reservoir model to {args.device}.')
         reservoir_model.to(device=torch.device(args.device))

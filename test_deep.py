@@ -9,6 +9,7 @@ from src.models.rssm.rssm import RSSM
 from src.utils.experiments import set_seed
 from src.utils.saving import load_data
 from src.utils.check_device import check_model_device
+from src.utils.experiments import read_yaml_to_dict
 
 
 def get_data(develop_dataset, label_selected, reservoir_model):
@@ -17,40 +18,24 @@ def get_data(develop_dataset, label_selected, reservoir_model):
     u, label = develop_dataset[i]
     while label != label_selected:
         i = i + 1
-        u, label = develop_dataset[i]  # u has shape (H=1, L)
+        u, label = develop_dataset[i]  # u has shape (H0, L)
 
-    u_t = u.squeeze(0)  # (L,)
-
-    v = reservoir_model.encoder(u.unsqueeze(0).to(device=check_model_device(reservoir_model)))  # (B=1, P, L)
+    v = reservoir_model.encoder(u.unsqueeze(0).to(device=check_model_device(reservoir_model)))  # (B=1, H=1, L)
     v_t = v.squeeze()  # (L,)
 
     y = reservoir_model(u.unsqueeze(0).to(device=check_model_device(reservoir_model)))  # (B=1, H=num_layers, L)
     y_t = y.squeeze(0)  # (H=num_layers, L)
 
-    return u_t, v_t, y_t, label  # (L,), (H=num_layers, L), int
+    return v_t, y_t, label  # (L,), (H=num_layers, L), int
 
 
-def plot_time_series(u_t, v_t, y_t, label, save_path):
+def plot_time_series(v_t, y_t, label, save_path):
     n_layers = y_t.shape[0]
-    length = u_t.shape[-1]
+    length = v_t.shape[-1]
 
     fig = plt.figure(figsize=(14, 4*(n_layers+1)))
 
-    fig_input = fig.add_subplot(n_layers+2, 2, 2*(n_layers+2)-1)
-
-    u_np = u_t.cpu().numpy()
-    fig_input.plot(range(length), u_np)
-    fig_input.set_title(f'Input Time Series (Label: {label})')
-
-    # Compute the DFT of the time series
-    u_s = torch.fft.rfft(u_t, n=2*length-1, dim=-1)
-    freq = torch.fft.rfftfreq(n=2*length-1)
-    # Compute the amplitude of the DFT
-    amplitude = torch.abs(u_s).numpy()
-    fig_input_s = fig.add_subplot(n_layers + 2, 2, 2*(n_layers+2))
-    fig_input_s.bar(freq, amplitude, width=0.01)
-
-    fig_v = fig.add_subplot(n_layers+2, 2, 2*(n_layers+1)-1)
+    fig_v = fig.add_subplot(n_layers+1, 2, 2*(n_layers+1)-1)
     v_np = v_t.cpu().numpy()
     fig_v.plot(range(length), v_np)
     fig_v.set_title(f'Encoded Time Series (Label: {label})')
@@ -60,11 +45,11 @@ def plot_time_series(u_t, v_t, y_t, label, save_path):
     freq = torch.fft.rfftfreq(n=2*length-1)
     # Compute the amplitude of the DFT
     amplitude = torch.abs(v_s).cpu().numpy()
-    fig_v_s = fig.add_subplot(n_layers + 2, 2, 2*(n_layers+1))
+    fig_v_s = fig.add_subplot(n_layers + 1, 2, 2*(n_layers+1))
     fig_v_s.bar(freq, amplitude, width=0.01)
 
     for i in range(n_layers):
-        fig_h = fig.add_subplot(n_layers+2, 2, 2*(n_layers-i)-1)
+        fig_h = fig.add_subplot(n_layers+1, 2, 2*(n_layers-i)-1)
         h_t = y_t[i, :]  # h has shape (L,)
         h_np = h_t.cpu().numpy()
         fig_h.plot(range(length), h_np)
@@ -75,7 +60,7 @@ def plot_time_series(u_t, v_t, y_t, label, save_path):
         freq = torch.fft.rfftfreq(n=2 * length - 1)
         # Compute the amplitude of the DFT
         amplitude = torch.abs(h_s).cpu().numpy()
-        fig_h_s = fig.add_subplot(n_layers + 2, 2, 2*(n_layers-i))
+        fig_h_s = fig.add_subplot(n_layers + 1, 2, 2*(n_layers-i))
         fig_h_s.bar(freq, amplitude, width=0.01)
         fig_h_s.set_title(f'{i+1} Hidden Frequency Amplitude (Label: {label})')
 
@@ -93,7 +78,7 @@ def parse_args():
     parser.add_argument('--label', type=int, default=0, help='Label to highlight in the time series plot.')
     parser.add_argument('--block', choices=['RSSM', 'ESN'], default='RSSM',
                         help='Block class to use for the model.')
-    parser.add_argument('--layers', type=int, default=16, help='Number of layers.')
+    parser.add_argument('--layers', type=int, default=6, help='Number of layers.')
 
     # First parse known arguments to decide on adding additional arguments based on the block type
     args, unknown = parser.parse_known_args()
@@ -136,24 +121,11 @@ def main():
     logging.info(f"Setting seed: {args.seed}")
     set_seed(args.seed)
 
-    if args.task in ['smnist', 'pmnist']:
-        d_input = 1  # number of input features
-        kernel_size = 28 * 28  # max length of input sequence
-        label_list = list(range(10))
-    elif args.task == 'pathfinder':
-        d_input = 1
-        kernel_size = 32 * 32
-        label_list = list(range(2))
-    elif args.task == 'pathx':
-        d_input = 1
-        kernel_size = 128 * 128
-        label_list = list(range(2))
-    elif args.task == 'scifar10gs':
-        d_input = 1
-        kernel_size = 32 * 32
-        label_list = list(range(10))
-    else:
-        raise ValueError('Invalid task name')
+    setting = read_yaml_to_dict(os.path.join('configs', args.task, 'setting.yaml'))
+    architecture = setting.get('architecture', {})
+    d_input = architecture['d_input']  # dim of input space or vocab size for text embedding
+    kernel_size = architecture['kernel_size']
+    label_list = list(range(architecture['d_output']))
 
     if args.label not in label_list:
         raise ValueError(f'Invalid label: {args.label} for task: {args.task}. Possible labels: {label_list}')
@@ -208,10 +180,10 @@ def main():
         raise ValueError('Invalid block name')
 
     logging.info('Retrieve data.')
-    u_t, v_t, y_t, label = get_data(develop_dataset, args.label, reservoir_model)  # (L,), (H=num_layers, L), int
+    v_t, y_t, label = get_data(develop_dataset, args.label, reservoir_model)  # (L,), (H=num_layers, L), int
 
     logging.info('Plotting.')
-    plot_time_series(u_t, v_t, y_t, label, save_path)
+    plot_time_series(v_t, y_t, label, save_path)
 
 
 if __name__ == '__main__':
