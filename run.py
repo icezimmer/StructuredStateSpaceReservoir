@@ -1,5 +1,4 @@
 import argparse
-import itertools
 import subprocess
 import random
 import numpy as np
@@ -18,36 +17,42 @@ def main():
     max_configs = config.get('max_configs', 0)
     hyperparameters = config.get('hyperparameters', {})
 
-    # Generate all combinations of hyperparameters
+    # Extract the keys and possible values for each hyperparameter
     keys, values = zip(*hyperparameters.items())
 
-    # Calculate the total number of combinations
+    # Ensure max_configs is not larger than the total possible combinations
     total_experiment_count = np.prod([len(v) for v in values])
+    if max_configs > total_experiment_count:
+        max_configs = total_experiment_count
 
-    # Randomly sample indices
-    samples = set(random.sample(range(total_experiment_count), min(max_configs, total_experiment_count.item())))
+    # Perform random sampling of hyperparameter combinations
+    sampled_experiments = []
+    for _ in range(max_configs):
+        experiment = {key: random.choice(value) for key, value in zip(keys, values)}
+        sampled_experiments.append(experiment)
 
-    # Generate experiments only for sampled indices
-    for idx, experiment in enumerate(itertools.product(*values)):
-        if idx in samples:
-            args = []
-            experiment_dict = dict(zip(keys, experiment))
-            for key, value in experiment_dict.items():
-                if isinstance(value, bool):
-                    if value:  # Only add the flag if it's True
-                        args.append(f"--{key}")
-                else:
-                    args.append(f"--{key}={value}")
+    # Generate and execute commands for the sampled experiments
+    for experiment in sampled_experiments:
+        args = []
+        for key, value in experiment.items():
+            if isinstance(value, bool):
+                if value:  # Only add the flag if it's True
+                    args.append(f"--{key}")
+            else:
+                args.append(f"--{key}={value}")
 
-            # Prepare the command
-            command = ["python", "train.py"] + args
+        # Prepare the command
+        command = ["python", "train.py"] + args
 
-            # Print the command for manual execution
-            command_str = " ".join(command)
-            print(command_str)
+        # Print the command for manual execution
+        command_str = " ".join(command)
+        print(command_str)
 
-            # Execute the command
-            subprocess.run(command)
+        # Execute the command and continue even if there's an error
+        try:
+            subprocess.run(command, check=True)
+        except subprocess.CalledProcessError as e:
+            print(f"Command failed with error: {e}. Continuing with next experiment.")
 
 
 if __name__ == "__main__":
