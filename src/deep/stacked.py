@@ -5,6 +5,7 @@ from src.models.embedding.embedding import EmbeddingModel
 import torch
 
 
+# TODO: Manage other padded input cases
 class StackedNetwork(nn.Module):
     def __init__(self, block_cls, n_layers, d_input, d_model, d_output,
                  encoder, decoder, to_vec,
@@ -27,13 +28,16 @@ class StackedNetwork(nn.Module):
         super().__init__()
 
         if encoder == 'conv1d':
+            self.pad = False
             self.encoder = nn.Conv1d(in_channels=d_input, out_channels=d_model, kernel_size=1)
         elif encoder == 'reservoir':
+            self.pad = False
             self.encoder = LinearReservoirRing(d_input=d_input, d_output=d_model,
                                                min_radius=min_encoder_scaling, max_radius=max_encoder_scaling,
                                                field='real')
         elif encoder == 'embedding':
-            self.encoder = EmbeddingModel(vocab_size=d_input, d_model=d_model)
+            self.pad = True
+            self.encoder = EmbeddingModel(vocab_size=d_input, d_model=d_model, padding_idx=0)
 
         self.layers = nn.ModuleList([block_cls(d_model=d_model, **block_args) for _ in range(n_layers)])
         self.dropouts = nn.ModuleList([nn.Dropout(layer_dropout) if layer_dropout > 0 else nn.Identity()
@@ -54,20 +58,33 @@ class StackedNetwork(nn.Module):
         return:
             y: torch tensor of shape (B, d_output) or (B, d_output, L))
         """
-        y = self.encoder(u)  # (B, d_input, L) -> (B, d_model, L)
+        if self.pad:
+            y, lengths = self.encoder(u)
+        else:
+            y = self.encoder(u)  # (B, d_input, L) -> (B, d_model, L)
 
         for layer, dropout in zip(self.layers, self.dropouts):
             y, _ = layer(y)
             y = dropout(y)
 
         if self.to_vec:
-            y = self.decoder(y[:, :, -1:]).squeeze(-1)  # (B, d_model, L) -> (B, d_output)
+            if self.pad:
+                # Convert lengths to zero-based indices by subtracting 1
+                indices = (lengths - 1).unsqueeze(1).unsqueeze(2)  # Shape (B, 1, 1)
+
+                # Expand indices to match the dimensions needed for gathering
+                indices = indices.expand(y.shape[0], y.shape[1], 1)  # Shape (B, H, 1)
+                y = y.gather(-1, indices)  # (B, d_model, L) -> (B, d_model, 1)
+            else:
+                y = y[:, :, -1:]  # (B, d_model, L) -> (B, d_model, 1)
+            y = self.decoder(y).squeeze(-1)  # (B, d_model, L) -> (B, d_output)
         else:
             y = self.decoder(y)  # (B, d_model, L) -> (B, d_output, L)
 
         return y
 
 
+# TODO: Manage padded input cases
 class StackedReservoir(nn.Module):
     def __init__(self, block_cls, n_layers, d_input, d_model, d_state, transient, take_last,
                  min_encoder_scaling=0.0, max_encoder_scaling=1.0,
@@ -155,6 +172,7 @@ class StackedReservoir(nn.Module):
         return z
 
 
+# TODO: Manage padded input cases
 class StackedEchoState(nn.Module):
     def __init__(self, n_layers, d_input, d_model,
                  transient, take_last,
