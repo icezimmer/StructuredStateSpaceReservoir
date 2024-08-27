@@ -476,7 +476,7 @@ def main():
         elif args.readout == 'mlp':
             model = MLP(n_layers=args.mlplayers, d_input=reservoir_model.d_output, d_output=d_output)
 
-            logging.info(f'Moving {args.block} model to {args.device}.')
+            logging.info(f'Moving MLP model to {args.device}.')
             model.to(device=torch.device(args.device))
 
             logging.info('Setting optimizer.')
@@ -554,7 +554,7 @@ def main():
                                    encoder='conv1d', decoder='conv1d',
                                    to_vec=to_vec)
 
-            logging.info(f'Moving {args.block} model to {args.device}.')
+            logging.info(f'Moving SSM model to {args.device}.')
             model.to(device=torch.device(args.device))
 
             logging.info('Setting optimizer.')
