@@ -298,8 +298,8 @@ def main():
 
     logging.info(f'Loading {args.task} develop and test datasets.')
     try:
-        develop_dataset = load_data(os.path.join('./checkpoint', 'datasets', args.task, 'develop_dataset'))
-        test_dataset = load_data(os.path.join('./checkpoint', 'datasets', args.task, 'test_dataset'))
+        develop_dataset = load_data(os.path.join('..', 'datasets', args.task, 'develop_dataset'))
+        test_dataset = load_data(os.path.join('..', 'datasets', args.task, 'test_dataset'))
     except FileNotFoundError:
         logging.error(f"Dataset not found for task {args.task}. Run build.py first.")
 

@@ -38,11 +38,11 @@ if args.task == 'smnist':
         transforms.ToTensor(),  # Convert image to pytorch tensor with values in [0, 1] and shape (C, H, W)
         # transforms.Normalize((0.1307,), (0.3081,)),
     ])
-    develop_dataset = SequentialImage2Classify(datasets.MNIST(root='./checkpoint/',
+    develop_dataset = SequentialImage2Classify(datasets.MNIST(root='../data_storage/',
                                                               train=True,
                                                               transform=transform,
                                                               download=True))
-    test_dataset = SequentialImage2Classify(datasets.MNIST(root='./checkpoint/',
+    test_dataset = SequentialImage2Classify(datasets.MNIST(root='../data_storage/',
                                                            train=False,
                                                            transform=transform,
                                                            download=True))
@@ -52,12 +52,12 @@ elif args.task == 'pmnist':
         # transforms.Normalize((0.1307,), (0.3081,)),
     ])
     permutation = torch.randperm(28 * 28)
-    develop_dataset = SequentialImage2Classify(dataset=datasets.MNIST(root='./checkpoint/',
+    develop_dataset = SequentialImage2Classify(dataset=datasets.MNIST(root='../data_storage/',
                                                                       train=True,
                                                                       transform=transform,
                                                                       download=True),
                                                permutation=permutation)
-    test_dataset = SequentialImage2Classify(dataset=datasets.MNIST(root='./checkpoint/',
+    test_dataset = SequentialImage2Classify(dataset=datasets.MNIST(root='../data_storage/',
                                                                    train=False,
                                                                    transform=transform,
                                                                    download=True),
@@ -67,11 +67,11 @@ elif args.task == 'scifar10':
         transforms.ToTensor(),
         transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
         ])
-    develop_dataset = SequentialImage2Classify(datasets.CIFAR10(root='./checkpoint/',
+    develop_dataset = SequentialImage2Classify(datasets.CIFAR10(root='../data_storage/',
                                                                 train=True,
                                                                 transform=transform,
                                                                 download=True))
-    test_dataset = SequentialImage2Classify(datasets.CIFAR10(root='./checkpoint/',
+    test_dataset = SequentialImage2Classify(datasets.CIFAR10(root='../data_storage/',
                                                              train=False,
                                                              transform=transform,
                                                              download=True))
@@ -81,11 +81,11 @@ elif args.task == 'scifar10gs':
         transforms.ToTensor(),
         # transforms.Normalize(mean=122.6 / 255.0, std=61.0 / 255.0),
     ])
-    develop_dataset = SequentialImage2Classify(datasets.CIFAR10(root='./checkpoint/',
+    develop_dataset = SequentialImage2Classify(datasets.CIFAR10(root='../data_storage/',
                                                                 train=True,
                                                                 transform=transform,
                                                                 download=True))
-    test_dataset = SequentialImage2Classify(datasets.CIFAR10(root='./checkpoint/',
+    test_dataset = SequentialImage2Classify(datasets.CIFAR10(root='../data_storage/',
                                                              train=False,
                                                              transform=transform,
                                                              download=True))
@@ -154,12 +154,12 @@ elif args.task == 'listops':
     listops(task_name=args.task, num_develop_samples=num_dev_samples, num_test_samples=num_test_samples,
             max_depth=max_depth, max_args=max_args,
             max_length=max_length, min_length=min_length,
-            output_dir=os.path.join('./checkpoint', 'datasets', args.task))
+            output_dir=os.path.join('..', 'data_storage', args.task))
 
     develop_dataset, test_dataset, encoder = input_pipeline.get_datasets(
                                                                 n_devices=4,
                                                                 task_name=args.task,
-                                                                data_dir=os.path.join('./checkpoint', 'datasets', args.task),
+                                                                data_dir=os.path.join('..', 'data_storage', args.task),
                                                                 max_length=max_length)
 
     # Convert TensorFlow dataset to PyTorch dataset
@@ -177,7 +177,7 @@ elif args.task == 'imdb':
     append_eos = data['append_eos']
 
     # Download and load IMDB dataset
-    develop_dataset, test_dataset = IMDB(root='./checkpoint/')
+    develop_dataset, test_dataset = IMDB(root='../data_storage/')
 
     # for label, text in develop_dataset:
     #     print(label, text)
@@ -190,5 +190,5 @@ else:
     raise ValueError('Task not found')
 
 logging.info('Saving datasets')
-save_data(develop_dataset, os.path.join('./checkpoint', 'datasets', args.task, 'develop_dataset'))
-save_data(test_dataset, os.path.join('./checkpoint', 'datasets', args.task, 'test_dataset'))
+save_data(develop_dataset, os.path.join('..', 'datasets', args.task, 'develop_dataset'))
+save_data(test_dataset, os.path.join('..', 'datasets', args.task, 'test_dataset'))

@@ -143,7 +143,7 @@ def main():
     save_path = os.path.join('./checkpoint', 'dynamics', args.task, args.block, 'pca.png')
 
     logging.info('Loading develop dataset.')
-    develop_dataset = load_data(os.path.join('./checkpoint', 'datasets', args.task, 'develop_dataset'))
+    develop_dataset = load_data(os.path.join('..', 'datasets', args.task, 'develop_dataset'))
 
     logging.info('Initializing model.')
     if args.block == 'RSSM':

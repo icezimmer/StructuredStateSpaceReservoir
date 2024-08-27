@@ -124,8 +124,7 @@ def write_to_file(data, fp):
         writer.writerows(data)
 
 
-def listops(task_name='listops', num_develop_samples=98000, num_test_samples=2000, max_depth=10, max_args=10, max_length=2000, min_length=500,
-            output_dir=os.path.join('./checkpoint', 'datasets', 'listops')):
+def listops(task_name, num_develop_samples, num_test_samples, max_depth, max_args, max_length, min_length, output_dir):
 
     tf.logging.info('Start dataset construction')
 
