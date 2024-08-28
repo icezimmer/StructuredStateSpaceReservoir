@@ -8,7 +8,7 @@ hyperparameters:
     # DEVICE
     device: ["cuda:3"]
     # TASK
-    task: ["scifar10gs"]
+    task: ["imdb"]
     # ARCHITECTURE
     block: ["RSSM"]
     layers: [8]
@@ -19,7 +19,7 @@ hyperparameters:
     kernel: ["Vr"]
     funfwd: ["real+relu"]
     funfit: ["real+tanh"]
-    encoder: ["reservoir"]
+    encoder: ["onehot"]
     minscaleencoder: [0.0]
     maxscaleencoder: [0.1, 0.25, 0.5, 0.75, 1.0, 1.25]
     discrete: [False]

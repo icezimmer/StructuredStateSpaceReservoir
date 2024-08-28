@@ -19,6 +19,7 @@ hyperparameters:
     kernel: ["Vr"]
     funfwd: ["real+relu"]
     funfit: ["real+tanh"]
+    encoder: ["reservoir"]
     minscaleencoder: [0.0]
     maxscaleencoder: [1.0]
     discrete: [False]

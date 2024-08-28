@@ -8,7 +8,7 @@ hyperparameters:
     # DEVICE
     device: ["cuda:3"]
     # TASK
-    task: ["smnist"]
+    task: ["listops"]
     # ARCHITECTURE
     block: ["RSSM"]
     layers: [8]
@@ -19,7 +19,7 @@ hyperparameters:
     kernel: ["Vr"]
     funfwd: ["real+relu"]
     funfit: ["real+tanh"]
-    encoder: ["reservoir"]
+    encoder: ["onehot"]
     minscaleencoder: [0.0]
     maxscaleencoder: [1.0]
     discrete: [False]
@@ -33,8 +33,14 @@ hyperparameters:
     maxscaleC: [1.0]
     minscaleD: [1.0]
     maxscaleD: [1.0]
-    # RIDGE CLASSIFIER READOUT
-    readout: ["ridge"]
+    # MLP READOUT
+    readout: ["mlp"]
     last: [False]
-    transient: [-20]
-    regul: [0.8]
+    transient: [-1]
+    batch: [128]
+    mlplayers: [2]
+    lr: [0.005]
+    wd: [0.1]
+    plateau: [0.2]
+    epochs: [200]
+    patience: [10]

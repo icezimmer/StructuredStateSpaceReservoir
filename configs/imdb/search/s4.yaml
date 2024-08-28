@@ -6,7 +6,7 @@ hyperparameters:
     save: [False]
     tr: [False]
     # DEVICE
-    device: ["cuda:3"]
+    device: ["cuda:1"]
     # TASK
     task: ["imdb"]
     # ARCHITECTURE
