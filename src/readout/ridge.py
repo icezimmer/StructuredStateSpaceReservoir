@@ -30,7 +30,7 @@ class RidgeRegression(nn.Module):
 
     def _one_hot_encoding(self, labels):
         y = torch.nn.functional.one_hot(input=labels, num_classes=self.d_output)
-        y = y.to(dtype=torch.float32)
+        y = y.to(dtype=torch.float32)  # (N,) -> (N, K)
         return y
 
     def forward(self, X, y=None):
@@ -38,7 +38,7 @@ class RidgeRegression(nn.Module):
             X = torch.cat(tensors=(X, torch.ones(size=(X.shape[0], 1), device=X.device)), dim=-1)  # (N*(L-w), P+1)
         if y is not None:
             if self.to_vec:
-                y = self._one_hot_encoding(y)
+                y = self._one_hot_encoding(y)  # (N,) -> (N, K)
 
             if self.alpha == 0.0:
                 self.W_out_t = torch.linalg.pinv(X).mm(y)  # (P, K)
