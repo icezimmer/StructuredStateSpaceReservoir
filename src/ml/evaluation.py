@@ -113,6 +113,7 @@ class EvaluateClassifier:
         plt.savefig(confusion_matrix_path)
         plt.close()
 
+
 class EvaluateOfflineClassifier:
     def __init__(self):
         self.accuracy_value = None
