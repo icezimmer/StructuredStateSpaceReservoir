@@ -1,7 +1,7 @@
 import torch.nn as nn
 from src.layers.reservoir import LinearReservoirRing
 from src.models.esn.esn import ESN
-from src.models.embedding.embedding import EmbeddingModel
+from src.layers.embedding import EmbeddingFixedPad, OneHotEncoding
 import torch
 
 
@@ -16,7 +16,7 @@ class StackedNetwork(nn.Module):
         """
         Stack multiple blocks of the same type to form a deep network.
         """
-        encoder_models = ['conv1d', 'reservoir', 'embedding']
+        encoder_models = ['conv1d', 'reservoir', 'embedding', 'onehot']
         decoder_models = ['conv1d', 'reservoir']
 
         if encoder not in encoder_models:
@@ -37,7 +37,12 @@ class StackedNetwork(nn.Module):
                                                field='real')
         elif encoder == 'embedding':
             self.pad = True
-            self.encoder = EmbeddingModel(vocab_size=d_input, d_model=d_model, padding_idx=0)
+            self.encoder = EmbeddingFixedPad(vocab_size=d_input, d_model=d_model, padding_idx=0)
+        elif encoder == 'onehot':
+            self.pad = True
+            self.encoder = OneHotEncoding(vocab_size=d_input, d_model=d_model,
+                                          min_radius=min_encoder_scaling, max_radius=max_encoder_scaling,
+                                          padding_idx=0)
 
         self.layers = nn.ModuleList([block_cls(d_model=d_model, **block_args) for _ in range(n_layers)])
         self.dropouts = nn.ModuleList([nn.Dropout(layer_dropout) if layer_dropout > 0 else nn.Identity()
@@ -87,11 +92,15 @@ class StackedNetwork(nn.Module):
 # TODO: Manage padded input cases
 class StackedReservoir(nn.Module):
     def __init__(self, block_cls, n_layers, d_input, d_model, d_state, transient, take_last,
-                 min_encoder_scaling=0.0, max_encoder_scaling=1.0,
+                 encoder, min_encoder_scaling=0.0, max_encoder_scaling=1.0,
                  **block_args):
         """
         Stack multiple blocks of the same type to form a deep network.
         """
+        encoder_models = ['reservoir', 'onehot']
+
+        if encoder not in encoder_models:
+            raise ValueError('Encoder must be one of {}'.format(encoder_models))
 
         super().__init__()
 
@@ -106,9 +115,16 @@ class StackedReservoir(nn.Module):
         else:
             self.d_output = self.n_layers * self.d_model  # Take all the layers output concatenating them
 
-        self.encoder = LinearReservoirRing(d_input=d_input, d_output=self.d_model,
-                                           min_radius=min_encoder_scaling, max_radius=max_encoder_scaling,
-                                           field='real')
+        if encoder == 'reservoir':
+            self.pad = False
+            self.encoder = LinearReservoirRing(d_input=d_input, d_output=d_model,
+                                               min_radius=min_encoder_scaling, max_radius=max_encoder_scaling,
+                                               field='real')
+        elif encoder == 'onehot':
+            self.pad = True
+            self.encoder = OneHotEncoding(vocab_size=d_input, d_model=d_model,
+                                          min_radius=min_encoder_scaling, max_radius=max_encoder_scaling,
+                                          padding_idx=0)
 
         self.layers = nn.ModuleList([block_cls(d_model=self.d_model, d_state=self.d_state, **block_args)
                                      for _ in range(self.n_layers)])
@@ -156,17 +172,37 @@ class StackedReservoir(nn.Module):
         :param  u: input sequence, torch tensor of shape (B, d_input, L)
         :return: output sequence, torch tensor of shape (B, d_output, L - w)
         """
-        y = self.encoder(u)  # (B, d_input, L) -> (B, d_model, L)
+        if self.pad:
+            y, lengths = self.encoder(u)
+        else:
+            y = self.encoder(u)  # (B, d_input, L) -> (B, d_model, L)
 
         if self.take_last:
             for layer in self.layers:
                 y, z = layer(y)  # (B, d_model, L) -> (B, d_model, L)
-            z = z[:, :, self.transient:]
+            if self.pad:
+                # Convert lengths to zero-based indices by subtracting 1
+                indices = (lengths - 1).unsqueeze(1).unsqueeze(2)  # Shape (B, 1, 1)
+
+                # Expand indices to match the dimensions needed for gathering
+                indices = indices.expand(y.shape[0], y.shape[1], 1)  # Shape (B, H, 1)
+                z = z.gather(-1, indices)  # (B, d_model, L) -> (B, d_model, 1)
+            else:
+                z = z[:, :, self.transient:]
         else:
             z_list = []
             for layer in self.layers:
                 y, z = layer(y)  # (B, d_model, L) -> (B, d_model, L)
-                z_list.append(z[:, :, self.transient:])
+                if self.pad:
+                    # Convert lengths to zero-based indices by subtracting 1
+                    indices = (lengths - 1).unsqueeze(1).unsqueeze(2)  # Shape (B, 1, 1)
+
+                    # Expand indices to match the dimensions needed for gathering
+                    indices = indices.expand(y.shape[0], y.shape[1], 1)  # Shape (B, H, 1)
+                    z = z.gather(-1, indices)  # (B, d_model, L) -> (B, d_model, 1)
+                else:
+                    z = z[:, :, self.transient:]
+                z_list.append(z)
             z = torch.cat(tensors=z_list, dim=-2)  # (B, num_layers * d_model, L - w)
 
         return z
