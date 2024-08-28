@@ -133,8 +133,7 @@ def parse_args():
             parser.add_argument('--leaky', type=float, default=1.0, help='Leakage Rate for leaky integrator.')
         elif args.block == 'RSSM':
             parser.add_argument('--dstate', type=int, default=64, help='State size.')
-            parser.add_argument('--minscaleencoder', type=float, default=0.0, help='Min encoder model scaling factor.')
-            parser.add_argument('--maxscaleencoder', type=float, default=1.0, help='Max encoder model scaling factor.')
+            parser.add_argument('--encoder', default='reservoir', help='Encoder model.')
             parser.add_argument('--minscaleD', type=float, default=0.0, help='Skip connection matrix D min scaling.')
             parser.add_argument('--maxscaleD', type=float, default=1.0, help='Skip connection matrix D max scaling.')
             parser.add_argument('--kernel', choices=kernel_classes_reservoir, default='Vr',
@@ -400,6 +399,7 @@ def main():
                                                d_input=d_input, d_model=args.dmodel, d_state=args.dstate,
                                                transient=args.transient,
                                                take_last=args.last,
+                                               encoder=args.encoder,
                                                min_encoder_scaling=args.minscaleencoder,
                                                max_encoder_scaling=args.maxscaleencoder,
                                                **block_args)
