@@ -17,10 +17,16 @@ class Reservoir2ReadOut(Dataset):
 
         with torch.no_grad():
 
-            for input_batch, label_batch in tqdm(self.dataloader):
+            for item_batch in tqdm(self.dataloader):
+                if len(item_batch) == 3:
+                    input_batch, label_batch, length_batch = item_batch
+                    length_batch = length_batch.to(device=self.device)
+                else:
+                    input_batch, label_batch = item_batch
+                    length_batch = None
                 input_batch = input_batch.to(device=self.device)
                 label_batch = label_batch.to(device=self.device)  # (B, *)
-                output_batch = self.reservoir_model(input_batch)  # (B, P, L-w)
+                output_batch = self.reservoir_model(input_batch, length_batch)  # (B, P, L-w)
                 output_list.append(output_batch.to(device='cpu'))
                 label_list.append(label_batch.to(device='cpu'))
 

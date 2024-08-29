@@ -69,7 +69,7 @@ def get_datasets(n_devices,
 
     tf.logging.info('Finished preprocessing')
     tf.logging.info('Building vocab')
-    # build vocab
+    # Build vocab
     vocab_set = set()
     tokenizer = text.WhitespaceTokenizer()
 
@@ -81,19 +81,25 @@ def get_datasets(n_devices,
         lengths.append(len(examples))
         vocab_set.update(examples)
         if i % 1000 == 0:
-            tf.logging.info('Processed {}'.format(i))
+	        tf.logging.info('Processed {}'.format(i))
         if i > 1000:
-            break
-    vocab_set = list(set(vocab_set))
-    tf.logging.info('Finished processing vocab size={}'.format(len(vocab_set)))
+	        break
 
-    encoder = tfds.deprecated.text.TokenTextEncoder(
-        vocab_set)
+    # Convert the set to a list
+    vocab_list = list(vocab_set)
+
+    # Add a dummy token "<PAD>" to reserve the 0 index
+    vocab_list.insert(0, "<PAD>")
+
+    tf.logging.info('Finished processing vocab size={}'.format(len(vocab_list)))
+
+    # Create the TokenTextEncoder with the modified vocabulary list
+    encoder = tfds.deprecated.text.TokenTextEncoder(vocab_list)
 
     def tf_encode(x):
         result = tf.py_function(lambda s: tf.constant(encoder.encode(s.numpy())),
-                                [x,],
-                                tf.int32)
+	                        [x],
+	                        tf.int32)
         result.set_shape([None])
         return result
 
@@ -101,6 +107,7 @@ def get_datasets(n_devices,
         inputs = tf_encode(d['Source'])
 
         # Apply padding
+        inputs = inputs[:max_length]  # Truncate if necessary
         inputs = tf.pad(inputs, [[0, max_length - tf.shape(inputs)[0]]], constant_values=0)
 
         return {'inputs': inputs[:max_length], 'targets': d['Target']}

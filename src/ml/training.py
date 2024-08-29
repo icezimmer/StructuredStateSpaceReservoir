@@ -20,11 +20,15 @@ class TrainModel:
         self.model.train()
 
         running_loss = 0.0
-        for input_, label in tqdm(dataloader):
-            input_ = input_.to(self.device)
-            label = label.to(self.device)
+        for item in tqdm(dataloader):
+            if len(item) == 3:
+                input_, label, length = item
+                length = length.to(self.device)
+            else:
+                input_, label = item
+                length = None
             self.optimizer.zero_grad()
-            output = self.model(input_)
+            output = self.model(input_, length)
             loss = self.criterion(output, label)
             loss.backward()
             self.optimizer.step()
@@ -37,10 +41,16 @@ class TrainModel:
         self.model.eval()
         with torch.no_grad():
             running_loss = 0.0
-            for input_, label in tqdm(dataloader):
+            for item in tqdm(dataloader):
+                if len(item) == 3:
+                    input_, label, length = item
+                    length = length.to(self.device)
+                else:
+                    input_, label = item
+                    length = None
                 input_ = input_.to(self.device)
                 label = label.to(self.device)
-                output = self.model(input_)
+                output = self.model(input_, length)
                 running_loss += self.criterion(output, label).item()
 
             return running_loss / len(dataloader)

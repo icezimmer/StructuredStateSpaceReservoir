@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import json
 import torch
 from torchmetrics import Accuracy, Precision, Recall, F1Score, ConfusionMatrix, AUROC
+from tqdm import tqdm
 from src.utils.check_device import check_model_device
 from sklearn.metrics import accuracy_score, confusion_matrix
 
@@ -26,11 +27,17 @@ class EvaluateClassifier:
         self.confusion_matrix_value = None
 
     def _predict(self):
-        for input_, label in self.dataloader:
+        for item in tqdm(self.dataloader):
+            if len(item) == 3:
+                input_, label, length = item
+                length = length.to(device=self.device)
+            else:
+                input_, label = item
+                length = None
             input_ = input_.to(device=self.device)
             label = label.to(device=self.device)
 
-            output = self.model(input_)  # outputs of model are logits (raw values)
+            output = self.model(input_, length)  # outputs of model are logits (raw values)
 
             # Update metrics
             self.accuracy.update(output, label)

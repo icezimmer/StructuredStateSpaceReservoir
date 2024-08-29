@@ -150,21 +150,20 @@ elif args.task == 'listops':
     max_length = data['max_length']
     min_length = data['min_length']
 
-    mode = setting.get('mode', "")
     listops(task_name=args.task, num_develop_samples=num_dev_samples, num_test_samples=num_test_samples,
             max_depth=max_depth, max_args=max_args,
             max_length=max_length, min_length=min_length,
-            output_dir=os.path.join('..', 'data_storage', args.task))
+            output_dir=os.path.join('..', 'data_storage'))
 
     develop_dataset, test_dataset, encoder = input_pipeline.get_datasets(
                                                                 n_devices=4,
                                                                 task_name=args.task,
-                                                                data_dir=os.path.join('..', 'data_storage', args.task),
+                                                                data_dir=os.path.join('..', 'data_storage'),
                                                                 max_length=max_length)
 
     # Convert TensorFlow dataset to PyTorch dataset
-    develop_dataset = ListOpsDataset(develop_dataset)
-    test_dataset = ListOpsDataset(test_dataset)
+    develop_dataset = ListOpsDataset(develop_dataset, padding_idx=0)
+    test_dataset = ListOpsDataset(test_dataset, padding_idx=0)
 
 elif args.task == 'imdb':
     setting = read_yaml_to_dict(os.path.join('configs', args.task, 'setting.yaml'))
@@ -183,9 +182,9 @@ elif args.task == 'imdb':
     #     print(label, text)
 
     develop_dataset = TextDataset(dataset=develop_dataset, max_length=max_length, level=level, min_freq=min_freq,
-                                  append_bos=append_bos, append_eos=append_eos)
+                                  append_bos=append_bos, append_eos=append_eos, padding_idx=0)
     test_dataset = TextDataset(dataset=test_dataset, max_length=max_length, level=level, min_freq=min_freq,
-                                  append_bos=append_bos, append_eos=append_eos)
+                               append_bos=append_bos, append_eos=append_eos, padding_idx=0)
 else:
     raise ValueError('Task not found')
 

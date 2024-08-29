@@ -5,7 +5,7 @@ from src.layers.embedding import EmbeddingFixedPad, OneHotEncoding
 import torch
 
 
-# TODO: Manage other padded input cases
+# TODO: Support transient for padded sequences with lengths
 class StackedNetwork(nn.Module):
     def __init__(self, block_cls, n_layers, d_input, d_model, d_output,
                  encoder, decoder, to_vec,
@@ -28,18 +28,14 @@ class StackedNetwork(nn.Module):
         super().__init__()
 
         if encoder == 'conv1d':
-            self.pad = False
             self.encoder = nn.Conv1d(in_channels=d_input, out_channels=d_model, kernel_size=1)
         elif encoder == 'reservoir':
-            self.pad = False
             self.encoder = LinearReservoirRing(d_input=d_input, d_output=d_model,
                                                min_radius=min_encoder_scaling, max_radius=max_encoder_scaling,
                                                field='real')
         elif encoder == 'embedding':
-            self.pad = True
             self.encoder = EmbeddingFixedPad(vocab_size=d_input, d_model=d_model, padding_idx=0)
         elif encoder == 'onehot':
-            self.pad = True
             self.encoder = OneHotEncoding(vocab_size=d_input, d_model=d_model,
                                           min_radius=min_encoder_scaling, max_radius=max_encoder_scaling,
                                           padding_idx=0)
@@ -56,24 +52,22 @@ class StackedNetwork(nn.Module):
                                                min_radius=min_decoder_scaling, max_radius=max_decoder_scaling,
                                                field='real')
 
-    def forward(self, u):
+    def forward(self, u, lengths=None):
         """
         args:
             u: torch tensor of shape (B, d_input, L)
+            lengths: torch tensor of shape (B)
         return:
             y: torch tensor of shape (B, d_output) or (B, d_output, L))
         """
-        if self.pad:
-            y, lengths = self.encoder(u)
-        else:
-            y = self.encoder(u)  # (B, d_input, L) -> (B, d_model, L)
+        y = self.encoder(u)  # (B, d_input, L) -> (B, d_model, L)
 
         for layer, dropout in zip(self.layers, self.dropouts):
             y, _ = layer(y)
             y = dropout(y)
 
         if self.to_vec:
-            if self.pad:
+            if lengths is not None:
                 # Convert lengths to zero-based indices by subtracting 1
                 indices = (lengths - 1).unsqueeze(1).unsqueeze(2)  # Shape (B, 1, 1)
 
@@ -89,7 +83,6 @@ class StackedNetwork(nn.Module):
         return y
 
 
-# TODO: Manage padded input cases
 class StackedReservoir(nn.Module):
     def __init__(self, block_cls, n_layers, d_input, d_model, d_state, transient, take_last,
                  encoder, min_encoder_scaling=0.0, max_encoder_scaling=1.0,
@@ -116,12 +109,10 @@ class StackedReservoir(nn.Module):
             self.d_output = self.n_layers * self.d_model  # Take all the layers output concatenating them
 
         if encoder == 'reservoir':
-            self.pad = False
             self.encoder = LinearReservoirRing(d_input=d_input, d_output=d_model,
                                                min_radius=min_encoder_scaling, max_radius=max_encoder_scaling,
                                                field='real')
         elif encoder == 'onehot':
-            self.pad = True
             self.encoder = OneHotEncoding(vocab_size=d_input, d_model=d_model,
                                           min_radius=min_encoder_scaling, max_radius=max_encoder_scaling,
                                           padding_idx=0)
@@ -166,26 +157,24 @@ class StackedReservoir(nn.Module):
 
         return z, x
 
-    def forward(self, u):
+    def forward(self, u, lengths=None):
         """
         Forward method for the RSSM model.
         :param  u: input sequence, torch tensor of shape (B, d_input, L)
+        :param  lengths: lengths of the input sequences, torch tensor of shape (B)
         :return: output sequence, torch tensor of shape (B, d_output, L - w)
         """
-        if self.pad:
-            y, lengths = self.encoder(u)
-        else:
-            y = self.encoder(u)  # (B, d_input, L) -> (B, d_model, L)
+        y = self.encoder(u)  # (B, d_input, L) -> (B, d_model, L)
 
         if self.take_last:
             for layer in self.layers:
                 y, z = layer(y)  # (B, d_model, L) -> (B, d_model, L)
-            if self.pad:
+            if lengths is not None:
                 # Convert lengths to zero-based indices by subtracting 1
                 indices = (lengths - 1).unsqueeze(1).unsqueeze(2)  # Shape (B, 1, 1)
 
                 # Expand indices to match the dimensions needed for gathering
-                indices = indices.expand(y.shape[0], y.shape[1], 1)  # Shape (B, H, 1)
+                indices = indices.expand(z.shape[0], z.shape[1], 1)  # Shape (B, H, 1)
                 z = z.gather(-1, indices)  # (B, d_model, L) -> (B, d_model, 1)
             else:
                 z = z[:, :, self.transient:]
@@ -193,12 +182,12 @@ class StackedReservoir(nn.Module):
             z_list = []
             for layer in self.layers:
                 y, z = layer(y)  # (B, d_model, L) -> (B, d_model, L)
-                if self.pad:
+                if lengths is not None:
                     # Convert lengths to zero-based indices by subtracting 1
                     indices = (lengths - 1).unsqueeze(1).unsqueeze(2)  # Shape (B, 1, 1)
 
                     # Expand indices to match the dimensions needed for gathering
-                    indices = indices.expand(y.shape[0], y.shape[1], 1)  # Shape (B, H, 1)
+                    indices = indices.expand(z.shape[0], z.shape[1], 1)  # Shape (B, H, 1)
                     z = z.gather(-1, indices)  # (B, d_model, L) -> (B, d_model, 1)
                 else:
                     z = z[:, :, self.transient:]
@@ -208,7 +197,6 @@ class StackedReservoir(nn.Module):
         return z
 
 
-# TODO: Manage padded input cases
 class StackedEchoState(nn.Module):
     def __init__(self, n_layers, d_input, d_model,
                  transient, take_last,
@@ -268,21 +256,39 @@ class StackedEchoState(nn.Module):
 
         return y, x
 
-    def forward(self, x):
+    def forward(self, x, lengths=None):
         """
         Forward method for the DeepESN model.
         :param  x: input sequence, torch tensor of shape (B, d_input, L)
+        :param  lengths: lengths of the input sequences, torch tensor of shape (B)
         :return: output sequence, torch tensor of shape (B, d_state, L - w)
         """
         if self.take_last:
             for layer in self.layers:
                 x, _ = layer(x)  # (B, d_model, L) -> (B, d_model, L)
-            x = x[:, :, self.transient:]
+            if lengths is not None:
+                # Convert lengths to zero-based indices by subtracting 1
+                indices = (lengths - 1).unsqueeze(1).unsqueeze(2)  # Shape (B, 1, 1)
+
+                # Expand indices to match the dimensions needed for gathering
+                indices = indices.expand(x.shape[0], x.shape[1], 1)  # Shape (B, H, 1)
+                x = x.gather(-1, indices)  # (B, d_model, L) -> (B, d_model, 1)
+            else:
+                x = x[:, :, self.transient:]
         else:
             x_list = []
             for layer in self.layers:
                 x, _ = layer(x)  # (B, d_model, L) -> (B, d_model, L)
-                x_list.append(x[:, :, self.transient:])
+                if lengths is not None:
+                    # Convert lengths to zero-based indices by subtracting 1
+                    indices = (lengths - 1).unsqueeze(1).unsqueeze(2)  # Shape (B, 1, 1)
+
+                    # Expand indices to match the dimensions needed for gathering
+                    indices = indices.expand(x.shape[0], x.shape[1], 1)  # Shape (B, H, 1)
+                    x = x.gather(-1, indices)  # (B, d_model, L) -> (B, d_model, 1)
+                else:
+                    x = x[:, :, self.transient:]
+                x_list.append(x)
             x = torch.cat(tensors=x_list, dim=-2)  # (B, num_layers * d_model, L - w)
 
         return x
