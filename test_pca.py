@@ -18,10 +18,12 @@ from src.utils.experiments import read_yaml_to_dict
 def get_data(develop_dataset, label_selected, reservoir_model):
     # Scan through the time series while find a time series with the specified label
     i = 0
-    u, label = develop_dataset[i]
+    item = develop_dataset[i]
+    u, label = item[0], item[1]
     while label != label_selected:
         i = i + 1
-        u, label = develop_dataset[i]  # u has shape (H=1, L)
+        item = develop_dataset[i]  # u has shape (H0, L)
+        u, label = item[0], item[1]
 
     u_t = u.squeeze(0)  # (L,)
 
@@ -152,6 +154,7 @@ def main():
                                            d_input=d_input, d_model=1, d_state=args.dstate,
                                            transient=0,
                                            take_last=False,
+                                           encoder='onehot' if args.task in ['listops', 'imdb'] else 'reservoir',
                                            min_encoder_scaling=args.minscaleencoder,
                                            max_encoder_scaling=args.maxscaleencoder,
                                            **block_args)

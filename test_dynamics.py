@@ -17,10 +17,12 @@ from src.utils.experiments import read_yaml_to_dict
 def get_data(develop_dataset, label_selected):
     # Scan through the time series while find a time series with the specified label
     i = 0
-    u, label = develop_dataset[i]
+    item = develop_dataset[i]
+    u, label = item[0], item[1]
     while label != label_selected:
         i = i + 1
-        u, label = develop_dataset[i]  # u has shape (H=1, L)
+        item = develop_dataset[i]  # u has shape (H0, L)
+        u, label = item[0], item[1]
 
     return u, label
 
@@ -47,7 +49,7 @@ def plot_time_series(u, label, reservoir_model, save_path):
 
     x = None
     for k in tqdm(range(length)):
-        y, x = reservoir_model.step(u[:, k].unsqueeze(0).to(device=check_model_device(reservoir_model)), x)
+        y, x = reservoir_model.step(u[..., k].unsqueeze(0).to(device=check_model_device(reservoir_model)), x)
     # z = reservoir_model(u.unsqueeze(0).to(device=check_model_device(reservoir_model)))
     # for k in range(length):
     #     y = z[..., k]
@@ -166,6 +168,7 @@ def main():
                                            d_input=d_input, d_model=2, d_state=args.dstate,
                                            transient=0,
                                            take_last=True,
+                                           encoder='onehot' if args.task in ['listops', 'imdb'] else 'reservoir',
                                            min_encoder_scaling=args.minscaleencoder,
                                            max_encoder_scaling=args.maxscaleencoder,
                                            **block_args)

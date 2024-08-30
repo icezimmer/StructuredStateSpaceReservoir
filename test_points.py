@@ -24,7 +24,8 @@ def plot_time_series(develop_dataset, label_list, num, reservoir_model, kernel_s
     counter = {index: 0 for index in label_list}
     i = 0
     while min(counter.values()) < num:
-        u, label = develop_dataset[i]
+        item = develop_dataset[i]
+        u, label = item[0], item[1]
         index = label.item()
         if counter[index] >= num:
             i = i + 1
@@ -38,7 +39,7 @@ def plot_time_series(develop_dataset, label_list, num, reservoir_model, kernel_s
 
             # x = None
             # for k in range(kernel_size):
-            #     y, x = reservoir_model.step(u[:, k].unsqueeze(0).to(device=check_model_device(reservoir_model)), x)
+            #     y, x = reservoir_model.step(u[..., k].unsqueeze(0).to(device=check_model_device(reservoir_model)), x)
             z = reservoir_model(u.unsqueeze(0).to(device=check_model_device(reservoir_model)))
             for k in range(kernel_size):
                 y = z[..., k]
@@ -173,6 +174,7 @@ def main():
                                            d_input=d_input, d_model=2, d_state=args.dstate,
                                            transient=0,
                                            take_last=True,
+                                           encoder='onehot' if args.task in ['listops', 'imdb'] else 'reservoir',
                                            min_encoder_scaling=args.minscaleencoder,
                                            max_encoder_scaling=args.maxscaleencoder,
                                            **block_args)
