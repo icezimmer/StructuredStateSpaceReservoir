@@ -10,7 +10,6 @@ from src.deep.stacked import StackedReservoir, StackedEchoState
 from src.models.rssm.rssm import RSSM
 from src.utils.experiments import set_seed
 from src.utils.saving import load_data
-from src.utils.check_device import check_model_device
 from src.utils.signals import pca_analysis
 from src.utils.experiments import read_yaml_to_dict
 
@@ -20,14 +19,20 @@ def get_data(develop_dataset, label_selected, reservoir_model):
     i = 0
     item = develop_dataset[i]
     u, label = item[0], item[1]
+    if len(item) == 3:
+        length = item[2]
+        u = u[..., :length]
     while label != label_selected:
         i = i + 1
         item = develop_dataset[i]  # u has shape (H0, L)
         u, label = item[0], item[1]
+        if len(item) == 3:
+            length = item[2]
+            u = u[..., :length]
 
     u_t = u.squeeze(0)  # (L,)
 
-    y = reservoir_model(u.unsqueeze(0).to(device=check_model_device(reservoir_model)))  # (B=1, H=num_layers, L)
+    y = reservoir_model(u.unsqueeze(0))  # (B=1, H=num_layers, L)
     y_t = y.squeeze(0)  # (H=num_layers, L)
 
     return u_t, y_t, label  # (L,), (H=num_layers, L), int
@@ -57,14 +62,13 @@ def plot_pca(y_t, label, save_path):
 
     # Save plot to the specified path
     os.makedirs(os.path.dirname(save_path), exist_ok=True)  # Create directories if not exist
-    plt.savefig(save_path)
+    plt.savefig(save_path, bbox_inches='tight')
     plt.close()  # Close the figure to free memory
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Run classification task.')
     parser.add_argument('--seed', type=int, default=42, help='Random seed.')
-    parser.add_argument('--device', default='cuda:3', help='Cuda device.')
     parser.add_argument('--task', default='smnist', help='Name of task.')
     parser.add_argument('--label', type=int, default=0, help='Label to highlight in the time series plot.')
     parser.add_argument('--block', choices=['RSSM', 'ESN'], default='RSSM',
@@ -142,7 +146,7 @@ def main():
     else:
         raise ValueError('Invalid block name')
 
-    save_path = os.path.join('./checkpoint', 'dynamics', args.task, args.block, 'pca.png')
+    save_path = os.path.join('./checkpoint', 'dynamics', args.task, args.block, 'pca.pdf')
 
     logging.info('Loading develop dataset.')
     develop_dataset = load_data(os.path.join('..', 'datasets', args.task, 'develop_dataset'))
@@ -158,8 +162,6 @@ def main():
                                            min_encoder_scaling=args.minscaleencoder,
                                            max_encoder_scaling=args.maxscaleencoder,
                                            **block_args)
-        logging.info(f'Moving reservoir model to {args.device}.')
-        reservoir_model.to(device=torch.device(args.device))
 
     elif args.block == 'ESN':
         reservoir_model = StackedEchoState(n_layers=args.layers,
@@ -167,9 +169,6 @@ def main():
                                            transient=0,
                                            take_last=False,
                                            **block_args)
-        logging.info(f'Moving reservoir model to {args.device}.')
-        reservoir_model.to(device=torch.device(args.device))
-
     else:
         raise ValueError('Invalid block name')
 

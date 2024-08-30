@@ -26,6 +26,9 @@ def plot_time_series(develop_dataset, label_list, num, reservoir_model, kernel_s
     while min(counter.values()) < num:
         item = develop_dataset[i]
         u, label = item[0], item[1]
+        if len(item) == 3:
+            length = item[2]
+            u = u[..., :length]
         index = label.item()
         if counter[index] >= num:
             i = i + 1
@@ -39,8 +42,8 @@ def plot_time_series(develop_dataset, label_list, num, reservoir_model, kernel_s
 
             # x = None
             # for k in range(kernel_size):
-            #     y, x = reservoir_model.step(u[..., k].unsqueeze(0).to(device=check_model_device(reservoir_model)), x)
-            z = reservoir_model(u.unsqueeze(0).to(device=check_model_device(reservoir_model)))
+            #     y, x = reservoir_model.step(u[..., k].unsqueeze(0), x)
+            z = reservoir_model(u.unsqueeze(0))
             for k in range(kernel_size):
                 y = z[..., k]
 
@@ -64,7 +67,7 @@ def plot_time_series(develop_dataset, label_list, num, reservoir_model, kernel_s
             last_state = None
 
             for k in range(kernel_size):
-                _, x = reservoir_model.step(u[:, k].unsqueeze(0).to(device=check_model_device(reservoir_model)), x)
+                _, x = reservoir_model.step(u[:, k].unsqueeze(0), x)
 
                 state = x.cpu().numpy()
                 if k == 0:
@@ -81,7 +84,7 @@ def plot_time_series(develop_dataset, label_list, num, reservoir_model, kernel_s
 
     # Save plot to the specified path
     os.makedirs(os.path.dirname(save_path), exist_ok=True)  # Create directories if not exist
-    plt.savefig(save_path)
+    plt.savefig(save_path, bbox_inches='tight')
     plt.close()  # Close the figure to free memory
 
 
@@ -89,7 +92,6 @@ def plot_time_series(develop_dataset, label_list, num, reservoir_model, kernel_s
 def parse_args():
     parser = argparse.ArgumentParser(description='Run classification task.')
     parser.add_argument('--seed', type=int, default=42, help='Random seed.')
-    parser.add_argument('--device', default='cuda:3', help='Cuda device.')
     parser.add_argument('--task', default='smnist', help='Name of task.')
     parser.add_argument('--num', type=int, default=1, help='Number of inputs per class.')
     parser.add_argument('--block', choices=['RSSM', 'ESN'], default='RSSM',
@@ -162,7 +164,7 @@ def main():
     else:
         raise ValueError('Invalid block name')
 
-    save_path = os.path.join('./checkpoint', 'dynamics', args.task, args.block, 'multi.png')
+    save_path = os.path.join('./checkpoint', 'dynamics', args.task, args.block, 'multi.pdf')
 
     logging.info('Loading develop dataset.')
     develop_dataset = load_data(os.path.join('..', 'datasets', args.task, 'develop_dataset'))
@@ -178,17 +180,12 @@ def main():
                                            min_encoder_scaling=args.minscaleencoder,
                                            max_encoder_scaling=args.maxscaleencoder,
                                            **block_args)
-        logging.info(f'Moving reservoir model to {args.device}.')
-        reservoir_model.to(device=torch.device(args.device))
-
     elif args.block == 'ESN':
         reservoir_model = StackedEchoState(n_layers=args.layers,
                                            d_input=d_input, d_model=2, d_state=args.dstate,
                                            transient=0,
                                            take_last=True,
                                            **block_args)
-        logging.info(f'Moving reservoir model to {args.device}.')
-        reservoir_model.to(device=torch.device(args.device))
 
     else:
         raise ValueError('Invalid block name')
