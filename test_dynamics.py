@@ -54,7 +54,7 @@ def plot_time_series(u, label, reservoir_model, save_path):
 
     x = None
     for k in tqdm(range(length)):
-        y, x = reservoir_model.step(u[..., k].unsqueeze(0)), x)
+        y, x = reservoir_model.step(u[..., k].unsqueeze(0), x)
     # z = reservoir_model(u.unsqueeze(0))
     # for k in range(length):
     #     y = z[..., k]
