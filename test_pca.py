@@ -55,9 +55,10 @@ def plot_pca(y_t, label, save_path):
     ax.set_xticks(k)
     ax.set_xticklabels(k)
 
-    ax.set_xlabel('Layer')
-    ax.set_ylabel('Loading')
-    ax.set_title(f'PCA Loadings of Output Signals (Label: {label})')
+    ax.set_xlabel('Layer', fontsize=22)
+    ax.set_ylabel('Loading', fontsize=22)
+    ax.tick_params(axis='both', labelsize=18)
+    ax.set_title('PCA Loadings of Output Signals', fontsize=24)
     ax.legend()
 
     # Save plot to the specified path
