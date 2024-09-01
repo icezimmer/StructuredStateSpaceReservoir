@@ -500,8 +500,7 @@ def main():
             X, y = develop_dataset.to_fit_offline_readout()
             _ = model(X, y)
 
-            # clf = RidgeClassifierCV(alphas=[1e-3, 1e-2, 1e-1, 1]).fit(X.numpy(), y.numpy())
-            # print(clf.score(X.numpy(), y.numpy()))
+            # clf = RidgeClassifierCV(alphas=[0.5, 0.75, 1.0]).fit(X.numpy(), y.numpy())
 
             emissions = tracker.stop()
             logging.info(f"Estimated CO2 emissions for this fit: {emissions} kg")
@@ -525,6 +524,10 @@ def main():
                 eval_test = EvaluateOfflineClassifier()
                 eval_test.evaluate(y_true=y.numpy(), y_pred=model(X).numpy())
                 scores = {'test_accuracy': eval_test.accuracy_value}
+
+                # y_pred = clf.predict(X.numpy())
+                # scores = {'test_accuracy': clf.score(y_pred, y.numpy())}
+
             else:
                 scores = {}
 
