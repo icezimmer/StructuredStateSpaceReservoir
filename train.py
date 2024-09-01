@@ -79,7 +79,8 @@ def parse_args():
         if args.block in ['RNN', 'GRU', 'LSTM']:
             pass
         elif args.block == 'S4':
-            parser.add_argument('--dropout', type=float, default=0.0, help='Dropout the preactivation inside the block.')
+            parser.add_argument('--dropout', type=float, default=0.0,
+                                help='Dropout the preactivation inside the block.')
             parser.add_argument('--tiedropout', action='store_true', help='Tie dropout.')
             parser.add_argument('--dstate', type=int, default=64, help='State size.')
             parser.add_argument('--kernellr', type=float, default=0.001, help='Learning rate for kernel pars.')
@@ -88,9 +89,10 @@ def parse_args():
             parser.add_argument('--init', default='legs', help='Choices for initialization of A')
             parser.add_argument('--bidirectional', action='store_true', help='Bidirectional.')
             parser.add_argument('--finalact', default='glu', help='Activation.')
-            parser.add_argument('--nssm', type=int, default=1, help='Kernel name.')            
+            parser.add_argument('--nssm', type=int, default=1, help='Kernel name.')
         elif args.block == 'S4D':
-            parser.add_argument('--dropout', type=float, default=0.0, help='Dropout the preactivation inside the block.')
+            parser.add_argument('--dropout', type=float, default=0.0,
+                                help='Dropout the preactivation inside the block.')
             parser.add_argument('--conv', choices=conv_classes, default='fft', help='Skip connection matrix D.')
             parser.add_argument('--minscaleD', type=float, default=0.0, help='Skip connection matrix D min scaling.')
             parser.add_argument('--maxscaleD', type=float, default=1.0, help='Skip connection matrix D max scaling.')
@@ -108,15 +110,18 @@ def parse_args():
             parser.add_argument('--maxscaleC', type=float, default=1.0, help='Max scaling for state2output matrix C.')
         elif args.block == 'LRSSM':
             parser.add_argument('--dstate', type=int, default=64, help='State size.')
-            parser.add_argument('--dropout', type=float, default=0.0, help='Dropout the preactivation inside the block.')
+            parser.add_argument('--dropout', type=float, default=0.0,
+                                help='Dropout the preactivation inside the block.')
             parser.add_argument('--minscaleD', type=float, default=0.0, help='Skip connection matrix D min scaling.')
             parser.add_argument('--maxscaleD', type=float, default=1.0, help='Skip connection matrix D max scaling.')
             parser.add_argument('--kernel', choices=kernel_classes_reservoir, default='Vr', help='Kernel name.')
             parser.add_argument('--act', choices=lrssm_activations, default='glu', help='Kernel name.')
             parser.add_argument('--strong', type=float, default=-1.0, help='Strong Stability for internal dynamics.')
             parser.add_argument('--weak', type=float, default=0.0, help='Weak Stability for internal dynamics.')
-            parser.add_argument('--low', type=float, default=0.001, help='Min-Sampling-Rate / Min-Oscillations for internal dynamics.')
-            parser.add_argument('--high', type=float, default=0.1, help='Max-Sampling-Rate / Max-Oscillations for internal dynamics.')
+            parser.add_argument('--low', type=float, default=0.001,
+                                help='Min-Sampling-Rate / Min-Oscillations for internal dynamics.')
+            parser.add_argument('--high', type=float, default=0.1,
+                                help='Max-Sampling-Rate / Max-Oscillations for internal dynamics.')
             parser.add_argument('--minscaleB', type=float, default=0.0, help='Min scaling for input2state matrix B.')
             parser.add_argument('--maxscaleB', type=float, default=1.0, help='Max scaling for input2state matrix B.')
             parser.add_argument('--minscaleC', type=float, default=0.0, help='Min scaling for state2output matrix C.')
@@ -138,13 +143,17 @@ def parse_args():
             parser.add_argument('--maxscaleD', type=float, default=1.0, help='Skip connection matrix D max scaling.')
             parser.add_argument('--kernel', choices=kernel_classes_reservoir, default='Vr',
                                 help='Kernel name.')
-            parser.add_argument('--funfwd', choices=realfuns, default='real+relu', help='Real function of complex variable to the Forward Pass.')
-            parser.add_argument('--funfit', choices=realfuns, default='real+tanh', help='Real function of complex variable to Fit the Readout.')
+            parser.add_argument('--funfwd', choices=realfuns, default='real+relu',
+                                help='Real function of complex variable to the Forward Pass.')
+            parser.add_argument('--funfit', choices=realfuns, default='real+tanh',
+                                help='Real function of complex variable to Fit the Readout.')
             parser.add_argument('--strong', type=float, default=-1.0, help='Strong Stability for internal dynamics.')
             parser.add_argument('--weak', type=float, default=0.0, help='Weak Stability for internal dynamics.')
             parser.add_argument('--discrete', action='store_true', help='Discrete SSM modality.')
-            parser.add_argument('--low', type=float, default=0.001, help='Min-Sampling-Rate / Min-Oscillations for internal dynamics.')
-            parser.add_argument('--high', type=float, default=0.1, help='Max-Sampling-Rate / Max-Oscillations for internal dynamics.')
+            parser.add_argument('--low', type=float, default=0.001,
+                                help='Min-Sampling-Rate / Min-Oscillations for internal dynamics.')
+            parser.add_argument('--high', type=float, default=0.1,
+                                help='Max-Sampling-Rate / Max-Oscillations for internal dynamics.')
             parser.add_argument('--minscaleB', type=float, default=0.0, help='Min scaling for input2state matrix B.')
             parser.add_argument('--maxscaleB', type=float, default=1.0, help='Max scaling for input2state matrix B.')
             parser.add_argument('--minscaleC', type=float, default=0.0, help='Min scaling for state2output matrix C.')
@@ -220,7 +229,8 @@ def main():
         block_args = {}
     elif args.block == 'S4':
         block_args = {'dropout': args.dropout, 'tie_dropout': args.tiedropout,
-                      'd_state': args.dstate, 'lr': args.kernellr, 'dt_min': args.low, 'dt_max': args.high, 'init': args.init,
+                      'd_state': args.dstate, 'lr': args.kernellr, 'dt_min': args.low, 'dt_max': args.high,
+                      'init': args.init,
                       'bidirectional': args.bidirectional, 'final_act': args.finalact, 'n_ssm': args.nssm}
     elif args.block == 'S4D':
         block_args = {'mixing_layer': args.mix,
@@ -268,6 +278,50 @@ def main():
                       'max_scaleB': args.maxscaleB,
                       'min_scaleC': args.minscaleC,
                       'max_scaleC': args.maxscaleC}
+    else:
+        raise ValueError('Invalid block name')
+
+    if args.block in ['RNN', 'GRU', 'LSTM', 'S4', 'S4D', 'LRSSM']:
+        try:
+            temp = StackedNetwork(block_cls=block_factories[args.block], n_layers=args.layers,
+                                  d_input=d_input, d_model=args.dmodel, d_output=d_output,
+                                  encoder=args.encoder, decoder=args.decoder,
+                                  to_vec=to_vec,
+                                  min_encoder_scaling=args.minscaleencoder, max_encoder_scaling=args.maxscaleencoder,
+                                  min_decoder_scaling=args.minscaledecoder, max_decoder_scaling=args.maxscaledecoder,
+                                  layer_dropout=args.layerdrop,
+                                  **block_args)
+            del temp
+        except Exception as e:
+            logging.error(f"Error while initializing model: {e}")
+            raise ValueError('Invalid block arguments')
+
+    elif args.block == 'RSSM':
+        try:
+            temp = StackedReservoir(block_cls=block_factories[args.block],
+                                    n_layers=args.layers,
+                                    d_input=d_input, d_model=args.dmodel, d_state=args.dstate,
+                                    transient=args.transient,
+                                    take_last=args.last,
+                                    encoder=args.encoder,
+                                    min_encoder_scaling=args.minscaleencoder,
+                                    max_encoder_scaling=args.maxscaleencoder,
+                                    **block_args)
+            del temp
+        except Exception as e:
+            logging.error(f"Error while initializing model: {e}")
+            raise ValueError('Invalid block arguments')
+    elif args.block == 'ESN':
+        try:
+            temp = StackedEchoState(n_layers=args.layers,
+                                    d_input=d_input, d_model=args.dmodel,
+                                    transient=args.transient,
+                                    take_last=args.last,
+                                    **block_args)
+            del temp
+        except Exception as e:
+            logging.error(f"Error while initializing model: {e}")
+            raise ValueError('Invalid block arguments')
     else:
         raise ValueError('Invalid block name')
 
@@ -419,7 +473,8 @@ def main():
             raise ValueError('Invalid block name')
 
         if args.readout == 'ridge':
-            model = RidgeRegression(d_input=reservoir_model.d_output, d_output=d_output, alpha=args.regul, to_vec=to_vec)
+            model = RidgeRegression(d_input=reservoir_model.d_output, d_output=d_output, alpha=args.regul,
+                                    to_vec=to_vec)
 
             logging.info('Setting tracker.')
             tracker = EmissionsTracker(output_dir=output_dir, project_name=project_name,

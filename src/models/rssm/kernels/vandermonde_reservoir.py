@@ -61,7 +61,7 @@ class VandermondeReservoir(nn.Module):
             state_reservoir = ContinuousStateReservoir(self.d_state)
             Lambda = state_reservoir.diagonal_state_space_matrix(
                      min_real_part=strong_stability, max_real_part=weak_stability, field=field)
-            rate_reservoir = ReservoirVector(d=self.d_state)
+            rate_reservoir = ReservoirVector(d=self.d_input)
             dt = rate_reservoir.uniform_interval(min_value=low_oscillation, max_value=high_oscillation)
             Lambda_bar, B_bar = self._zoh(Lambda, B, dt)
 
@@ -74,7 +74,8 @@ class VandermondeReservoir(nn.Module):
         powers = torch.arange(kernel_size, dtype=torch.float32)  # (L,)
         V = self.A_bar.unsqueeze(-1) ** powers   # (P, L)
 
-        kernel = torch.einsum('hp,pl->hl', W, V)  # (H, L)
+        # kernel = torch.einsum('hp,pl->hl', W, V)  # (H, L)
+        kernel = torch.einsum('hp,phl->hl', W, V)  # (H, L)
         self.register_buffer('K', kernel)  # (H, L)
 
 
@@ -92,10 +93,14 @@ class VandermondeReservoir(nn.Module):
         :param dt: Delta time for discretization
         :return: Lambda_bar, B_bar (Discrete System)
         """
-        Ones = torch.ones(size=Lambda.shape, dtype=torch.float32)
+        # Ones = torch.ones(size=Lambda.shape, dtype=torch.float32)
+        #
+        # Lambda_bar = torch.exp(torch.mul(Lambda, dt))
+        # B_bar = torch.einsum('p,ph->ph', torch.mul(1 / Lambda, (Lambda_bar - Ones)), B)
 
-        Lambda_bar = torch.exp(torch.mul(Lambda, dt))
-        B_bar = torch.einsum('p,ph->ph', torch.mul(1 / Lambda, (Lambda_bar - Ones)), B)
+        Lambda_bar = torch.exp(torch.einsum('p,h->ph', Lambda, dt))
+        temp = torch.einsum('p,ph->ph', 1 / Lambda, Lambda_bar - 1)
+        B_bar = torch.einsum('ph,ph->ph', temp, B)
 
         return Lambda_bar, B_bar
 
@@ -123,7 +128,7 @@ class VandermondeReservoir(nn.Module):
     def step(self, u, x=None):
         """
         Compute one time step using H independent recurrent models. Intended to be used during validation.
-        Assuming that for each feature H, the diagonal discrete SSM (recurren model) is:
+        Assuming that for each feature H, the diagonal discrete SSM (recurrent model) is:
             x_new = A_bar * x_old + B_bar * u_new
             y_new = C_bar * x_new, if H=1
         :param u: time step input of shape (B, H)
@@ -133,7 +138,7 @@ class VandermondeReservoir(nn.Module):
         u = u.to(dtype=torch.complex64)  # (B, H)
         if x is None:
             x = self.x0.unsqueeze(0).expand(u.shape[0], self.B_bar.shape[0], self.B_bar.shape[1])  # (B, P, H)
-        x = torch.mul(self.A_bar.unsqueeze(0).unsqueeze(-1), x) + torch.mul(self.B_bar.unsqueeze(0), u.unsqueeze(-2))  # (B, P, H)
+        x = torch.mul(self.A_bar.unsqueeze(0), x) + torch.mul(self.B_bar.unsqueeze(0), u.unsqueeze(-2))  # (B, P, H)
         y = torch.sum(torch.mul(self.C_bar.unsqueeze(0), x.transpose(1, 2)), dim=-1)  # (B, H)
 
         return y, x  # (B, H), (B, P, H)
