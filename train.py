@@ -1,7 +1,6 @@
 import argparse
 import logging
 import os
-from sklearn.linear_model import RidgeClassifierCV
 import torch
 from src.utils.experiments import set_seed
 from torch.utils.data import DataLoader
@@ -23,6 +22,7 @@ from src.utils.saving import load_data, save_hyperparameters, update_results, up
 from src.utils.check_device import check_model_device
 from src.utils.experiments import read_yaml_to_dict
 from codecarbon import EmissionsTracker
+from src.utils.saving import save_data
 
 block_factories = {
     'S4': S4Block,
@@ -419,7 +419,7 @@ def main():
 
         if args.save:
             logging.info('Saving model hyper-parameters.')
-            save_hyperparameters(args=args, file_path=hyperparameters_path)
+            save_hyperparameters(dictionary=vars(args), file_path=hyperparameters_path)
             logging.info('Saving model.')
             torch.save(model.state_dict(), model_path)
 
@@ -482,12 +482,10 @@ def main():
                                        gpu_ids=[check_model_device(reservoir_model).index])
 
             if args.save:
-                run_dir = os.path.join(output_dir, str(tracker.run_id))
-                os.makedirs(run_dir)
-                hyperparameters_path = os.path.join(run_dir, 'hyperparameters.json')
-                reservoir_model_path = os.path.join(run_dir, 'reservoir_model.pt')
-                develop_path = os.path.join(run_dir, 'develop')
-                test_path = os.path.join(run_dir, 'test')
+                hyperparameters_path = None
+                reservoir_model_path = None
+                develop_path = None
+                test_path = None
             else:
                 hyperparameters_path = None
                 reservoir_model_path = None
@@ -500,16 +498,8 @@ def main():
             X, y = develop_dataset.to_fit_offline_readout()
             _ = model(X, y)
 
-            # clf = RidgeClassifierCV(alphas=[0.5, 0.75, 1.0]).fit(X.numpy(), y.numpy())
-
             emissions = tracker.stop()
             logging.info(f"Estimated CO2 emissions for this fit: {emissions} kg")
-
-            if args.save:
-                logging.info('Saving model hyper-parameters.')
-                save_hyperparameters(args=args, file_path=hyperparameters_path)
-                logging.info('Saving reservoir model.')
-                torch.save(reservoir_model.state_dict(), reservoir_model_path)
 
             if mode == 'classification':
                 if args.tr:
@@ -524,12 +514,13 @@ def main():
                 eval_test = EvaluateOfflineClassifier()
                 eval_test.evaluate(y_true=y.numpy(), y_pred=model(X).numpy())
                 scores = {'test_accuracy': eval_test.accuracy_value}
-
-                # y_pred = clf.predict(X.numpy())
-                # scores = {'test_accuracy': clf.score(y_pred, y.numpy())}
-
             else:
                 scores = {}
+
+            if args.save:
+                logging.info('Saving reservoir datasets.')
+                save_data(develop_dataset, os.path.join('..', 'datasets', args.task, 'reservoir_develop_dataset'))
+                save_data(test_dataset, os.path.join('..', 'datasets', args.task, 'reservoir_test_dataset'))
 
         elif args.readout == 'mlp':
             model = MLP(n_layers=args.mlplayers, d_input=reservoir_model.d_output, d_output=d_output)
@@ -582,7 +573,7 @@ def main():
 
             if args.save:
                 logging.info('Saving model hyper-parameters.')
-                save_hyperparameters(args=args, file_path=hyperparameters_path)
+                save_hyperparameters(dictionary=vars(args), file_path=hyperparameters_path)
                 logging.info('Saving reservoir model.')
                 torch.save(reservoir_model.state_dict(), reservoir_model_path)
                 logging.info('Saving model.')
@@ -660,7 +651,7 @@ def main():
 
             if args.save:
                 logging.info('Saving model hyper-parameters.')
-                save_hyperparameters(args=args, file_path=hyperparameters_path)
+                save_hyperparameters(dictionary=vars(args), file_path=hyperparameters_path)
                 logging.info('Saving reservoir model.')
                 torch.save(reservoir_model.state_dict(), reservoir_model_path)
                 logging.info('Saving model.')
