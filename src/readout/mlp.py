@@ -18,7 +18,7 @@ class MLP(nn.Module):
 
         self.mlp_layers = nn.ModuleList(layers)
 
-    def forward(self, x):
+    def forward(self, x, lengths=None):
         """
         args:
             x: torch tensor of shape (B, d_input, 1)
