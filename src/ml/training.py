@@ -28,6 +28,8 @@ class TrainModel:
                 input_, label = item
                 length = None
             self.optimizer.zero_grad()
+            input_ = input_.to(self.device)
+            label = label.to(self.device)
             output = self.model(input_, length)
             loss = self.criterion(output, label)
             loss.backward()
