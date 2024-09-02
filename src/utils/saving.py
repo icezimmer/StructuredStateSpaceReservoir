@@ -18,11 +18,11 @@ def load_data(file_path, device='cpu'):
     return loaded_data
 
 
-def save_hyperparameters(args, file_path):
+def save_hyperparameters(dictionary, file_path):
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
     with open(file_path, 'w') as f:
         # Convert args namespace to dictionary and save as JSON
-        json.dump(vars(args), f, indent=4)
+        json.dump(dictionary, f, indent=4)
 
 
 def save_parameters(model, file_path):
