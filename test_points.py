@@ -1,7 +1,6 @@
 import argparse
 import logging
 import os
-import torch
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 
@@ -9,7 +8,6 @@ from src.deep.stacked import StackedReservoir, StackedEchoState
 from src.models.rssm.rssm import RSSM
 from src.utils.experiments import set_seed
 from src.utils.saving import load_data
-from src.utils.check_device import check_model_device
 from src.utils.experiments import read_yaml_to_dict
 
 
@@ -141,6 +139,7 @@ def main():
 
     setting = read_yaml_to_dict(os.path.join('configs', args.task, 'setting.yaml'))
     architecture = setting.get('architecture', {})
+    to_embed = architecture['to_embed']
     d_input = architecture['d_input']  # dim of input space or vocab size for text embedding
     kernel_size = architecture['kernel_size']
     label_list = list(range(architecture['d_output']))
@@ -176,7 +175,7 @@ def main():
                                            d_input=d_input, d_model=2, d_state=args.dstate,
                                            transient=0,
                                            take_last=True,
-                                           encoder='onehot' if args.task in ['listops', 'imdb'] else 'reservoir',
+                                           encoder='onehot' if to_embed else 'reservoir',
                                            min_encoder_scaling=args.minscaleencoder,
                                            max_encoder_scaling=args.maxscaleencoder,
                                            **block_args)
@@ -185,6 +184,7 @@ def main():
                                            d_input=d_input, d_model=2, d_state=args.dstate,
                                            transient=0,
                                            take_last=True,
+                                           one_hot=to_embed,
                                            **block_args)
 
     else:

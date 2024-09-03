@@ -217,6 +217,7 @@ def main():
     architecture = setting.get('architecture', {})
     criterion = loss[architecture['criterion']]
     to_vec = architecture['to_vec']
+    to_embed = architecture['to_embed']
     d_input = architecture['d_input']  # dim of input space or vocab size for text embedding
     kernel_size = architecture['kernel_size']
     d_output = architecture['d_output']
@@ -465,6 +466,7 @@ def main():
                                                d_input=d_input, d_model=args.dmodel,
                                                transient=args.transient,
                                                take_last=args.last,
+                                               one_hot=to_embed,
                                                **block_args)
             logging.info(f'Moving {args.block} model to {args.device}.')
             reservoir_model.to(device=torch.device(args.device))

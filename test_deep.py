@@ -135,6 +135,7 @@ def main():
 
     setting = read_yaml_to_dict(os.path.join('configs', args.task, 'setting.yaml'))
     architecture = setting.get('architecture', {})
+    to_embed = architecture['to_embed']
     d_input = architecture['d_input']  # dim of input space or vocab size for text embedding
     kernel_size = architecture['kernel_size']
     label_list = list(range(architecture['d_output']))
@@ -173,7 +174,7 @@ def main():
                                            d_input=d_input, d_model=1, d_state=args.dstate,
                                            transient=0,
                                            take_last=False,
-                                           encoder='onehot' if args.task in ['listops', 'imdb'] else 'reservoir',
+                                           encoder='onehot' if to_embed else 'reservoir',
                                            min_encoder_scaling=args.minscaleencoder,
                                            max_encoder_scaling=args.maxscaleencoder,
                                            **block_args)
@@ -183,6 +184,7 @@ def main():
                                            d_input=d_input, d_model=1,
                                            transient=0,
                                            take_last=False,
+                                           one_hot=to_embed,
                                            **block_args)
 
     else:

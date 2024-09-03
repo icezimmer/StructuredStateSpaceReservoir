@@ -1,7 +1,7 @@
 import torch.nn as nn
 from src.layers.reservoir import LinearReservoirRing
 from src.models.esn.esn import ESN
-from src.layers.embedding import EmbeddingFixedPad, OneHotEncoding
+from src.layers.embedding import EmbeddingFixedPad, OneHotEncoding, Encoder
 import torch
 
 
@@ -199,7 +199,7 @@ class StackedReservoir(nn.Module):
 
 class StackedEchoState(nn.Module):
     def __init__(self, n_layers, d_input, d_model,
-                 transient, take_last,
+                 transient, take_last, one_hot,
                  **block_args):
         """
         Stack multiple blocks of the same type to form a deep network.
@@ -222,23 +222,27 @@ class StackedEchoState(nn.Module):
                                     [ESN(d_input=self.d_state, d_state=self.d_state, **block_args)
                                     for _ in range(self.n_layers - 1)])
 
+        self.one_hot = one_hot
+        self.encoder = Encoder(w_in=self.layers[0].w_in, one_hot=self.one_hot)
+
         self.transient = transient
 
     def _one_hot_encoding(self, x):
-        x = nn.functional.one_hot(input=x, num_classes=self.d_input)  # (B, L) -> (B, L, K=d_input)
-        x = x.permute(0, 2, 1)  # (B, L, K) -> (B, K, L)
+        x = nn.functional.one_hot(input=x, num_classes=self.d_input)  # (*) -> (*, K=d_input)
+        if len(x.shape) == 3:
+            x = x.permute(0, 2, 1)  # (B, L, K) -> (B, K, L)
         x = x.to(dtype=torch.float32)
         return x
 
-    def step(self, u, x=None, lengths=None):
+    def step(self, u, x=None):
         """
         Step one time step as a recurrent model.
         :param u: input step of shape (B, H)
         :param x: previous state of shape (B, P)
         :return: None, new state (B, P)
         """
-        if lengths is not None:
-            x = self._one_hot_encoding(x)
+        if self.one_hot:
+            u = self._one_hot_encoding(u)
         if self.take_last:
             z_list = []
             for i, layer in enumerate(self.layers):
@@ -271,7 +275,7 @@ class StackedEchoState(nn.Module):
         :param  lengths: lengths of the input sequences, torch tensor of shape (B)
         :return: output sequence, torch tensor of shape (B, d_state, L - w)
         """
-        if lengths is not None:
+        if self.one_hot:
             x = self._one_hot_encoding(x)
         if self.take_last:
             for layer in self.layers:
