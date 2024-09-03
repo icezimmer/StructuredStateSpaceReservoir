@@ -76,7 +76,7 @@ def main():
         if readout == 'ridgeCV':
             X, y = develop_dataset.to_fit_offline_readout()
             logging.info('Ridge Classifier Cross Validation.')
-            clf = RidgeClassifierCV(alphas=hyperparameters['regul']).fit(X.numpy(), y.numpy())
+            clf = RidgeClassifierCV(alphas=hyperparameters['regul'], cv=3).fit(X.numpy(), y.numpy())
 
             X, y = test_dataset.to_evaluate_offline_classifier()
             y_pred = clf.predict(X.numpy())
