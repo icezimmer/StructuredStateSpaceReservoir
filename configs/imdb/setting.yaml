@@ -4,6 +4,7 @@ mode:
 architecture:
     criterion: 'cross_entropy'
     to_vec: True
+    to_embed: True
     # d_input: 30522  # vocab_size or num_embedding using BertTokenizer.from_pretrained('bert-base-uncased')
     d_input: 137  # vocab_size or num_embedding
     kernel_size: 4096
