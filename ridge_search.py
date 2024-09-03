@@ -38,6 +38,7 @@ def main():
     architecture = setting.get('architecture', {})
     d_output = architecture['d_output']
     to_vec = architecture['to_vec']
+    d_input = develop_dataset[0][0].shape[-2]  # From (*, H, L=1)
 
     experiments = {
         'regul': [0.8, 1.5, 3.0, 5.0, 7.5, 10.0, 12.5, 15.0]
@@ -69,10 +70,11 @@ def main():
 
     # Generate and execute sampled experiments
     best_score = 0.0
+
     for experiment in sampled_experiments:
         print(experiment)
         X, y = develop_dataset.to_fit_offline_readout()
-        model = RidgeRegression(d_input=X.shape[-1], d_output=d_output, alpha=experiment['regul'],
+        model = RidgeRegression(d_input=d_input, d_output=d_output, alpha=experiment['regul'],
                                 to_vec=to_vec)
 
         logging.info('Fitting Ridge readout.')
