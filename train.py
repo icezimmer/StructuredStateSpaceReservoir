@@ -201,13 +201,6 @@ def parse_args():
 def main():
     logging.basicConfig(level=logging.INFO)
 
-    # Check if cuDNN is enabled
-    logging.info(f"CUDA available: {torch.cuda.is_available()}")
-    logging.info(f"cuDNN enabled: {torch.backends.cudnn.enabled}")
-    torch.cuda.empty_cache()
-    # smaller -> less memory, slower process | larger -> more memory, faster process
-    # os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:128'
-
     args = parse_args()
 
     logging.info(f"Setting seed: {args.seed}")
@@ -284,47 +277,54 @@ def main():
 
     if args.block in ['RNN', 'GRU', 'LSTM', 'S4', 'S4D', 'LRSSM']:
         try:
-            temp = StackedNetwork(block_cls=block_factories[args.block], n_layers=args.layers,
-                                  d_input=d_input, d_model=args.dmodel, d_output=d_output,
+            flag = StackedNetwork(block_cls=block_factories[args.block], n_layers=1,
+                                  d_input=1, d_model=1, d_output=1,
                                   encoder=args.encoder, decoder=args.decoder,
                                   to_vec=to_vec,
                                   min_encoder_scaling=args.minscaleencoder, max_encoder_scaling=args.maxscaleencoder,
                                   min_decoder_scaling=args.minscaledecoder, max_decoder_scaling=args.maxscaledecoder,
                                   layer_dropout=args.layerdrop,
                                   **block_args)
-            del temp
+            del flag
         except Exception as e:
             logging.error(f"Error while initializing model: {e}")
             raise ValueError('Invalid block arguments')
 
     elif args.block == 'RSSM':
         try:
-            temp = StackedReservoir(block_cls=block_factories[args.block],
-                                    n_layers=args.layers,
-                                    d_input=d_input, d_model=args.dmodel, d_state=args.dstate,
+            flag = StackedReservoir(block_cls=block_factories[args.block],
+                                    n_layers=1,
+                                    d_input=1, d_model=1, d_state=1,
                                     transient=args.transient,
                                     take_last=args.last,
                                     encoder=args.encoder,
                                     min_encoder_scaling=args.minscaleencoder,
                                     max_encoder_scaling=args.maxscaleencoder,
                                     **block_args)
-            del temp
+            del flag
         except Exception as e:
             logging.error(f"Error while initializing model: {e}")
             raise ValueError('Invalid block arguments')
     elif args.block == 'ESN':
         try:
-            temp = StackedEchoState(n_layers=args.layers,
-                                    d_input=d_input, d_model=args.dmodel,
+            flag = StackedEchoState(n_layers=1,
+                                    d_input=1, d_model=1,
                                     transient=args.transient,
                                     take_last=args.last,
                                     **block_args)
-            del temp
+            del flag
         except Exception as e:
             logging.error(f"Error while initializing model: {e}")
             raise ValueError('Invalid block arguments')
     else:
         raise ValueError('Invalid block name')
+
+    # Check if cuDNN is enabled
+    logging.info(f"CUDA available: {torch.cuda.is_available()}")
+    logging.info(f"cuDNN enabled: {torch.backends.cudnn.enabled}")
+    torch.cuda.empty_cache()
+    # smaller -> less memory, slower process | larger -> more memory, faster process
+    # os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:128'
 
     if args.block == 'S4D':
         block_name = args.block + '_' + args.conv + '_' + args.kernel + '_' + args.mix
