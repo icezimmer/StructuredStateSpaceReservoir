@@ -42,3 +42,27 @@ class OneHotEncoding(nn.Module):
         x[u == self.padding_idx] = 0.0
         x = x.permute(0, 2, 1)   # (B, L, d_model) -> (B, dmodel, L)
         return x
+
+
+class Encoder(nn.Module):
+    def __init__(self, w_in, one_hot):
+        super(Encoder, self).__init__()
+        self.w_in = w_in
+        self.one_hot = one_hot
+
+    def _one_hot_encoding(self, x):
+        x = nn.functional.one_hot(input=x, num_classes=self.w_in.shape[-1])  # (*) -> (*, K=vocab_size)
+        if len(x.shape) == 3:
+            x = x.permute(0, 2, 1)  # (B, L, K) -> (B, K, L)
+        x = x.to(dtype=torch.float32)
+        return x
+
+    def step(self, x):
+        if self.one_hot:
+            x = self._one_hot_encoding(x)
+        return torch.matmul(x, self.w_in.t())
+
+    def forward(self, x):
+        if self.one_hot:
+            x = self._one_hot_encoding(x)
+        return torch.einsum('ph, bhl -> bpl', self.w_in, x)
