@@ -207,6 +207,7 @@ class StackedEchoState(nn.Module):
 
         super().__init__()
 
+        self.d_input = d_input
         self.d_state = d_model
 
         self.n_layers = n_layers
@@ -217,20 +218,27 @@ class StackedEchoState(nn.Module):
         else:
             self.d_output = self.n_layers * self.d_state  # Take all the layers output concatenating them
 
-        self.layers = nn.ModuleList([ESN(d_input=d_input, d_state=self.d_state, **block_args)] +
+        self.layers = nn.ModuleList([ESN(d_input=self.d_input, d_state=self.d_state, **block_args)] +
                                     [ESN(d_input=self.d_state, d_state=self.d_state, **block_args)
                                     for _ in range(self.n_layers - 1)])
 
         self.transient = transient
 
-    def step(self, u, x=None):
+    def _one_hot_encoding(self, x):
+        x = nn.functional.one_hot(input=x, num_classes=self.d_input)  # (B, L) -> (B, L, K=d_input)
+        x = x.permute(0, 2, 1)  # (B, L, K) -> (B, K, L)
+        x = x.to(dtype=torch.float32)
+        return x
+
+    def step(self, u, x=None, lengths=None):
         """
         Step one time step as a recurrent model.
         :param u: input step of shape (B, H)
         :param x: previous state of shape (B, P)
         :return: None, new state (B, P)
         """
-
+        if lengths is not None:
+            x = self._one_hot_encoding(x)
         if self.take_last:
             z_list = []
             for i, layer in enumerate(self.layers):
@@ -263,6 +271,8 @@ class StackedEchoState(nn.Module):
         :param  lengths: lengths of the input sequences, torch tensor of shape (B)
         :return: output sequence, torch tensor of shape (B, d_state, L - w)
         """
+        if lengths is not None:
+            x = self._one_hot_encoding(x)
         if self.take_last:
             for layer in self.layers:
                 x, _ = layer(x)  # (B, d_model, L) -> (B, d_model, L)
