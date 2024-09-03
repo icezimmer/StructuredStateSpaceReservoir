@@ -20,11 +20,6 @@ def main():
     # Extract the keys and possible values for each hyperparameter
     keys, values = zip(*hyperparameters.items())
 
-    # Ensure max_configs is not larger than the total possible combinations
-    total_experiment_count = np.prod([len(v) for v in values])
-    if max_configs > total_experiment_count:
-        max_configs = total_experiment_count
-
     # Perform random sampling of hyperparameter combinations
     sampled_experiments = []
     for _ in range(max_configs):
