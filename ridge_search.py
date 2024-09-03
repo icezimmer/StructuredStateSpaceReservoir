@@ -7,9 +7,9 @@ import itertools
 from src.utils.experiments import read_yaml_to_dict
 from src.readout.ridge import RidgeRegression
 from src.ml.evaluation import EvaluateOfflineClassifier
-import torch
 from sklearn.linear_model import RidgeClassifierCV
 from src.utils.saving import save_hyperparameters
+import torch
 
 
 loss = {
@@ -38,7 +38,7 @@ def main():
     architecture = setting.get('architecture', {})
     d_output = architecture['d_output']
     to_vec = architecture['to_vec']
-    d_input = develop_dataset[0][0].shape[-2]  # From (*, H, L=1)
+    d_input = develop_dataset[0][0].shape[-2]  # From (*, nP, L=1)
 
     experiments = {
         'regul': [0.8, 1.5, 3.0, 5.0, 7.5, 10.0, 12.5, 15.0]
