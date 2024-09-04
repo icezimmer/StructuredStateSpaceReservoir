@@ -55,12 +55,12 @@ class VandermondeReservoir(nn.Module):
             Lambda_bar = state_reservoir.diagonal_state_space_matrix(
                          min_radius=strong_stability, max_radius=weak_stability,
                          min_theta=low_oscillation, max_theta=high_oscillation,
-                         field=field)
+                         field=field, n_ssm=self.d_input)
             B_bar = self._normalization(Lambda_bar, B)
         else:
             state_reservoir = ContinuousStateReservoir(self.d_state)
             Lambda = state_reservoir.diagonal_state_space_matrix(
-                     min_real_part=strong_stability, max_real_part=weak_stability, field=field)
+                     min_real_part=strong_stability, max_real_part=weak_stability, field=field, n_ssm=self.d_input)
             rate_reservoir = ReservoirVector(d=self.d_input)
             dt = rate_reservoir.uniform_interval(min_value=low_oscillation, max_value=high_oscillation)
             Lambda_bar, B_bar = self._zoh(Lambda, B, dt)
@@ -72,9 +72,8 @@ class VandermondeReservoir(nn.Module):
         W = torch.einsum('hp,ph -> hp', self.C_bar, self.B_bar)  # (B^t .* C) (H, P)
 
         powers = torch.arange(kernel_size, dtype=torch.float32)  # (L,)
-        V = self.A_bar.unsqueeze(-1) ** powers   # (P, L)
+        V = self.A_bar.unsqueeze(-1) ** powers   # (*, L)
 
-        # kernel = torch.einsum('hp,pl->hl', W, V)  # (H, L)
         kernel = torch.einsum('hp,phl->hl', W, V)  # (H, L)
         self.register_buffer('K', kernel)  # (H, L)
 
@@ -98,8 +97,8 @@ class VandermondeReservoir(nn.Module):
         # Lambda_bar = torch.exp(torch.mul(Lambda, dt))
         # B_bar = torch.einsum('p,ph->ph', torch.mul(1 / Lambda, (Lambda_bar - Ones)), B)
 
-        Lambda_bar = torch.exp(torch.einsum('p,h->ph', Lambda, dt))
-        temp = torch.einsum('p,ph->ph', 1 / Lambda, Lambda_bar - 1)
+        Lambda_bar = torch.exp(torch.einsum('ph,h->ph', Lambda, dt))
+        temp = torch.einsum('ph,ph->ph', 1 / Lambda, Lambda_bar - 1)
         B_bar = torch.einsum('ph,ph->ph', temp, B)
 
         return Lambda_bar, B_bar
@@ -116,12 +115,11 @@ class VandermondeReservoir(nn.Module):
         :param B: Input->State Matrix (Discrete System)
         :return: Lambda_bar, B_bar (Discrete System)
         """
-        Ones = torch.ones(size=Lambda.shape, dtype=torch.float32)
         Zeros = torch.zeros(size=Lambda.shape, dtype=torch.float32)
+        temp = torch.max(1 - torch.pow(torch.abs(Lambda), 2), Zeros)
+        gamma = torch.sqrt(temp)
 
-        gamma = torch.max(Ones - torch.pow(torch.abs(Lambda), 2), Zeros)
-
-        B_bar = torch.einsum('p,ph->ph', gamma, B)
+        B_bar = torch.einsum('ph,ph->ph', gamma, B)
 
         return B_bar
 
