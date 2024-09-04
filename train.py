@@ -311,6 +311,7 @@ def main():
                                     d_input=1, d_model=1,
                                     transient=args.transient,
                                     take_last=args.last,
+                                    one_hot=to_embed,
                                     **block_args)
             del flag
         except Exception as e:
@@ -393,7 +394,7 @@ def main():
         logging.info('Setting tracker.')
         tracker = EmissionsTracker(output_dir=output_dir, project_name=project_name,
                                    log_level="ERROR",
-                                   gpu_ids=[check_model_device(model).index])
+                                   gpu_ids=[torch.device(args.device).index] if torch.device(args.device).type == 'cuda' else None)
 
         if args.save:
             run_dir = os.path.join(output_dir, str(tracker.run_id))
@@ -481,7 +482,7 @@ def main():
             logging.info('Setting tracker.')
             tracker = EmissionsTracker(output_dir=output_dir, project_name=project_name,
                                        log_level="ERROR",
-                                       gpu_ids=[check_model_device(reservoir_model).index])
+                                       gpu_ids=[torch.device(args.device).index] if torch.device(args.device).type == 'cuda' else None)
 
             if args.save:
                 hyperparameters_path = None
@@ -536,7 +537,7 @@ def main():
             logging.info('Setting tracker.')
             tracker = EmissionsTracker(output_dir=output_dir, project_name=project_name,
                                        log_level="ERROR",
-                                       gpu_ids=[check_model_device(model).index])
+                                       gpu_ids=[torch.device(args.device).index] if torch.device(args.device).type == 'cuda' else None)
 
             if args.save:
                 run_dir = os.path.join(output_dir, str(tracker.run_id))
@@ -614,7 +615,7 @@ def main():
             logging.info('Setting tracker.')
             tracker = EmissionsTracker(output_dir=output_dir, project_name=project_name,
                                        log_level="ERROR",
-                                       gpu_ids=[check_model_device(model).index])
+                                       gpu_ids=[torch.device(args.device).index] if torch.device(args.device).type == 'cuda' else None)
 
             if args.save:
                 run_dir = os.path.join(output_dir, str(tracker.run_id))
