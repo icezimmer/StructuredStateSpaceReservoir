@@ -65,10 +65,9 @@ class FFTConvReservoir(nn.Module):
         """
         L_u = u.shape[-1]
         N = L_u + self.L_k - 1
-        u_s = torch.fft.fft(u, n=N, dim=-1)  # (B, H, N)
-        k_s = torch.fft.fft(self.K, n=N, dim=-1)  # (H, N)
-        y = torch.fft.ifft(torch.einsum('bhs,hs->bhs', u_s, k_s), n=N, dim=-1)  # (B, H, N)
-        y = y[..., :L_u]  # (B, H, L)
+
+        y = torch.fft.ifft(torch.fft.fft(u, n=N, dim=-1) * torch.fft.fft(self.K, n=N, dim=-1),
+                           n=N, dim=-1).real[..., :L_u]  # (B, H, N)
         y = y + torch.einsum('h,bhl->bhl', self.D_bar, u)  # (B, H, L)
 
         return y, None

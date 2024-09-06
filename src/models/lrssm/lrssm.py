@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 from src.models.rssm.convolutions.fft_reservoir import FFTConvReservoir
-from src.models.lrssm.realfun_complexvar.complex_to_real import RealImag, Real
 
 """
 see: https://github.com/i404788/s5-pytorch/tree/74e2fdae00b915a62c914bf3615c0b8a4279eb84
@@ -38,8 +37,6 @@ class LRSSM(torch.nn.Module):
         self.reservoir_layer = FFTConvReservoir(d_input=self.d_model, d_state=self.d_state,
                                                 kernel=kernel, discrete=False, **reservoir_layer_args)
 
-        self.to_real = Real()
-
         if act == 'glu':
             act_f = nn.GLU(dim=-2)
         elif act == 'tanh':
@@ -69,7 +66,6 @@ class LRSSM(torch.nn.Module):
         Returns: y (B, H), state (B, P)
         """
         y, x = self.reservoir_layer.step(u, x)
-        y = self.to_real(y)
         y = self.drop(y)
         y = self.mlp(y)
 
@@ -82,7 +78,6 @@ class LRSSM(torch.nn.Module):
         :return: y: batched output sequence of shape (B,H,L) = (batch_size, d_output, input_length)
         """
         y, _ = self.reservoir_layer(u)
-        y = self.to_real(y)
         y = self.drop(y)
         y = self.mlp(y)
 

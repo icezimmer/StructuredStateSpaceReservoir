@@ -1,6 +1,5 @@
 import torch
 from src.models.rssm.convolutions.fft_reservoir import FFTConvReservoir
-from src.models.rssm.realfun_complexvar.complex_to_real import Real, RealReLU, RealTanh, RealImagGLU, ABSTanh, AngleTanh
 
 
 class RSSM(torch.nn.Module):
@@ -21,7 +20,7 @@ class RSSM(torch.nn.Module):
         if kernel not in kernel_classes:
             raise ValueError('Kernel must be one of {}'.format(kernel_classes))
 
-        realfuns = ['real', 'real+relu', 'real+tanh', 'realimag+glu', 'abs+tanh', 'angle+tanh']
+        realfuns = ['real', 'real+relu', 'real+tanh']
         if fun_forward not in realfuns or fun_fit not in realfuns:
             raise ValueError('Real Function of Complex Vars must be one of {}'.format(realfuns))
 
@@ -34,30 +33,18 @@ class RSSM(torch.nn.Module):
                                       **layer_args)
 
         if fun_forward == 'real':
-            self.fun_forward = Real()
+            self.fun_forward = torch.nn.Identity()
         elif fun_forward == 'real+relu':
-            self.fun_forward = RealReLU()
+            self.fun_forward = torch.nn.ReLU()
         elif fun_forward == 'real+tanh':
-            self.fun_forward = RealTanh()
-        elif fun_forward == 'realimag+glu':
-            self.fun_forward = RealImagGLU()
-        elif fun_forward == 'abs+tanh':
-            self.fun_forward = ABSTanh()
-        elif fun_forward == 'angle+tanh':
-            self.fun_forward = AngleTanh()
+            self.fun_forward = torch.nn.Tanh()
 
         if fun_fit == 'real':
-            self.fun_fit = Real()
+            self.fun_fit = torch.nn.Identity()
         elif fun_fit == 'real+relu':
-            self.fun_fit = RealReLU()
+            self.fun_fit = torch.nn.ReLU()
         elif fun_fit == 'real+tanh':
-            self.fun_fit = RealTanh()
-        elif fun_fit == 'realimag+glu':
-            self.fun_fit = RealImagGLU()
-        elif fun_fit == 'abs+tanh':
-            self.fun_fit = ABSTanh()
-        elif fun_fit == 'angle+tanh':
-            self.fun_fit = AngleTanh()
+            self.fun_fit = torch.nn.Tanh()
 
     def step(self, u, x):
         """
