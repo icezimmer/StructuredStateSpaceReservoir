@@ -53,7 +53,7 @@ class FFTConvReservoir(nn.Module):
         :return: y: time step output of shape (B, H), x: time step state of shape (B, P)
         """
         y, x = self.kernel_cls.step(u, x)
-        y = y + torch.einsum('h,bh->bh', self.D_bar, u)  # (B, H)
+        y = y.real + torch.einsum('h,bh->bh', self.D_bar, u)  # (B, H)
 
         return y, x
 
