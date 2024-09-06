@@ -67,7 +67,7 @@ class FFTConvReservoir(nn.Module):
         N = L_u + self.L_k - 1
 
         y = torch.fft.ifft(torch.fft.fft(u, n=N, dim=-1) * torch.fft.fft(self.K, n=N, dim=-1),
-                           n=N, dim=-1).real[..., :L_u]  # (B, H, N)
+                           n=N, dim=-1).real[..., :L_u]  # (B, H, L)
         y = y + torch.einsum('h,bhl->bhl', self.D_bar, u)  # (B, H, L)
 
         return y, None
