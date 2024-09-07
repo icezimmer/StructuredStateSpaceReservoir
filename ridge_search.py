@@ -41,7 +41,7 @@ def main():
     d_input = develop_dataset[0][0].shape[-2]  # From (*, nP, L=1)
 
     experiments = {
-        'regul': [0.8, 1.5, 3.0, 5.0, 7.5, 10.0, 12.5, 15.0]
+        'regul': [0.0, 0.4, 0.8, 1.5, 3.0, 5.0, 7.5, 10.0, 12.5, 15.0]
     }
 
     # Get the keys and values from the dictionary
