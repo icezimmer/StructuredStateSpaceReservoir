@@ -92,11 +92,6 @@ class VandermondeReservoir(nn.Module):
         :param dt: Delta time for discretization
         :return: Lambda_bar, B_bar (Discrete System)
         """
-        # Ones = torch.ones(size=Lambda.shape, dtype=torch.float32)
-        #
-        # Lambda_bar = torch.exp(torch.mul(Lambda, dt))
-        # B_bar = torch.einsum('p,ph->ph', torch.mul(1 / Lambda, (Lambda_bar - Ones)), B)
-
         Lambda_bar = torch.exp(torch.einsum('ph,h->ph', Lambda, dt))
         temp = torch.einsum('ph,ph->ph', 1 / Lambda, Lambda_bar - 1)
         B_bar = torch.einsum('ph,ph->ph', temp, B)
