@@ -44,38 +44,41 @@ def plot_time_series(v_t, y_t, label, save_path):
 
     fig_v = fig.add_subplot(n_layers+1, 2, 2*(n_layers+1)-1)
     v_np = v_t.cpu().numpy()
-    fig_v.plot(range(length), v_np)
-    fig_v.set_ylabel('Encoding', fontsize=22)
-    fig_v.tick_params(axis='both', labelsize=18)
+    fig_v.plot(range(length), v_np, color='blue', alpha=0.9)
+    fig_v.set_ylabel('Encoding', fontsize=26)
+    fig_v.tick_params(axis='both', labelsize=22)
 
     # Compute the DFT of the time series
-    v_s = torch.fft.rfft(v_t, n=2*length-1, dim=-1)
-    freq = torch.fft.rfftfreq(n=2*length-1)
+    v_s = torch.fft.rfft(v_t, dim=-1)
+    freq = torch.fft.rfftfreq(n=length)
     # Compute the amplitude of the DFT
     amplitude = torch.abs(v_s).cpu().numpy()
     fig_v_s = fig.add_subplot(n_layers + 1, 2, 2*(n_layers+1))
-    fig_v_s.bar(freq, amplitude, width=0.01)
+    fig_v_s.bar(freq, amplitude, width=0.001, color='blue', alpha=0.9)
+    fig_v_s.tick_params(axis='both', labelsize=22)
+    fig_v_s.set_xlim(left=0, right=0.05)
 
     for i in range(n_layers):
         fig_h = fig.add_subplot(n_layers+1, 2, 2*(n_layers-i)-1)
         h_t = y_t[i, :]  # h has shape (L,)
         h_np = h_t.cpu().numpy()
-        fig_h.plot(range(length), h_np)
-        fig_h.tick_params(axis='both', labelsize=18)
-        fig_h.set_ylabel(f'Layer {i+1}', fontsize=22)
+        fig_h.plot(range(length), h_np, color='red', alpha=0.9)
+        fig_h.tick_params(axis='both', labelsize=22)
+        fig_h.set_ylabel(f'Layer {i+1}', fontsize=26)
         if i == n_layers - 1:
-            fig_h.set_title('Output signal', fontsize=24)
+            fig_h.set_title('Output signal', fontsize=30)
 
         # Compute the DFT of the time series
-        h_s = torch.fft.rfft(h_t, n=2*length - 1, dim=-1)
-        freq = torch.fft.rfftfreq(n=2 * length - 1)
+        h_s = torch.fft.rfft(h_t, dim=-1)
+        freq = torch.fft.rfftfreq(n=length)
         # Compute the amplitude of the DFT
         amplitude = torch.abs(h_s).cpu().numpy()
         fig_h_s = fig.add_subplot(n_layers + 1, 2, 2*(n_layers-i))
-        fig_h_s.bar(freq, amplitude, width=0.01)
-        fig_h_s.tick_params(axis='both', labelsize=18)
+        fig_h_s.bar(freq, amplitude, width=0.001, color='red', alpha=0.9)
+        fig_h_s.tick_params(axis='both', labelsize=22)
+        fig_h_s.set_xlim(left=0, right=0.05)
         if i == n_layers - 1:
-            fig_h_s.set_title(f'Frequency amplitude', fontsize=22)
+            fig_h_s.set_title(f'Frequency amplitude', fontsize=30)
 
     # Save plot to the specified path
     os.makedirs(os.path.dirname(save_path), exist_ok=True)  # Create directories if not exist
