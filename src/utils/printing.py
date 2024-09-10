@@ -10,5 +10,9 @@ def print_buffers(model):
     for name, buffer in model.named_buffers():
         print('Buffer name:', name)
         print(buffer.data.shape)
-        print('requires_grad:', buffer.requires_grad)
         print('----------------------------------------------------')
+
+
+def print_num_trainable_params(model):
+    num_trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print('Number of trainable parameters:', num_trainable_params)
