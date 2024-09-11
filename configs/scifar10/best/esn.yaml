@@ -1,0 +1,24 @@
+# e37d90eb-ab22-4c4c-9af2-3bc55c18aa15
+# 42,False,False,cuda:3,scifar10,ESN,1,256,1024,False,ridge,1.0,1.25,1.0,0.1,-1,0.8
+
+max_configs:
+    1
+
+hyperparameters:
+    seed: [42]
+    save: [True]
+    tr: [False]
+    device: ['cuda:3']
+    task: ['scifar10']
+    block: ['ESN']
+    layers: [8]
+    dmodel: [2048]
+    rbatch: [32]
+    last: [False]
+    readout: ['ridge']
+    inputscaling: [1.0]
+    biasscaling: [1.25]
+    rho: [1.0]
+    leaky: [0.1]
+    transient: [ -1 ]
+    regul: [ 0.8 ]
