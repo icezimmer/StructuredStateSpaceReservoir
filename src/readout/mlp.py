@@ -9,10 +9,10 @@ class MLP(nn.Module):
         # Construct mlp model, that is a multi layer perceptron made by mlp_layers of conv1d layers
         layers = []
         for i in range(n_layers - 1):
-            layers.append(nn.Conv1d(in_channels=d_input, out_channels=d_input, kernel_size=1))
+            layers.append(nn.Conv1d(in_channels=d_input, out_channels=d_input, kernel_size=1, bias=False))
+            layers.append(nn.BatchNorm1d(d_input))
             layers.append(nn.GLU(dim=-2))
             d_input = d_input // 2
-            layers.append(nn.BatchNorm1d(d_input))
 
         layers.append(nn.Conv1d(in_channels=d_input, out_channels=d_output, kernel_size=1))
 
