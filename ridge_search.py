@@ -21,6 +21,7 @@ def main():
     # Set up argument parsing
     parser = argparse.ArgumentParser(description="Run readout based on YAML configuration.")
     parser.add_argument("--task", type=str, required=True, help="Path to the YAML configuration file.")
+    parser.add_argument("--block", type=str, required=True, help="Name of the model.")
     parser.add_argument("--trials", type=int, required=True, help="Number of configurations to sample.")
 
     logging.basicConfig(level=logging.INFO)
@@ -29,8 +30,8 @@ def main():
 
     logging.info(f'Loading {args.task} reservoir develop and test datasets.')
     try:
-        develop_dataset = load_data(os.path.join('..', 'datasets', args.task, 'reservoir_develop_dataset'))
-        test_dataset = load_data(os.path.join('..', 'datasets', args.task, 'reservoir_test_dataset'))
+        develop_dataset = load_data(os.path.join('..', 'datasets', args.task, f'{args.block}_reservoir_develop_dataset'))
+        test_dataset = load_data(os.path.join('..', 'datasets', args.task, f'{args.block}_reservoir_test_dataset'))
     except FileNotFoundError:
         logging.error(f"Dataset not found for task {args.task}. Run train.py first with --save flag.")
 
@@ -88,7 +89,8 @@ def main():
         if score > best_score:
             experiment['test_accuracy'] = score
             save_hyperparameters(dictionary=experiment,
-                                 file_path=os.path.join('checkpoint', 'results', args.task, 'ridge', 'best.json'))
+                                 file_path=os.path.join('checkpoint', 'results', args.task, 'ridge',
+                                                        f'{args.block}_best.json'))
             best_score = score
 
 
