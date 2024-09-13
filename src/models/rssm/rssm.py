@@ -54,10 +54,8 @@ class RSSM(torch.nn.Module):
         :return: output step (B, H), new state (B, P)
         """
         u, x = self.layer.step(u, x)
-        y = self.fun_forward(u)
-        z = self.fun_fit(u)
 
-        return y, z, x
+        return self.fun_forward(u), self.fun_fit(u), x
 
     def forward(self, u):
         """
@@ -65,13 +63,10 @@ class RSSM(torch.nn.Module):
         :param u: batched input sequence of shape (B, H, L) = (batch_size, d_input, input_length)
         :return:
             y: batched output sequence of shape (B, H, L) = (batch_size, d_output, input_length)
-                as inout of the next layer
+                as input of the next layer
             z: batched output sequence of shape (B, H, L) = (batch_size, d_output, input_length)
                 to collect and train the readout
         """
         u, _ = self.layer(u)
 
-        y = self.fun_forward(u)
-        z = self.fun_fit(u)
-
-        return y, z
+        return self.fun_forward(u), self.fun_fit(u)
