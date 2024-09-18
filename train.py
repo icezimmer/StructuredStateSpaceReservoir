@@ -5,6 +5,7 @@ import torch
 from src.utils.experiments import set_seed
 from torch.utils.data import DataLoader
 from src.utils.split_data import stratified_split_dataset
+from src.utils.printing import print_num_trainable_params, print_parameters
 from src.models.s4.s4 import S4Block
 from src.models.rnn.vanilla import VanillaRNN, VanillaGRU, VanillaLSTM
 from src.models.esn.esn import ESN
@@ -378,6 +379,8 @@ def main():
                                layer_dropout=args.layerdrop,
                                **block_args)
 
+        # print_num_trainable_params(model)
+
         logging.info(f'Moving {args.block} model to {args.device}.')
         model.to(device=torch.device(args.device))
 
@@ -522,11 +525,13 @@ def main():
 
             if args.save:
                 logging.info('Saving reservoir datasets.')
-                save_data(develop_dataset, os.path.join('..', 'datasets', args.task, 'reservoir_develop_dataset'))
-                save_data(test_dataset, os.path.join('..', 'datasets', args.task, 'reservoir_test_dataset'))
+                save_data(develop_dataset, os.path.join('..', 'datasets', args.task, f'{args.block}_reservoir_develop_dataset'))
+                save_data(test_dataset, os.path.join('..', 'datasets', args.task, f'{args.block}_reservoir_test_dataset'))
 
         elif args.readout == 'mlp':
             model = MLP(n_layers=args.mlplayers, d_input=reservoir_model.d_output, d_output=d_output)
+
+            # print_num_trainable_params(model)
 
             logging.info(f'Moving MLP model to {args.device}.')
             model.to(device=torch.device(args.device))
@@ -605,6 +610,8 @@ def main():
                                    d_output=d_output,
                                    encoder='conv1d', decoder='conv1d',
                                    to_vec=to_vec)
+
+            # print_num_trainable_params(model)
 
             logging.info(f'Moving SSM model to {args.device}.')
             model.to(device=torch.device(args.device))
