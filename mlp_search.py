@@ -50,7 +50,7 @@ def main():
     d_input = develop_dataset[0][0].shape[-2]
 
     experiments = {
-        'batch': [64],
+        'batch': [64, 128],
         'mlplayers': [2, 4, 6],
         'lr': [0.0005, 0.001, 0.005, 0.01],
         'wd': [0.01, 0.05, 0.1, 0.5],
