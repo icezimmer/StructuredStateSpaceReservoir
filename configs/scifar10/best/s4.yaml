@@ -1,5 +1,7 @@
+# Number of trainable parameters: 3560714
+
 max_configs:
-    800
+    1
 
 hyperparameters:
     seed: [42]

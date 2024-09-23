@@ -1,12 +1,12 @@
 max_configs:
-    800
+    1
 
 hyperparameters:
     seed: [42]
     save: [False]
     tr: [False]
     # DEVICE
-    device: ["cuda:3"]
+    device: ["cuda:1"]
     # TASK
     task: ["scifar10"]
     # ARCHITECTURE
@@ -21,24 +21,24 @@ hyperparameters:
     dropout: [0.0]
     kernel: ["Vr"]
     minscaleencoder: [0.0]
-    maxscaleencoder: [1.0]
+    maxscaleencoder: [0.75]
     discrete: [False]
-    strong: [-4.0]
-    weak: [-0.025]
-    low: [0.001]
+    strong: [0.0]
+    weak: [0.0]
+    low: [0.0001]
     high: [0.1]
     minscaleB: [0.0]
-    maxscaleB: [0.25]
+    maxscaleB: [0.75]
     minscaleC: [0.0]
-    maxscaleC: [1.0]
-    minscaleD: [1.0]
+    maxscaleC: [0.1]
+    minscaleD: [0.25]
     maxscaleD: [1.0]
     mlplayers: [1]
     act: ["glu"]
     # LEARNING
     batch: [64]
-    lr: [0.01]
-    wd: [0.05]
+    lr: [0.005]
+    wd: [0.01]
     plateau: [0.2]
     epochs: [200]
     patience: [10]

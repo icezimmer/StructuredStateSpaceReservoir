@@ -1,40 +1,38 @@
+# 5ab3d772-23db-4809-8f08-3d4004927d1a
+# 42,False,False,cuda:0,listops,RSSM,8,64,512,False,ridge,512,onehot,0.0,0.25,Vr,real+relu,real+tanh,-0.5,-0.5,False,0.001,0.01,0.0,1.0,0.0,1.0,0.0,0.25,-1,0.8
+
 max_configs:
-    800
+    1
 
 hyperparameters:
     seed: [42]
     save: [False]
     tr: [False]
-    # DEVICE
-    device: ["cuda:1"]
-    # TASK
+    device: ["cuda:2"]
     task: ["listops"]
-    # ARCHITECTURE
     block: ["RSSM"]
     layers: [8]
-    dmodel: [128]
-    # BLOCK
-    dstate: [1024]
-    rbatch: [64]
+    dmodel: [2048]
+    rbatch: [32]
+    last: [False]
+    readout: ["ridge"]
+    dstate: [512]
+    encoder: ["onehot"]
+    minscaleD: [0.0]
+    maxscaleD: [0.25]
     kernel: ["Vr"]
     funfwd: ["real+relu"]
     funfit: ["real+tanh"]
-    encoder: ["onehot"]
-    minscaleencoder: [0.0]
-    maxscaleencoder: [1.25]
+    strong: [-0.5]
+    weak: [-0.5]
     discrete: [False]
-    strong: [-2.5]
-    weak: [0.0]
     low: [0.001]
-    high: [0.1]
+    high: [0.01]
     minscaleB: [0.0]
-    maxscaleB: [0.1]
+    maxscaleB: [1.0]
     minscaleC: [0.0]
-    maxscaleC: [1.25]
-    minscaleD: [1.0]
-    maxscaleD: [1.0]
-    # RIDGE CLASSIFIER READOUT
-    readout: ["ridge"]
-    last: [False]
+    maxscaleC: [1.0]
+    minscaleencoder: [0.0]
+    maxscaleencoder: [0.25]
     transient: [-1]
     regul: [0.8]

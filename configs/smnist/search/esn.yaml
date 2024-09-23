@@ -1,5 +1,5 @@
 max_configs:
-    1
+    1000
 
 hyperparameters:
     seed: [42]
@@ -9,13 +9,13 @@ hyperparameters:
     task: ['smnist']
     block: ['ESN']
     layers: [1]
-    dmodel: [2048] # 2 * 1024
-    rbatch: [256]
+    dmodel: [32] # 2 * 1024
+    rbatch: [1024]
     last: [False]
     readout: ['ridge']
-    inputscaling: [0.3]
-    biasscaling: [0.0]
-    rho: [1.1]
-    leaky: [0.5]
+    inputscaling: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+    biasscaling: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+    rho: [0.9, 0.95, 1.0, 1.05, 1.1]
+    leaky: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
     transient: [ -1 ]
-    regul: [ 0.3 ]
+    regul: [ 0.8 ]

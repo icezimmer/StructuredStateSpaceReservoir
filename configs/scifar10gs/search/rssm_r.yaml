@@ -6,7 +6,7 @@ hyperparameters:
     save: [False]
     tr: [False]
     # DEVICE
-    device: ["cuda:3"]
+    device: ["cuda:0"]
     # TASK
     task: ["scifar10gs"]
     # ARCHITECTURE
@@ -15,7 +15,7 @@ hyperparameters:
     dmodel: [128]  # search best model and after search best dmodel
     # BLOCK
     dstate: [8, 16, 32, 64, 128, 256, 512, 1024]
-    rbatch: [1024]
+    rbatch: [512]
     kernel: ["Vr"]
     funfwd: ["real+relu"]
     funfit: ["real+tanh"]
@@ -25,8 +25,8 @@ hyperparameters:
     discrete: [False]
     strong: [-4.5, -4.0, -3.5, -3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0]  # very important
     weak: [0.0, -0.5]
-    low: [0.0001, 0.001]
-    high: [0.001, 0.0025, 0.005, 0.0075, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5]  # very important
+    low: [0.0001, 0.001, 0.01]  # very important
+    high: [0.001, 0.01, 0.1, 0.5]  # very important
     minscaleB: [0.0]
     maxscaleB: [0.1, 0.25, 0.5, 0.75, 1.0, 1.25]
     minscaleC: [0.0]

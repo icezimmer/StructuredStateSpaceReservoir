@@ -1,5 +1,5 @@
 max_configs:
-    800
+    1
 
 hyperparameters:
     seed: [42]
@@ -38,8 +38,8 @@ hyperparameters:
     last: [False]
     transient: [-1]
     batch: [128]
-    mlplayers: [2]
-    lr: [0.005]
+    mlplayers: [4]
+    lr: [0.0005]
     wd: [0.1]
     plateau: [0.2]
     epochs: [200]

@@ -1,5 +1,5 @@
-# 41df02d2-9fe4-4f09-a8c5-d9c633aa7faf
-# 42,False,False,cuda:3,scifar10,ESN,8,64,1024,False,ridge,1.25,0.75,1.0,0.1,-1,0.8
+# 4975eb56-ff48-4a3c-bc4e-ac4707311ef5
+# 42,False,False,cuda:3,scifar10,ESN,8,32,1024,False,ridge,0.6,0.4,1.0,0.7,-1,0.8
 
 max_configs:
     1
@@ -16,9 +16,9 @@ hyperparameters:
     rbatch: [32]
     last: [False]
     readout: ['ridge']
-    inputscaling: [1.25]
-    biasscaling: [0.75]
+    inputscaling: [0.6]
+    biasscaling: [0.4]
     rho: [1.0]
-    leaky: [0.1]
+    leaky: [0.7]
     transient: [ -1 ]
     regul: [ 0.8 ]

@@ -9,7 +9,7 @@ hyperparameters:
     task: ['smnist']
     block: ['ESN']
     layers: [1]
-    dmodel: [2048] # 2 * 1024
+    dmodel: [2048]  # 2 * 1024
     rbatch: [256]
     last: [False]
     readout: ['ridge']
