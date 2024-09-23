@@ -64,7 +64,7 @@ class FFTConvReservoir(nn.Module):
         :return: y: batched output sequence of shape (B,H,L) = (batch_size, d_input, input_length)
         """
         L_u = u.shape[-1]
-        N = L_u + self.L_k - 1
+        N = L_u + self.L_k - 1  # To avoid circular convolution and aliasing
 
         y = torch.fft.ifft(torch.fft.fft(u, n=N, dim=-1) * torch.fft.fft(self.K, n=N, dim=-1),
                            n=N, dim=-1).real[..., :L_u]  # (B, H, L)
