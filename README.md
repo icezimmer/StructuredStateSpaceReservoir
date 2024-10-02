@@ -1,6 +1,6 @@
 # Machine Learning Framework
 
-This repository houses a machine learning framework designed for ease of use in benchmarking classification tasks across a variety of datasets, including Sequential MNIST, CIFAR-10, and Pathfinder. The framework supports various models and configurations, facilitating comparative studies and experiments.
+This repository houses a machine learning framework designed for ease of use in benchmarking classification tasks across a variety of datasets, including Sequential MNIST, CIFAR-10, and LRA benchmark. The framework supports various models and configurations, facilitating comparative studies and experiments.
 
 ## Getting Started
 
@@ -17,16 +17,6 @@ To set up a Sequential MNIST classification task, navigate to the main directory
 ```
 python build.py --task smnist
 ```
-
-### Pathfinder Task
-
-For the Pathfinder task, which requires specifying the difficulty level and image resolution, use:
-
-```
-python build.py --task pathfinder --level easy --resolution 32
-```
-
-Here, `--level` and `--resolution` are additional arguments unique to the Pathfinder task.
 
 ## Running Tasks
 
