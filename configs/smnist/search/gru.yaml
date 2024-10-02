@@ -1,0 +1,21 @@
+max_configs:
+    1000
+
+hyperparameters:
+    seed: [42]
+    save: [False]
+    tr: [False]
+    device: ['cuda:3']
+    task: ['smnist']
+    block: ['GRU']
+    layers: [2]
+    dmodel: [256]
+    batch: [128]
+    encoder: ['conv1d']
+    decoder: ['conv1d']
+    layerdrop: [0.0]
+    lr: [0.02, 0.002, 0.0002]
+    wd: [0.2, 0.02]
+    plateau: [0.2]
+    epochs: [200]
+    patience: [10]

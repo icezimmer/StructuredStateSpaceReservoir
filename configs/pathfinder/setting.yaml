@@ -1,0 +1,18 @@
+mode:
+    'classification'
+
+architecture:
+    criterion: 'cross_entropy'
+    to_vec: True
+    to_embed: False
+    d_input: 1
+    kernel_size: 1024  # 32 * 32
+    d_output: 2
+
+data:
+    resolution: 32
+    level: 'easy'
+
+learning:
+    val_split: 0.1
+    test_split: 0.1

@@ -1,0 +1,40 @@
+# d7fd54bb-842d-442d-98ee-b79de625afa2
+# seed,save,tr,device,task,block,layers,dmodel,rbatch,last,readout,dstate,encoder,minscaleD,maxscaleD,kernel,funfwd,funfit,strong,weak,discrete,low,high,minscaleB,maxscaleB,minscaleC,maxscaleC,minscaleencoder,maxscaleencoder,transient,regul
+# 42,False,False,cuda:0,pmnist,RSSM,2,64,1024,False,ridge,256,reservoir,0.0,0.75,Vr,real+relu,real+tanh,-2.5,0.0,False,0.0005,0.1,0.0,0.75,0.0,0.75,0.0,0.75,-1,0.8
+
+max_configs:
+    1
+
+hyperparameters:
+    seed: [ 42 ]
+    save: [ False ]
+    tr: [ False ]
+    device: [ "cuda:3" ]
+    task: [ "pmnist" ]
+    block: [ "RSSM" ]
+    layers: [ 2 ]
+    dmodel: [ 1024 ]
+    rbatch: [ 256 ]
+    last: [ False ]
+    readout: [ "ridge" ]
+    dstate: [ 256 ]
+    encoder: [ "reservoir" ]
+    minscaleD: [ 0.0 ]
+    maxscaleD: [ 0.75 ]
+    kernel: [ "Vr" ]
+    funfwd: [ "real+relu" ]
+    funfit: [ "real+tanh" ]
+    strong: [ -2.5 ]
+    weak: [ 0.0 ]
+    discrete: [ False ]
+    low: [ 0.0005 ]
+    high: [ 0.1 ]
+    minscaleB: [ 0.0 ]
+    maxscaleB: [ 0.75 ]
+    minscaleC: [ 0.0 ]
+    maxscaleC: [ 0.75 ]
+    minscaleencoder: [ 0.0 ]
+    maxscaleencoder: [ 0.75 ]
+    transient: [ -1 ]
+    regul: [ 0.8 ]
+

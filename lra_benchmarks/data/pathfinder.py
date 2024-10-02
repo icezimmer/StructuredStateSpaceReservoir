@@ -19,7 +19,6 @@ import tensorflow as tf
 import tensorflow_datasets as tfds
 
 
-
 class Pathfinder32(tfds.core.BeamBasedBuilder):
   """Pathfinder TFDS builder (where the resolution is 32).
 
@@ -91,7 +90,7 @@ class Pathfinder32(tfds.core.BeamBasedBuilder):
       print(meta_examples)
       for m_example in meta_examples:
         m_example = m_example.split(' ')
-        image_path = os.path.join('../../lra_release/lra_release/pathfinder32', file_pattern,
+        image_path = os.path.join('../lra_release/lra_release/pathfinder32', file_pattern,
                                   m_example[0], m_example[1])
         example_id += 1
         yield '_'.join([m_example[0], m_example[1],
@@ -101,7 +100,7 @@ class Pathfinder32(tfds.core.BeamBasedBuilder):
                         }
 
     meta_file_pathes = tf.io.gfile.glob(
-        os.path.join('../../lra_release/lra_release/pathfinder32', file_pattern, 'metadata/*.npy'))
+        os.path.join('../lra_release/lra_release/pathfinder32', file_pattern, 'metadata/*.npy'))
     print(len(meta_file_pathes))
     return (pipeline
             | 'Create' >> beam.Create(meta_file_pathes)
@@ -178,7 +177,7 @@ class Pathfinder64(tfds.core.BeamBasedBuilder):
       print(meta_examples)
       for m_example in meta_examples:
         m_example = m_example.split(' ')
-        image_path = os.path.join('../../lra_release/lra_release/pathfinder64', file_pattern,
+        image_path = os.path.join('../lra_release/lra_release/pathfinder64', file_pattern,
                                   m_example[0], m_example[1])
         example_id += 1
         yield '_'.join([m_example[0], m_example[1],
@@ -188,7 +187,7 @@ class Pathfinder64(tfds.core.BeamBasedBuilder):
                         }
 
     meta_file_pathes = tf.io.gfile.glob(
-        os.path.join('../../lra_release/lra_release/pathfinder64', file_pattern, 'metadata/*.npy'))
+        os.path.join('../lra_release/lra_release/pathfinder64', file_pattern, 'metadata/*.npy'))
     print(len(meta_file_pathes))
     return (pipeline
             | 'Create' >> beam.Create(meta_file_pathes)
@@ -264,7 +263,7 @@ class Pathfinder128(tfds.core.BeamBasedBuilder):
       print(meta_examples)
       for m_example in meta_examples:
         m_example = m_example.split(' ')
-        image_path = os.path.join('../../lra_release/lra_release/pathfinder128', file_pattern,
+        image_path = os.path.join('../lra_release/lra_release/pathfinder128', file_pattern,
                                   m_example[0], m_example[1])
         example_id += 1
         yield '_'.join([m_example[0], m_example[1], str(example_id)]), {
@@ -273,7 +272,7 @@ class Pathfinder128(tfds.core.BeamBasedBuilder):
         }
 
     meta_file_pathes = tf.io.gfile.glob(
-        os.path.join('../../lra_release/lra_release/pathfinder128', file_pattern, 'metadata/*.npy'))
+        os.path.join('../lra_release/lra_release/pathfinder128', file_pattern, 'metadata/*.npy'))
     print(len(meta_file_pathes))
     return (
         pipeline
@@ -350,7 +349,7 @@ class Pathfinder256(tfds.core.BeamBasedBuilder):
       print(meta_examples)
       for m_example in meta_examples:
         m_example = m_example.split(' ')
-        image_path = os.path.join('../../lra_release/lra_release/pathfinder256', file_pattern,
+        image_path = os.path.join('../lra_release/lra_release/pathfinder256', file_pattern,
                                   m_example[0], m_example[1])
         example_id += 1
         yield '_'.join([m_example[0], m_example[1],
@@ -360,7 +359,7 @@ class Pathfinder256(tfds.core.BeamBasedBuilder):
                         }
 
     meta_file_pathes = tf.io.gfile.glob(
-        os.path.join('../../lra_release/lra_release/pathfinder256', file_pattern, 'metadata/*.npy'))
+        os.path.join('../lra_release/lra_release/pathfinder256', file_pattern, 'metadata/*.npy'))
     print(len(meta_file_pathes))
     return (pipeline
             | 'Create' >> beam.Create(meta_file_pathes)

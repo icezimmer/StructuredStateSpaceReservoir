@@ -1,0 +1,38 @@
+# bb2395e2-7594-4a4b-9071-45ee880fe6da
+# 42,False,False,cuda:3,imdb,RSSM,8,64,256,False,ridge,256,onehot,0.75,1.0,Vr,real+relu,real+tanh,-1.0,-0.5,False,0.0001,0.001,0.0,1.25,0.0,0.5,0.0,1.25,-1,0.8
+
+max_configs:
+    1
+
+hyperparameters:
+    seed: [42]
+    save: [False]
+    tr: [False]
+    device: ["cuda:0"]
+    task: ["imdb"]
+    block: ["RSSM"]
+    layers: [8]
+    dmodel: [2048]
+    rbatch: [8]
+    last: [False]
+    readout: ["ridge"]
+    dstate: [256]
+    encoder: ["onehot"]
+    minscaleD: [0.75]
+    maxscaleD: [1.0]
+    kernel: ["Vr"]
+    funfwd: ["real+relu"]
+    funfit: ["real+tanh"]
+    strong: [-1.0]
+    weak: [-0.5]
+    discrete: [False]
+    low: [0.0001]
+    high: [0.001]
+    minscaleB: [0.0]
+    maxscaleB: [1.25]
+    minscaleC: [0.0]
+    maxscaleC: [0.5]
+    minscaleencoder: [0.0]
+    maxscaleencoder: [1.25]
+    transient: [-1]
+    regul: [15.0]

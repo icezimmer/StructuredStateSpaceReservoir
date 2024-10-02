@@ -1,16 +1,16 @@
 """Standalone version of Structured State Space sequence model (S4)."""
 
 from collections import defaultdict
-from typing import Optional, Mapping, Tuple, Union
+from typing import Optional, Mapping, Union
 import logging
 from functools import partial
 import math
 import numpy as np
-from src.functionals.krylov import krylov
+from src.models.s4.functionals.krylov import krylov
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from pytorch_lightning.utilities import rank_zero_only
+#from pytorch_lightning.utilities import rank_zero_only
 from einops import rearrange, repeat
 
 # Function aliases
@@ -33,8 +33,8 @@ def get_logger(name=__name__, level=logging.INFO) -> logging.Logger:
 
     # this ensures all logging levels get marked with the rank zero decorator
     # otherwise logs would get multiplied for each GPU process in multi-GPU setup
-    for level in ("debug", "info", "warning", "error", "exception", "fatal", "critical"):
-        setattr(logger, level, rank_zero_only(getattr(logger, level)))
+    # for level in ("debug", "info", "warning", "error", "exception", "fatal", "critical"):
+    #     setattr(logger, level, rank_zero_only(getattr(logger, level)))
 
     return logger
 log = get_logger(__name__)
@@ -43,8 +43,8 @@ log = get_logger(__name__)
 
 # Try CUDA extension
 try:
-    from src.extensions.kernels.cauchy import cauchy_mult as cauchy_cuda
-    from src.extensions.kernels.vandermonde import log_vandermonde_cuda
+    from src.models.s4.extensions.kernels.cauchy import cauchy_mult as cauchy_cuda
+    from src.models.s4.extensions.kernels.vandermonde import log_vandermonde_cuda
     has_cuda_extension = True
     log.info("CUDA extension for structured kernels (Cauchy and Vandermonde multiplication) found.")
 except:
@@ -397,7 +397,9 @@ def nplr(measure, N, rank=1, dtype=torch.float, diagonalize_precision=True, B_cl
 
     # We require AP to be nearly skew-symmetric
     _A = AP + AP.transpose(-1, -2)
-    if (err := torch.sum((_A - _A[0,0]*torch.eye(N))**2) / N) > 1e-5: # if not torch.allclose(_A - _A[0,0]*torch.eye(N), torch.zeros(N, N), atol=1e-5):
+    # Modified code without the walrus operator
+    err = torch.sum((_A - _A[0, 0] * torch.eye(N)) ** 2) / N
+    if err > 1e-5: # if not torch.allclose(_A - _A[0,0]*torch.eye(N), torch.zeros(N, N), atol=1e-5):
         print("WARNING: HiPPO matrix not skew symmetric", err)
 
 
@@ -431,7 +433,8 @@ def nplr(measure, N, rank=1, dtype=torch.float, diagonalize_precision=True, B_cl
         V[1, -1] = 2**-0.5 * 1j
 
     _AP = V @ torch.diag_embed(W) @ V.conj().transpose(-1, -2)
-    if ((err := torch.sum((2*_AP.real-AP)**2)/N) > 1e-5):
+    err = torch.sum((2*_AP.real-AP)**2)/N
+    if err > 1e-5:
         print("Warning: Diagonalization of A matrix not numerically precise - error", err)
     # print("check", V @ torch.diag_embed(W) @ V.conj().transpose(-1, -2))
 
@@ -529,7 +532,7 @@ def dplr(
     if B_random:
         log.warning("'B_random' is deprecated in favor of B_init='random' and will be deprecated in a future version.")
     if init in ['legs', 'hippo']:
-        log.info(f'Initializing with S4D-LegS and ignoring argument {B_init=}')
+        log.info(f'Initializing with S4D-LegS and ignoring argument B_init')
         # Special initialization using the HiPPO B matrix
         # Note that theory (from S4D paper) says that B should be halved
         # to match DPLR but we drop this 0.5 factor for simplicity

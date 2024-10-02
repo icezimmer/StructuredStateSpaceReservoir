@@ -1,0 +1,38 @@
+# Number of trainable parameters: 3560714
+
+max_configs:
+    1
+
+hyperparameters:
+    seed: [42]
+    save: [False]
+    tr: [False]
+    # DEVICE
+    device: ["cuda:3"]
+    # TASK
+    task: ["scifar10"]
+    # ARCHITECTURE
+    block: ["S4"]
+    layers: [6]
+    dmodel: [512]
+    encoder: ["conv1d"]
+    decoder: ["conv1d"]
+    layerdrop: [0.0]
+    # BLOCK
+    dropout: [0.1]
+    tiedropout: [True]
+    dstate: [64]
+    kernellr: [0.001]
+    low: [0.001]
+    high: [0.1]
+    init: ["legs"]
+    bidirectional: [True]
+    finalact: ["glu"]
+    nssm: [2]
+    # LEARNING
+    batch: [50]
+    lr: [0.01]
+    wd: [0.05]
+    plateau: [0.2]
+    epochs: [200]
+    patience: [10]

@@ -1,0 +1,36 @@
+max_configs:
+    800
+
+hyperparameters:
+    seed: [42]
+    save: [False]
+    tr: [False]
+    # DEVICE
+    device: ["cuda:3"]
+    # TASK
+    task: ["pathx"]
+    # ARCHITECTURE
+    block: ["S4"]
+    layers: [6]
+    dmodel: [256]
+    encoder: ["conv1d"]
+    decoder: ["conv1d"]
+    layerdrop: [0.0]
+    # BLOCK
+    dropout: [0.0]
+    tiedropout: [False]
+    dstate: [64]
+    kernellr: [0.001]
+    low: [0.0001]
+    high: [0.1]
+    init: ["legs"]
+    bidirectional: [True]
+    finalact: ["glu"]
+    nssm: [256] # nssm: [None]
+    # LEARNING
+    batch: [16]
+    lr: [0.001]
+    wd: [0.05]
+    plateau: [0.2]
+    epochs: [50]
+    patience: [10]

@@ -1,0 +1,24 @@
+# b832365c-ef6a-48ba-a293-86eeb63b4f18
+# 42,False,False,cuda:3,smnist,ESN,2,32,1024,False,ridge,0.8,0.1,1.05,0.5,-1,0.8
+
+max_configs:
+    1
+
+hyperparameters:
+    seed: [42]
+    save: [False]
+    tr: [False]
+    device: ['cuda:3']
+    task: ['smnist']
+    block: ['ESN']
+    layers: [2]
+    dmodel: [1024] # 2 * 1024
+    rbatch: [256]
+    last: [False]
+    readout: ['ridge']
+    inputscaling: [0.8]
+    biasscaling: [0.1]
+    rho: [1.05]
+    leaky: [0.5]
+    transient: [ -1 ]
+    regul: [ 0.8 ]

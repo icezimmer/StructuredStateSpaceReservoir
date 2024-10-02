@@ -1,0 +1,21 @@
+mode:
+    'classification'
+
+architecture:
+    criterion: 'cross_entropy'
+    to_vec: True
+    to_embed: True
+    d_input: 17  # vocab_size or num_embedding
+    kernel_size: 2048
+    d_output: 10
+
+data:
+    num_dev_samples: 98000  # Number of train samples.')
+    num_test_samples: 2000  #p='Number of test samples.')
+    max_depth: 10  # Maximum tree depth of training sequences.')
+    max_args: 10  # Maximum number of arguments per operator in training sequences.')
+    max_length: 2048 # Maximum length per sequence in training sequences.')
+    min_length: 500 # Minimum length per sequence in training sequences.')
+
+learning:
+    val_split: 0.1

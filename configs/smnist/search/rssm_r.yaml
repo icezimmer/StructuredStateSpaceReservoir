@@ -1,0 +1,40 @@
+max_configs:
+    1000
+
+hyperparameters:
+    seed: [42]
+    save: [False]
+    tr: [False]
+    # DEVICE
+    device: ["cuda:0"]
+    # TASK
+    task: ["smnist"]
+    # ARCHITECTURE
+    block: [ "RSSM" ]
+    layers: [ 2 ]
+    dmodel: [ 64 ]  # search best model and after search best dmodel
+    # BLOCK
+    dstate: [ 8, 16, 32, 64, 128, 256, 512, 1024 ]
+    rbatch: [ 1024 ]
+    kernel: [ "Vr" ]
+    funfwd: [ "real+relu" ]
+    funfit: [ "real+tanh" ]
+    encoder: [ "reservoir" ]
+    minscaleencoder: [ 0.0 ]
+    maxscaleencoder: [ 0.1, 0.25, 0.5, 0.75, 1.0, 1.25 ]
+    discrete: [ False ]
+    strong: [ -4.5, -4.0, -3.5, -3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0 ]  # very important
+    weak: [ 0.0 ]
+    low: [ 0.0001, 0.0005, 0.001, 0.005, 0.01 ]  # very important
+    high: [ 0.001, 0.005, 0.01, 0.005, 0.1 ]  # very important
+    minscaleB: [ 0.0 ]
+    maxscaleB: [ 0.1, 0.25, 0.5, 0.75, 1.0, 1.25 ]
+    minscaleC: [ 0.0 ]
+    maxscaleC: [ 0.1, 0.25, 0.5, 0.75, 1.0, 1.25 ]
+    minscaleD: [ 0.0, 0.25, 0.5, 0.75, 1.0 ]
+    maxscaleD: [ 0.0, 0.25, 0.5, 0.75, 1.0 ]
+    # RIDGE CLASSIFIER READOUT
+    readout: ["ridge"]
+    last: [False]
+    transient: [-1]
+    regul: [0.8]

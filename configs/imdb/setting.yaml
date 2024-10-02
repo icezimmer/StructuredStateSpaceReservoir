@@ -1,0 +1,31 @@
+mode:
+    'classification'
+
+architecture:
+    criterion: 'cross_entropy'
+    to_vec: True
+    to_embed: True
+    # d_input: 30522  # vocab_size or num_embedding using BertTokenizer.from_pretrained('bert-base-uncased')
+    d_input: 137  # vocab_size or num_embedding
+    kernel_size: 4096
+    d_output: 2
+
+data:
+    max_length: 4096
+    # tokenizer_type: char
+    level: 'char'
+    # This determines the vocab size
+    # word level
+    #   min_freq=5: vocab ~ 35000
+    #   min_freq=10: vocab ~ 23000
+    #   min_freq=20: vocab ~ 15000
+    # char level
+    #   min_freq=10: vocab ~ 150
+    #   min_freq=15: vocab ~ 135
+    # vocab_min_freq: 15
+    min_freq: 15
+    append_bos: False
+    append_eos: True
+
+learning:
+    val_split: 0.02

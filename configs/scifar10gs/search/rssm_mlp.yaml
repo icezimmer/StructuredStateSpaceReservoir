@@ -1,0 +1,46 @@
+max_configs:
+    800
+
+hyperparameters:
+    seed: [42]
+    save: [False]
+    tr: [False]
+    # DEVICE
+    device: ["cuda:3"]
+    # TASK
+    task: ["scifar10gs"]
+    # ARCHITECTURE
+    block: ["RSSM"]
+    layers: [8]
+    dmodel: [512]
+    # BLOCK
+    dstate: [64]
+    rbatch: [128]
+    kernel: ["Vr"]
+    funfwd: ["real+relu"]
+    funfit: ["real+tanh"]
+    encoder: ["reservoir"]
+    minscaleencoder: [0.0]
+    maxscaleencoder: [1.0]
+    discrete: [False]
+    strong: [-0.5]
+    weak: [0.0]
+    low: [0.001]
+    high: [0.1]
+    minscaleB: [0.0]
+    maxscaleB: [1.0]
+    minscaleC: [0.0]
+    maxscaleC: [0.75]
+    minscaleD: [1.0]
+    maxscaleD: [1.0]
+    # MLP READOUT
+    readout: ["mlp"]
+    last: [False]
+    transient: [-1]
+    batch: [64]
+    mlplayers: [2, 4]
+    lr: [0.001, 0.0025, 0.005]
+    wd: [0.1, 0.25, 0.5]
+    plateau: [0.2]
+    epochs: [200]
+    patience: [10]

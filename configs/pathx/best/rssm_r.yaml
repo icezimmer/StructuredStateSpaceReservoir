@@ -1,0 +1,37 @@
+# 91ccf2ff-82a0-4eda-b0a4-538ab7295183
+# 42,False,False,cuda:3,pathx,RSSM,8,32,128,False,ridge,128,reservoir,0.0,1.0,Vr,real+relu,real+tanh,-1.5,0.0,False,0.0001,0.001,0.0,1.25,0.0,0.5,0.0,0.5,-1,0.8
+max_configs:
+    1
+
+hyperparameters:
+    seed: [ 42 ]
+    save: [ False ]
+    tr: [ False ]
+    device: [ "cuda:3" ]
+    task: [ "pathx" ]
+    block: [ "RSSM" ]
+    layers: [ 8 ]
+    dmodel: [ 1024 ]
+    rbatch: [ 4 ]
+    last: [ False ]
+    readout: [ "ridge" ]
+    dstate: [ 128 ]
+    encoder: [ "reservoir" ]
+    minscaleD: [ 0.0 ]
+    maxscaleD: [ 1.0 ]
+    kernel: [ "Vr" ]
+    funfwd: [ "real+relu" ]
+    funfit: [ "real+tanh" ]
+    strong: [ -1.5 ]
+    weak: [ 0.0 ]
+    discrete: [ False ]
+    low: [ 0.0001 ]
+    high: [ 0.001 ]
+    minscaleB: [ 0.0 ]
+    maxscaleB: [ 1.25 ]
+    minscaleC: [ 0.0 ]
+    maxscaleC: [ 0.5 ]
+    minscaleencoder: [ 0.0 ]
+    maxscaleencoder: [ 0.5 ]
+    transient: [ -1 ]
+    regul: [ 0.4 ]

@@ -1,0 +1,21 @@
+max_configs:
+    1
+
+hyperparameters:
+    seed: [42]
+    save: [False]
+    tr: [False]
+    device: ['cuda:3']
+    task: ['smnist']
+    block: ['ESN']
+    layers: [1]
+    dmodel: [2048]  # 2 * 1024
+    rbatch: [256]
+    last: [False]
+    readout: ['ridge']
+    inputscaling: [0.3]
+    biasscaling: [0.0]
+    rho: [1.1]
+    leaky: [0.5]
+    transient: [ -1 ]
+    regul: [ 0.3 ]
